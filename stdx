@@ -1,4 +1,7 @@
+#pragma once
+
 #include <cassert>
+#include <utility>
 
 namespace stdx
 {
@@ -13,6 +16,87 @@ namespace stdx
 
 	template <class T, size_t Size>
 	inline T* strend(T (&a)[Size]) { assert(!a[Size - 1]); return &a[Size - 1]; }
-}
+
+	class noncopyable
+	{
+		noncopyable(noncopyable const&);
+		noncopyable& operator =(noncopyable const&);
+
+	public:
+		noncopyable() { } 
+	};
+
+	template <class Handle>
+	class unique_handle : noncopyable
+	{
+	public:
+		typedef Handle value_type;
+		typedef Handle transparent_type;
+
+	private:
+		value_type value;
+
+	public:
+		unique_handle() : value() { }
+		explicit unique_handle(value_type value)
+			: value(std::move(value)) { }
+
+		unique_handle(unique_handle &&right)
+			: value(std::move(right.value))
+		{
+			right.value = value_type();
+		}
+
+		unique_handle& operator =(unique_handle &&right)
+		{
+			std::swap(value, right.value);
+			return *this;
+		}
+
+		void reset(value_type handle = value_type()) { value = std::move(handle); }
+		value_type* rebind() { value = value_type(); return &value; }
+
+		transparent_type const& get() const { return value; }
+		operator transparent_type() const { return value; }
+	};
+
+	template <class T>
+	struct has_transparent_type
+	{
+		typedef char yes[1];
+		typedef char no[2];
+
+		template <class Z>
+		static yes& sfinae(Z*, typename Z::transparent_type* = nullptr);
+		static no& sfinae(...);
+
+		static bool const value = sizeof(yes) == sizeof(sfinae(static_cast<T*>(nullptr)));
+	};
+
+	template <class T, bool = has_transparent_type<T>::value>
+	struct transparent_type
+	{
+		typedef typename transparent_type<typename T::transparent_type>::type type;
+
+		template <class V>
+		static auto get(V &&v) -> decltype(std::forward<V>(v).get()) { return std::forward<V>(v).get(); }
+	};
+	template <class T>
+	struct transparent_type<T, false>
+	{
+		typedef T type;
+
+		template <class V>
+		static auto get(V &&v) -> decltype(std::forward<V>(v)) { return std::forward<V>(v); }
+	};
+
+	template <class T>
+	auto get_transparent(T &&v)
+		-> decltype(transparent_type<typename std::remove_reference<T>::type>::get(std::forward<T>(v)))
+	{
+		return transparent_type<typename std::remove_reference<T>::type>::get(std::forward<T>(v));
+	}
+
+} // namespace
 
 #define arraylen(x) sizeof(::stdx::detail::arraylen_helper(x))
