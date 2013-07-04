@@ -1,0 +1,18 @@
+#include <cassert>
+
+namespace stdx
+{
+	namespace detail
+	{
+		template <class T, size_t Size>
+		char (&arraylen_helper(T (&)[Size]))[Size];
+	}
+
+	template <class T, size_t Size>
+	inline T* arrayend(T (&a)[Size]) { return &a[0] + Size; }
+
+	template <class T, size_t Size>
+	inline T* strend(T (&a)[Size]) { assert(!a[Size - 1]); return &a[Size - 1]; }
+}
+
+#define arraylen(x) sizeof(::stdx::detail::arraylen_helper(x))
