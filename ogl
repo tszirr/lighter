@@ -1,0 +1,356 @@
+#pragma once
+
+#include <Windows.h>
+
+#include <GL/glew.h>
+#include <GL/GL.h>
+#include <glfw/glfw3.h>
+
+#include "stdx"
+
+#include <algorithm>
+#include <iostream>
+#include <string>
+#include <map>
+#include <vector>
+#include <functional>
+
+namespace ogl
+{
+
+struct ogl_tag;
+typedef stdx::error<ogl_tag> ogl_error;
+
+#define THROW_OPENGL_ERROR(error, ctx) do { auto result = error; if (result != GL_NO_ERROR) throwx( ::ogl::ogl_error(ctx) ); } while (false)
+#define THROW_OPENGL_LASTERROR(ctx) THROW_OPENGL_ERROR(glGetError(), ctx)
+#define THROW_OPENGL_VERROR(error, ctx) do { error; THROW_OPENGL_LASTERROR(ctx); } while (false)
+
+template <class Pointer, void (GLAPIENTRY* Deleter)(GLsizei, Pointer const*)>
+struct gl_delete
+{
+	typedef Pointer pointer;
+	void operator ()(pointer ptr) const
+	{
+		if (ptr)
+			(*Deleter)(1, &ptr);
+	}
+
+	typedef std::unique_ptr< Pointer, gl_delete<Pointer, Deleter> > pointer_type;
+	typedef stdx::unique_handle< Pointer, gl_delete<Pointer, Deleter> > handle_type;
+};
+
+template <class Pointer, void (GLAPIENTRY*& Deleter)(GLsizei, Pointer const*)>
+struct glew_delete
+{
+	typedef Pointer pointer;
+	void operator ()(pointer ptr) const
+	{
+		if (ptr)
+			(*Deleter)(1, &ptr);
+	}
+
+	typedef std::unique_ptr< Pointer, glew_delete<Pointer, Deleter> > pointer_type;
+	typedef stdx::unique_handle< Pointer, glew_delete<Pointer, Deleter> > handle_type;
+};
+
+struct GLFW : stdx::noncopyable
+{
+	static GLFW* instance;
+
+	static void errorCallback(int error, const char* description)
+	{
+		std::cout << "GLFW error #" << error << ": " << description << std::endl;
+	}
+
+	GLFW(int major, int minor, bool debug = true, bool coreProfile = true)
+	{
+		if (instance)
+			throwx( ogl_error("GLFW has already been initialized!") );
+
+		glfwSetErrorCallback(errorCallback);
+
+		if (!glfwInit())
+			throwx( ogl_error("Failed to init glfw!") );
+
+		glfwDefaultWindowHints();
+		configureGl(major, minor, debug, coreProfile);
+
+		instance = this;
+	}
+	~GLFW()
+	{
+		glfwTerminate();
+
+		instance = nullptr;
+	}
+	
+	void configureGl(int major, int minor, bool debug = true, bool coreProfile = true)
+	{
+		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, major);
+		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, minor);
+		glfwWindowHint(GLFW_SRGB_CAPABLE, GL_TRUE);
+		if (coreProfile)
+			glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+		if (debug)
+			glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
+	}
+	
+	static void APIENTRY debugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, GLvoid* userParam)
+	{
+		bool Error = false;
+		bool Info = false;
+
+		char const* srcS = "Unknown Source";
+		if(source == GL_DEBUG_SOURCE_API_ARB)
+			srcS = "OpenGL";
+		else if(source == GL_DEBUG_SOURCE_WINDOW_SYSTEM_ARB)
+			srcS = "Windows";
+		else if(source == GL_DEBUG_SOURCE_SHADER_COMPILER_ARB)
+			srcS = "Shader Compiler";
+		else if(source == GL_DEBUG_SOURCE_THIRD_PARTY_ARB)
+			srcS = "Third Party";
+		else if(source == GL_DEBUG_SOURCE_APPLICATION_ARB)
+			srcS = "Application";
+		else if(source == GL_DEBUG_SOURCE_OTHER_ARB)
+			srcS = "Other";
+
+		char const* typeS = "unknown error";
+		if(type == GL_DEBUG_TYPE_ERROR_ARB)
+			typeS = "error";
+		else if(type == GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR_ARB)
+			typeS = "deprecated behavior";
+		else if(type == GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR_ARB)
+			typeS = "undefined behavior";
+		else if(type == GL_DEBUG_TYPE_PORTABILITY_ARB)
+			typeS = "portability";
+		else if(type == GL_DEBUG_TYPE_PERFORMANCE_ARB)
+			typeS = "performance";
+		else if(type == GL_DEBUG_TYPE_OTHER_ARB)
+		{
+			typeS = "message";
+			Info = (strstr(message, "info:") != nullptr);
+		}
+
+		char const* severityS= "unknown severity";
+		if(severity == GL_DEBUG_SEVERITY_HIGH_ARB)
+		{
+			severityS = "high";
+			Error = true;
+		}
+		else if(severity == GL_DEBUG_SEVERITY_MEDIUM_ARB)
+			severityS = "medium";
+		else if(severity == GL_DEBUG_SEVERITY_LOW_ARB)
+			severityS = "low";
+
+		if (Error || !Info)
+			std::cout << srcS << ": " << typeS << "(" << severityS << ") " << id << ": " << message << std::endl;
+	}
+
+	void enableDebugMessages()
+	{
+		glEnable(GL_DEBUG_OUTPUT);
+		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+		glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
+		glDebugMessageCallback(&GLFW::debugCallback, NULL);
+	}
+};
+GLFW* GLFW::instance = nullptr;
+
+struct GLEW : stdx::noncopyable
+{
+	GLEW()
+	{
+		// see http://www.opengl.org/wiki/OpenGL_Loading_Library
+		glewExperimental = GL_TRUE;
+		auto err = glewInit();
+		if (GLEW_OK != err)
+			throwx( std::runtime_error((char const*) glewGetErrorString(err)) );
+		while (glGetError() != GL_NO_ERROR);
+	}
+};
+
+struct GLFWWindow : stdx::noncopyable
+{
+	static std::map<GLFWwindow*, GLFWWindow*> windows;
+	
+	void registerThis() throw()
+	{
+		if (window)
+			windows[window] = this;
+	}
+	void unregisterThis() throw()
+	{
+		if (window)
+			windows.erase(window);
+	}
+
+	static void resizeCallback(GLFWwindow *window, int w, int h)
+	{
+		auto* self = windows[window];
+		if (self && self->resize)
+			self->resize((unsigned) w, (unsigned) h);
+	}
+
+	stdx::unique_handle<GLFWwindow*> window;
+	TRANSPARENT_MEMBER(GLFWWindow, window)
+
+	std::function<void (unsigned, unsigned)> resize;
+
+	GLFWWindow(int w, int h, char const *title, GLFWmonitor *monitor = glfwGetPrimaryMonitor(), GLFWwindow *share = nullptr)
+	{
+		window.reset( glfwCreateWindow(w, h, title, monitor, share) );
+		if (!window)
+			throwx( ogl_error("Failed to create glfw window!") );
+		glfwSetFramebufferSizeCallback(window, resizeCallback);
+
+		registerThis();
+	}
+	~GLFWWindow()
+	{
+		if (window)
+		{
+			glfwDestroyWindow(window);
+			unregisterThis();
+		}
+	}
+	GLFWWindow(GLFWWindow &&right)
+		: window(std::move(right.window))
+		, resize(std::move(right.resize))
+	{
+		registerThis();
+	}
+	GLFWWindow& operator =(GLFWWindow &&right)
+	{
+		std::swap(window, right.window);
+		std::swap(resize, right.resize);
+
+		registerThis();
+		right.registerThis();
+
+		return *this;
+	}
+
+	void makeCurrent()
+	{
+		glfwMakeContextCurrent(window);
+	}
+
+	void swapBuffers()
+	{
+		glfwSwapBuffers(window);
+	}
+
+	bool shouldClose() const
+	{
+		return glfwWindowShouldClose(window) != 0;
+	}
+
+	template <class T>
+	void setResizeHandler(T &&handler)
+	{
+		resize = std::forward<T>(handler);
+	}
+	void initialResize()
+	{
+		if (resize)
+		{
+			int w, h;
+			glfwGetFramebufferSize(window, &w, &h);
+			resize((unsigned) w, (unsigned) h);
+		}
+	}
+};
+std::map<GLFWwindow*, GLFWWindow*> GLFWWindow::windows;
+
+struct Texture : gl_delete<GLuint, glDeleteTextures>::handle_type
+{
+	MOVE_BASE(Texture, unique_handle)
+
+	Texture(nullptr_t) { }
+	Texture()
+	{
+		glGenTextures(1, rebind());
+		THROW_OPENGL_LASTERROR("glGenTextures()");
+	}
+
+	void bind(GLenum textureType, unsigned slot = 0)
+	{
+		glActiveTexture((GLenum) (GL_TEXTURE0 + slot));
+		glBindTexture(textureType, *this);
+	}
+
+	static void unbind(GLenum textureType, unsigned slot = 0)
+	{
+		glActiveTexture((GLenum) (GL_TEXTURE0 + slot));
+		glBindTexture(textureType, 0);
+	}
+
+	static Texture create(GLenum textureType, GLenum internalFormat, size_t width, size_t height, size_t levels = 1)
+	{
+		Texture result;
+		result.bind(textureType);
+
+		if (levels < 1)
+			levels = 1;
+
+		glTexParameteri(textureType, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(textureType, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+		glTexParameteri(textureType, GL_TEXTURE_WRAP_S, GL_CLAMP);
+		glTexParameteri(textureType, GL_TEXTURE_WRAP_T, GL_CLAMP);
+		THROW_OPENGL_LASTERROR("glTexParameteri()");
+
+//		glTexImage2D(textureType, 0, internalFormat, (GLsizei) width, (GLsizei) height, 0, GL_RED, GL_FLOAT, nullptr);
+		glTexStorage2D(textureType, (GLsizei) levels, internalFormat, (GLsizei) width, (GLsizei) height);
+		THROW_OPENGL_LASTERROR("glTexStorage2D()");
+
+		glTexParameteri(textureType, GL_TEXTURE_BASE_LEVEL, 0);
+		glTexParameteri(textureType, GL_TEXTURE_MAX_LEVEL, (int) levels - 1);
+		THROW_OPENGL_LASTERROR("glTexParameteri()");
+
+		return result;
+	}
+};
+
+struct Framebuffer : glew_delete<GLuint, glDeleteFramebuffers>::handle_type
+{
+	MOVE_BASE(Framebuffer, unique_handle)
+
+	Framebuffer(nullptr_t) { }
+	Framebuffer()
+	{
+		glGenFramebuffers(1, rebind());
+		THROW_OPENGL_LASTERROR("glGenFramebuffers()");
+	}
+
+	void bind(GLenum target = GL_FRAMEBUFFER)
+	{
+		glBindFramebuffer(target, *this);
+	}
+	static void unbind(GLenum target = GL_FRAMEBUFFER)
+	{
+		glBindFramebuffer(target, 0);
+	}
+
+	static Framebuffer create(GLuint const* textures, size_t textureCount)
+	{
+		Framebuffer result;
+		result.bind();
+
+		std::vector<GLenum> attachmentMapping(textureCount);
+
+		for (size_t i = 0; i < textureCount; ++i)
+		{
+			GLenum attachment = (GLenum) (GL_COLOR_ATTACHMENT0 + i);
+			glFramebufferTexture(GL_FRAMEBUFFER, attachment, textures[i], 0);
+			THROW_OPENGL_LASTERROR("glFramebufferTexture()");
+			attachmentMapping[i] = attachment;
+		}
+
+		glReadBuffer(GL_COLOR_ATTACHMENT0);
+		glDrawBuffers((GLsizei) attachmentMapping.size(), attachmentMapping.data());
+
+		return result;
+	}
+};
+
+} // namespace

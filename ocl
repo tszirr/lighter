@@ -1,0 +1,321 @@
+#pragma once
+
+#include "ogl"
+#include <CL/opencl.h>
+#define GL_SHARING_EXTENSION "cl_khr_gl_sharing"
+
+#include "stdx"
+#include "filex"
+
+#include <algorithm>
+#include <iostream>
+#include <string>
+
+namespace ocl
+{
+
+struct ocl_tag;
+typedef stdx::error<ocl_tag> ocl_error;
+
+#define THROW_OPENCL_ERROR(error, ctx) do { auto result = error; if (result != CL_SUCCESS) throwx( ocl_error(ctx) ); } while (false)
+
+template <class Pointer, cl_int (CL_API_CALL* Deleter)(Pointer)>
+struct cl_delete
+{
+	typedef Pointer pointer;
+	void operator ()(pointer ptr) const
+	{
+		if (ptr)
+			(*Deleter)(ptr);
+	}
+
+	typedef std::unique_ptr< Pointer, cl_delete<Pointer, Deleter> > pointer_type;
+	typedef stdx::unique_handle< Pointer, cl_delete<Pointer, Deleter> > handle_type;
+};
+
+struct OpenCl : cl_delete<cl_context, clReleaseContext>::handle_type
+{
+	MOVE_BASE(OpenCl, unique_handle)
+
+	cl_platform_id platform;
+	cl_device_id device;
+
+	OpenCl()
+	{
+		THROW_OPENCL_ERROR( clGetPlatformIDs(1, &platform, nullptr), "Failed to get CL platform ID" );
+		
+		THROW_OPENCL_ERROR( clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &device, nullptr), "No GPU device found." );
+
+		char deviceName[2048];
+		THROW_OPENCL_ERROR( clGetDeviceInfo(device, CL_DEVICE_NAME, arraylen(deviceName), &deviceName, nullptr), "Unable to query device name.");
+		std::cout << "OpenCL Device: " << deviceName << std::endl;
+
+		size_t extensionSize;
+		THROW_OPENCL_ERROR( clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, 0, nullptr, &extensionSize), "Failed to get OpenCL extensions");
+		std::string extensions(extensionSize, '\0');
+		THROW_OPENCL_ERROR( clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, extensions.size(), &extensions[0], &extensionSize), "Failed to get OpenCL extensions");
+
+		bool sharingSupported = false;
+
+		for (auto extBegin = extensions.c_str(), extEnd = extBegin + extensions.size(); extBegin < extEnd; )
+		{
+			auto extDelim = std::find(extBegin, extEnd, ' ');
+
+			if (std::search(extBegin, extDelim, GL_SHARING_EXTENSION, stdx::strend(GL_SHARING_EXTENSION)) != extDelim)
+			{
+				sharingSupported = true;
+				break;
+			}
+
+			extBegin = extDelim + 1;
+		}
+
+		if(!sharingSupported)
+			throwx( ocl_error("OpenCL sharing unsupported") );
+
+		cl_context_properties const props[] = 
+		{
+			CL_GL_CONTEXT_KHR, (cl_context_properties) wglGetCurrentContext(), 
+			CL_WGL_HDC_KHR, (cl_context_properties) wglGetCurrentDC(), 
+			CL_CONTEXT_PLATFORM, (cl_context_properties) platform, 
+			0
+		};
+		cl_int error;
+		reset( clCreateContext(props, 1, &device, nullptr, nullptr, &error) );
+		THROW_OPENCL_ERROR( error, "Failed to create OpenCL context");
+	}
+};
+
+struct CommandStream : cl_delete<cl_command_queue, clReleaseCommandQueue>::handle_type
+{
+	MOVE_BASE(CommandStream, unique_handle)
+
+	CommandStream(cl_context context, cl_device_id device)
+	{
+		cl_int error;
+		reset( clCreateCommandQueue(context, device, 0, &error) );
+		THROW_OPENCL_ERROR(error, "Failed to create the command queue in the OpenCL context");
+	}
+};
+
+struct Program : cl_delete<cl_program, clReleaseProgram>::handle_type
+{
+	MOVE_BASE(Program, unique_handle)
+
+	Program(nullptr_t) { }
+	Program(cl_context context, cl_device_id device, char const* source)
+	{
+		cl_int error;
+		reset( clCreateProgramWithSource(context, 1, &source, nullptr, &error) );
+		THROW_OPENCL_ERROR(error, "Failed to create OpenCL program");
+
+		error = clBuildProgram(*this, 1, &device, nullptr, nullptr, nullptr);
+		if(error != CL_SUCCESS)
+		{
+			printBuildLog(*this, device);
+			THROW_OPENCL_ERROR(error, "Failed to build OpenCL program");
+		}
+	}
+
+	static void printBuildLog(cl_program program, cl_device_id device)
+	{
+		cl_build_status buildStatus;
+		THROW_OPENCL_ERROR(clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_STATUS, sizeof(cl_build_status), &buildStatus, nullptr), "Failed to retrieve OpenCL build status");
+		if (buildStatus == CL_SUCCESS)
+			return;
+
+		size_t logSize;
+		THROW_OPENCL_ERROR(clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, nullptr, &logSize), "Failed to retrieve OpenCL build log");
+		std::string log(logSize, 0);
+		THROW_OPENCL_ERROR(clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, log.size(), &log[0], nullptr), "Failed to retrieve OpenCL build log");
+
+		std::cout << "There were build errors:" << std::endl;
+		std::cout << log << std::endl;
+	}
+};
+
+struct Kernel : cl_delete<cl_kernel, clReleaseKernel>::handle_type
+{
+	MOVE_BASE(Kernel, unique_handle)
+
+	Kernel(cl_program program, char const* name)
+	{
+		cl_int error;
+		reset( clCreateKernel(program, name, &error) );
+		THROW_OPENCL_ERROR(error, "Failed to create OpenCL kernel");
+	}
+
+	static Kernel fromSource(cl_context context, cl_device_id device, char const* source, char const* name)
+	{
+		return ocl::Kernel(ocl::Program(context, device, source), name);
+	}
+	static Kernel fromFile(cl_context context, cl_device_id device, char const* file, char const* name)
+	{
+		return ocl::Kernel(ocl::Program(context, device, stdx::load_file(file).c_str()), name);
+	}
+
+	static size_t ceil_div(size_t x, size_t d)
+	{
+		return (x + d - 1) / d;
+	}
+	static size_t ceil_mul(size_t x, size_t d)
+	{
+		auto r = x % d;
+		return (r == 0) ? x : x + d - r;
+	}
+
+	template <class T>
+	Kernel& allocate(unsigned idx, size_t N = 1)
+	{
+		THROW_OPENCL_ERROR( clSetKernelArg(*this, idx, sizeof(T) * N, nullptr), "Failed to allocate OpenCl kernel argument");
+		return *this;
+	}
+	
+	struct memory_arg { size_t bytes; memory_arg(size_t bytes) : bytes(bytes) { } };
+	static memory_arg memoryBytes(size_t bytes) { return memory_arg(bytes); }
+	template <class T>
+	static memory_arg memory(size_t count) { return memory_arg(sizeof(T) * count); }
+	template <class T>
+	Kernel& set(unsigned idx, T const& arg)
+	{
+		THROW_OPENCL_ERROR( clSetKernelArg(*this, idx, sizeof(T), &arg), "Failed to set OpenCl kernel argument");
+		return *this;
+	}
+	Kernel& set(unsigned idx, memory_arg const& arg)
+	{
+		allocate<char>(idx, arg.bytes);
+		return *this;
+	}
+	
+	struct arg_stream
+	{
+		Kernel *const k;
+		unsigned idx;
+
+		template <class T>
+		arg_stream operator <<(T const& arg)
+		{
+			auto result(*this);
+			k->set(result.idx++, arg);
+			return result;
+		}
+	};
+	arg_stream args(unsigned startIdx = 0) { arg_stream r = { this, startIdx }; return r; }
+	
+	void launch(cl_command_queue stream, size_t globalX, size_t localX) const
+	{
+		size_t globalSize[] = { ceil_mul(globalX, localX) };
+		size_t localSize[] = { localX };
+		THROW_OPENCL_ERROR(
+			clEnqueueNDRangeKernel(stream, *this, arraylen(globalSize), nullptr, &globalX, &localX, 0, nullptr, nullptr),
+			"Failed to launch OpenCl kernel");
+	}
+	void launch(cl_command_queue stream, size_t globalX, size_t globalY, size_t localX, size_t localY) const
+	{
+		size_t globalSize[] = { ceil_mul(globalX, localX), ceil_mul(globalY, localY) };
+		size_t localSize[] = { localX, localY };
+		THROW_OPENCL_ERROR(
+			clEnqueueNDRangeKernel(stream, *this, arraylen(globalSize), nullptr, globalSize, localSize, 0, nullptr, nullptr),
+			"Failed to launch OpenCl kernel");
+	}
+	void launch(cl_command_queue stream, size_t globalX, size_t globalY, size_t globalZ, size_t localX, size_t localY, size_t localZ) const
+	{
+		size_t globalSize[] = { ceil_mul(globalX, localX), ceil_mul(globalY, localY), ceil_mul(globalZ, localZ) };
+		size_t localSize[] = { localX, localY, localZ };
+		THROW_OPENCL_ERROR(
+			clEnqueueNDRangeKernel(stream, *this, arraylen(globalSize), nullptr, globalSize, localSize, 0, nullptr, nullptr),
+			"Failed to launch OpenCl kernel");
+	}
+};
+
+struct Buffer : cl_delete<cl_mem, clReleaseMemObject>::handle_type
+{
+	MOVE_BASE(Buffer, unique_handle)
+
+	Buffer(nullptr_t) { }
+	Buffer(cl_context context, void const* data, size_t size, cl_mem_flags flags = CL_MEM_READ_WRITE)
+	{
+		cl_int error;
+		reset( clCreateBuffer(context, flags, size, (void*) data, &error) );
+		THROW_OPENCL_ERROR(error, "Failed to create OpenCL buffer object");
+	}
+
+	template <class T>
+	Buffer create(cl_context context, T* data, size_t count, cl_mem_flags flags = CL_MEM_READ_WRITE)
+	{
+		return Buffer(context, data, sizeof(T) * count, flags);
+	}
+
+	template <class Range>
+	Buffer create(cl_context context, Range const& range, cl_mem_flags flags = CL_MEM_READ_WRITE)
+	{
+		return Buffer(context, range.data(), sizeof(*range.data()) * range.size(), flags);
+	}
+};
+
+struct GlTexture : cl_delete<cl_mem, clReleaseMemObject>::handle_type
+{
+	MOVE_BASE(GlTexture, unique_handle)
+
+	GlTexture(nullptr_t) { }
+	GlTexture(cl_context context, GLenum glTextureType, GLuint glTexture, cl_mem_flags flags = CL_MEM_READ_WRITE, size_t mipLevel = 0)
+	{
+		cl_int error;
+		reset( clCreateFromGLTexture2D(context, flags, glTextureType, (GLint) mipLevel, glTexture, &error) );
+		THROW_OPENCL_ERROR(error, "Failed to create OpenCL texture object");
+	}
+
+	void bind(cl_command_queue stream)
+	{
+		THROW_OPENCL_ERROR( clEnqueueAcquireGLObjects(stream, 1, &get(), 0, nullptr, nullptr), "clEnqueueAcquireGLObjects()" );
+	}
+
+	void unbind(cl_command_queue stream)
+	{
+		THROW_OPENCL_ERROR( clEnqueueReleaseGLObjects(stream, 1, &get(), 0, nullptr, nullptr), "clEnqueueReleaseGLObjects()" );
+	}
+};
+
+struct GlGuard : stdx::noncopyable
+{
+	cl_command_queue stream;
+
+	GlGuard(cl_command_queue stream)
+		: stream(stream)
+	{
+		glFinish();
+		THROW_OPENGL_LASTERROR("glFinish()");
+	}
+
+	~GlGuard()
+	{
+		THROW_OPENCL_ERROR( clFinish(stream), "clFinish()" );
+	}
+};
+
+template <class T>
+struct BindGuard
+{
+	cl_command_queue stream;
+	stdx::unique_handle<T*> bound;
+	MOVE_2_MEMBERS(BindGuard, stream, bound)
+
+	BindGuard(cl_command_queue stream, T &bound)
+		: stream(stream),
+		bound(&bound)
+	{
+		bound.bind(stream);
+	}
+	~BindGuard()
+	{
+		if (bound)
+			bound.get()->unbind(stream);
+	}
+
+	void disarm() { bound = nullptr; }
+};
+
+template <class T>
+inline BindGuard<T> bind_guarded(cl_command_queue stream, T &bound) { return BindGuard<T>(stream, bound); }
+
+} // namespace
