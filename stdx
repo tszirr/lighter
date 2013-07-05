@@ -138,3 +138,20 @@ namespace stdx
 #else
 	#define throwx(x) do { using ::stdx::break_on_error;  auto&& exc = x; if (break_on_error(exc) && ::stdx::is_debugger_present) __debugbreak(); throw exc; } while (false)
 #endif
+
+// MSVC 2013 shame
+#define MOVE_BASE(clazz, base) \
+	clazz(clazz &&right) : base(std::move(right)) { } \
+	clazz& operator =(clazz &&right) { typedef base base_move_type; base_move_type::operator =(std::move(right)); return *this; }
+#define MOVE_MEMBER(clazz, member) \
+	clazz(clazz &&right) : member(std::move(right.member)) { } \
+	clazz& operator =(clazz &&right) { std::swap(member, right.member); return *this; }
+#define MOVE_2_MEMBERS(clazz, member1, member2) \
+	clazz(clazz &&right) : member1(std::move(right.member1)), member2(std::move(right.member2)) { } \
+	clazz& operator =(clazz &&right) { std::swap(member1, right.member1); std::swap(member2, right.member2); return *this; }
+
+// Recursive transparent conversion functionality
+#define TRANSPARENT_MEMBER(clazz, member) \
+	typedef decltype(clazz::member) transparent_type; \
+	stdx::transparent_type<decltype(clazz::member)>::type const& get() const { return stdx::get_transparent(member); } \
+	operator stdx::transparent_type<decltype(clazz::member)>::type() const { return member; }
