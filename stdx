@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <cassert>
 #include <utility>
+#include <memory>
 
 namespace stdx
 {
@@ -46,39 +47,50 @@ namespace stdx
 	template <class Exception>
 	inline bool break_on_error(error<Exception> const&) { return error<Exception>::break_on_error; }
 	inline bool break_on_error(...) { return false; }
+	
+	template <class Pointer>
+	struct no_delete
+	{
+		typedef Pointer pointer;
+		void operator ()(pointer ptr) const { }
+	};
 
-	template <class Handle>
-	class unique_handle : noncopyable
+	template < class Handle, class Deleter = no_delete<Handle> >
+	class unique_handle : public std::unique_ptr<Handle, Deleter>
 	{
 	public:
-		typedef Handle value_type;
-		typedef Handle transparent_type;
+		// Need fully qualified template, otherwise compiler crashes
+		typedef typename std::unique_ptr<Handle, Deleter>::pointer pointer;
+		typedef pointer transparent_type;
 
-	private:
-		value_type value;
-
-	public:
-		unique_handle() : value() { }
-		explicit unique_handle(value_type value)
-			: value(std::move(value)) { }
-
+		// Inherit constructors
+		unique_handle() { }
+		unique_handle(nullptr_t) { }
+		explicit unique_handle(pointer value)
+			: typename unique_handle::unique_ptr(std::move(value)) { }
+			
 		unique_handle(unique_handle &&right)
-			: value(std::move(right.value))
-		{
-			right.value = value_type();
-		}
-
+			: typename unique_handle::unique_ptr(std::move(right)) { }
 		unique_handle& operator =(unique_handle &&right)
 		{
-			std::swap(value, right.value);
+			this->unique_ptr::swap(right);
 			return *this;
 		}
-
-		void reset(value_type handle = value_type()) { value = std::move(handle); }
-		value_type* rebind() { value = value_type(); return &value; }
-
-		transparent_type const& get() const { return value; }
-		operator transparent_type() const { return value; }
+		
+		pointer* rebind()
+		{
+			this->reset();
+			static_assert(sizeof(*this) == sizeof(pointer), "unique_handle not binary compatible!");
+			return &reinterpret_cast<pointer&>(*this);
+		}
+		
+		transparent_type const& get() const
+		{
+			static_assert(sizeof(*this) == sizeof(pointer), "unique_handle not binary compatible!");
+			return reinterpret_cast<pointer const&>(*this);
+		}
+		operator transparent_type() const { return get(); }
+		operator bool() const { return get() != pointer(); }
 	};
 
 	template <class T>
