@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdexcept>
 #include <cassert>
 #include <utility>
 
@@ -25,6 +26,26 @@ namespace stdx
 	public:
 		noncopyable() { } 
 	};
+
+	extern bool const is_debugger_present;
+
+	template <class Exception>
+	class error : public std::runtime_error
+	{
+	public:
+		error(char const* msg)
+			: runtime_error(msg) { }
+		error(std::string const& msg)
+			: runtime_error(msg) { }
+
+		static bool break_on_error;
+	};
+	template <class Exception>
+	bool error<Exception>::break_on_error = true;
+
+	template <class Exception>
+	inline bool break_on_error(error<Exception> const&) { return error<Exception>::break_on_error; }
+	inline bool break_on_error(...) { return false; }
 
 	template <class Handle>
 	class unique_handle : noncopyable
@@ -100,3 +121,8 @@ namespace stdx
 } // namespace
 
 #define arraylen(x) sizeof(::stdx::detail::arraylen_helper(x))
+#ifdef NDEBUG
+	#define throwx(x) throw x
+#else
+	#define throwx(x) do { using ::stdx::break_on_error;  auto&& exc = x; if (break_on_error(exc) && ::stdx::is_debugger_present) __debugbreak(); throw exc; } while (false)
+#endif

@@ -5,14 +5,19 @@
 
 namespace stdx
 {
+	struct file_tag;
+	typedef stdx::error<file_tag> file_error;
+
 	inline std::string load_file(char const* name)
 	{
 		std::string str;
 
 		std::ifstream t;
-		t.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 		t.open(name);
+		if (t.fail())
+			throwx( file_error(name) );
 
+		t.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 		t.seekg(0, std::ios::end);   
 		str.reserve((size_t) t.tellg());
 		t.seekg(0, std::ios::beg);
