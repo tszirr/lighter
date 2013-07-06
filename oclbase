@@ -1,0 +1,31 @@
+#pragma once
+
+#include <Windows.h>
+
+#include <CL/opencl.h>
+
+#include "stdx"
+
+namespace ocl
+{
+
+struct ocl_tag;
+typedef stdx::error<ocl_tag> ocl_error;
+
+#define THROW_OPENCL_ERROR(error, ctx) do { auto result = error; if (result != CL_SUCCESS) throwx( ocl_error(ctx) ); } while (false)
+
+template <class Pointer, cl_int (CL_API_CALL* Deleter)(Pointer)>
+struct cl_delete
+{
+	typedef Pointer pointer;
+	void operator ()(pointer ptr) const
+	{
+		if (ptr)
+			(*Deleter)(ptr);
+	}
+
+	typedef std::unique_ptr< Pointer, cl_delete<Pointer, Deleter> > pointer_type;
+	typedef stdx::unique_handle< Pointer, cl_delete<Pointer, Deleter> > handle_type;
+};
+
+} // namespace

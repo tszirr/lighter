@@ -1,0 +1,48 @@
+#pragma once
+
+#include <Windows.h>
+
+#include <GL/glew.h>
+#include <GL/GL.h>
+
+#include "stdx"
+
+namespace ogl
+{
+
+struct ogl_tag;
+typedef stdx::error<ogl_tag> ogl_error;
+
+#define THROW_OPENGL_ERROR(error, ctx) do { auto result = error; if (result != GL_NO_ERROR) throwx( ::ogl::ogl_error(ctx) ); } while (false)
+#define THROW_OPENGL_LASTERROR(ctx) THROW_OPENGL_ERROR(glGetError(), ctx)
+#define THROW_OPENGL_VERROR(error, ctx) do { error; THROW_OPENGL_LASTERROR(ctx); } while (false)
+
+template <class Pointer, void (GLAPIENTRY* Deleter)(GLsizei, Pointer const*)>
+struct gl_delete
+{
+	typedef Pointer pointer;
+	void operator ()(pointer ptr) const
+	{
+		if (ptr)
+			(*Deleter)(1, &ptr);
+	}
+
+	typedef std::unique_ptr< Pointer, gl_delete<Pointer, Deleter> > pointer_type;
+	typedef stdx::unique_handle< Pointer, gl_delete<Pointer, Deleter> > handle_type;
+};
+
+template <class Pointer, void (GLAPIENTRY*& Deleter)(GLsizei, Pointer const*)>
+struct glew_delete
+{
+	typedef Pointer pointer;
+	void operator ()(pointer ptr) const
+	{
+		if (ptr)
+			(*Deleter)(1, &ptr);
+	}
+
+	typedef std::unique_ptr< Pointer, glew_delete<Pointer, Deleter> > pointer_type;
+	typedef stdx::unique_handle< Pointer, glew_delete<Pointer, Deleter> > handle_type;
+};
+
+} // namespace
