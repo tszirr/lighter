@@ -15,14 +15,14 @@
 namespace ocl
 {
 
-struct OpenCl : cl_delete<cl_context, clReleaseContext>::handle_type
+struct Context : cl_delete<cl_context, clReleaseContext>::handle_type
 {
-	MOVE_BASE(OpenCl, unique_handle)
+	MOVE_BASE(Context, unique_handle)
 
 	cl_platform_id platform;
 	cl_device_id device;
 
-	OpenCl()
+	Context()
 	{
 		THROW_OPENCL_ERROR( clGetPlatformIDs(1, &platform, nullptr), "Failed to get CL platform ID" );
 		
