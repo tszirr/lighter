@@ -1,0 +1,42 @@
+#pragma once
+
+#define GLM_SWIZZLE
+#define GLM_ADL_FRIENDLY
+
+#include <glm/glm.hpp>
+#include <iosfwd>
+
+namespace glm
+{
+	template <class Char, class Traits, class Comp>
+	std::basic_istream<Char, Traits>& operator >>(std::basic_istream<Char, Traits> &stream, glm::detail::tvec1<Comp> &v)
+	{
+		stream >> v.x;
+		return stream;
+	}
+	template <class Char, class Traits, class Comp>
+	std::basic_istream<Char, Traits>& operator >>(std::basic_istream<Char, Traits> &stream, glm::detail::tvec2<Comp> &v)
+	{
+		stream >> v.x;
+		stream >> v.y;
+		return stream;
+	}
+	template <class Char, class Traits, class Comp>
+	std::basic_istream<Char, Traits>& operator >>(std::basic_istream<Char, Traits> &stream, glm::detail::tvec3<Comp> &v)
+	{
+		stream >> v.x;
+		stream >> v.y;
+		stream >> v.z;
+		return stream;
+	}
+	template <class Char, class Traits, class Comp>
+	std::basic_istream<Char, Traits>& operator >>(std::basic_istream<Char, Traits> &stream, glm::detail::tvec4<Comp> &v)
+	{
+		stream >> v.x;
+		stream >> v.y;
+		stream >> v.z;
+		stream >> v.w;
+		return stream;
+	}
+
+} // namespaec
