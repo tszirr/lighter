@@ -114,6 +114,11 @@ struct Program : cl_delete<cl_program, clReleaseProgram>::handle_type
 		std::cout << "There were build errors:" << std::endl;
 		std::cout << log << std::endl;
 	}
+
+	static Program fromFile(cl_context context, cl_device_id device, char const* file)
+	{
+		return ocl::Program(context, device, stdx::load_file(file).c_str());
+	}
 };
 
 struct Kernel : cl_delete<cl_kernel, clReleaseKernel>::handle_type
@@ -133,7 +138,7 @@ struct Kernel : cl_delete<cl_kernel, clReleaseKernel>::handle_type
 	}
 	static Kernel fromFile(cl_context context, cl_device_id device, char const* file, char const* name)
 	{
-		return ocl::Kernel(ocl::Program(context, device, stdx::load_file(file).c_str()), name);
+		return ocl::Kernel(ocl::Program::fromFile(context, device, file), name);
 	}
 
 	static size_t ceil_div(size_t x, size_t d)
