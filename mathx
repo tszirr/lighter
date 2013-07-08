@@ -4,6 +4,7 @@
 #define GLM_ADL_FRIENDLY
 
 #include <glm/glm.hpp>
+#include <glm/ext.hpp>
 #include <iosfwd>
 
 namespace glm
