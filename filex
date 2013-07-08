@@ -36,10 +36,10 @@ namespace stdx
 
 		t.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 		t.seekg(0, std::ios::end);   
-		data.reserve((size_t) t.tellg());
+		data.resize((size_t) t.tellg());
 		t.seekg(0, std::ios::beg);
 
-		data.assign(std::istreambuf_iterator<char>(t), std::istreambuf_iterator<char>());
+		t.read(data.data(), data.size());
 		return data;
 	}
 	
