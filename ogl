@@ -152,11 +152,32 @@ struct GLFWWindow : stdx::noncopyable
 		if (self && self->resize)
 			self->resize((unsigned) w, (unsigned) h);
 	}
+	static void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
+	{
+		auto* self = windows[window];
+		if (action != GLFW_REPEAT && self && self->keyboard)
+			self->keyboard(key, action == GLFW_PRESS);
+	}
+	static void mouseCallback(GLFWwindow *window, double x, double y)
+	{
+		auto* self = windows[window];
+		if (self && self->mouse)
+			self->mouse((int) x, (int) y);
+	}
+	static void buttonsCallback(GLFWwindow *window, int button, int action, int mods)
+	{
+		auto* self = windows[window];
+		if (self && self->buttons)
+			self->buttons(button, action == GLFW_PRESS);
+	}
 
 	stdx::unique_handle<GLFWwindow*> window;
 	TRANSPARENT_MEMBER(GLFWWindow, window)
 
-	std::function<void (unsigned, unsigned)> resize;
+	std::function<void (unsigned w, unsigned h)> resize;
+	std::function<void (int key, bool pressed)> keyboard;
+	std::function<void (int x, int y)> mouse;
+	std::function<void (int button, bool pressed)> buttons;
 
 	GLFWWindow(int w, int h, char const *title, GLFWmonitor *monitor = glfwGetPrimaryMonitor(), GLFWwindow *share = nullptr)
 	{
@@ -164,6 +185,9 @@ struct GLFWWindow : stdx::noncopyable
 		if (!window)
 			throwx( ogl_error("Failed to create glfw window!") );
 		glfwSetFramebufferSizeCallback(window, resizeCallback);
+		glfwSetKeyCallback(window, keyCallback);
+		glfwSetCursorPosCallback(window, mouseCallback);
+		glfwSetMouseButtonCallback(window, buttonsCallback);
 
 		registerThis();
 	}
@@ -178,6 +202,9 @@ struct GLFWWindow : stdx::noncopyable
 	GLFWWindow(GLFWWindow &&right)
 		: window(std::move(right.window))
 		, resize(std::move(right.resize))
+		, keyboard(std::move(right.keyboard))
+		, mouse(std::move(right.mouse))
+		, buttons(std::move(right.buttons))
 	{
 		registerThis();
 	}
@@ -185,6 +212,9 @@ struct GLFWWindow : stdx::noncopyable
 	{
 		std::swap(window, right.window);
 		std::swap(resize, right.resize);
+		std::swap(keyboard, right.keyboard);
+		std::swap(mouse, right.mouse);
+		std::swap(buttons, right.buttons);
 
 		registerThis();
 		right.registerThis();
@@ -207,11 +237,6 @@ struct GLFWWindow : stdx::noncopyable
 		return glfwWindowShouldClose(window) != 0;
 	}
 
-	template <class T>
-	void setResizeHandler(T &&handler)
-	{
-		resize = std::forward<T>(handler);
-	}
 	void initialResize()
 	{
 		if (resize)
