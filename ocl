@@ -168,6 +168,12 @@ struct Kernel : cl_delete<cl_kernel, clReleaseKernel>::handle_type
 		THROW_OPENCL_ERROR( clSetKernelArg(*this, idx, sizeof(T), &arg), "Failed to set OpenCl kernel argument");
 		return *this;
 	}
+	// trigger implicit cl_mem casts
+	Kernel& set(unsigned idx, cl_mem arg)
+	{
+		set<cl_mem>(idx, arg);
+		return *this;
+	}
 	Kernel& set(unsigned idx, memory_arg const& arg)
 	{
 		allocate<char>(idx, arg.bytes);
