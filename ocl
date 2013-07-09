@@ -229,6 +229,7 @@ struct Buffer : cl_delete<cl_mem, clReleaseMemObject>::handle_type
 	Buffer(cl_context context, void const* data, size_t size, cl_mem_flags flags = CL_MEM_READ_WRITE)
 	{
 		cl_int error;
+		if (data && !(flags & CL_MEM_USE_HOST_PTR)) flags |= CL_MEM_COPY_HOST_PTR;
 		reset( clCreateBuffer(context, flags, size, (void*) data, &error) );
 		THROW_OPENCL_ERROR(error, "Failed to create OpenCL buffer object");
 	}
@@ -255,6 +256,7 @@ struct Image : cl_delete<cl_mem, clReleaseMemObject>::handle_type
 	{
 		cl_int error;
 		cl_image_format format = { channelOrder, channelType };
+		if (data && !(flags & CL_MEM_USE_HOST_PTR)) flags |= CL_MEM_COPY_HOST_PTR;
 		reset( clCreateImage2D (context, flags, &format, w, h, 0, (void*) data, &error) );
 		THROW_OPENCL_ERROR(error, "Failed to create OpenCL image object");
 	}
@@ -269,6 +271,7 @@ struct Volume : cl_delete<cl_mem, clReleaseMemObject>::handle_type
 	{
 		cl_int error;
 		cl_image_format format = { channelOrder, channelType };
+		if (data && !(flags & CL_MEM_USE_HOST_PTR)) flags |= CL_MEM_COPY_HOST_PTR;
 		reset( clCreateImage3D (context, flags, &format, w, h, d, 0, 0, (void*) data, &error) );
 		THROW_OPENCL_ERROR(error, "Failed to create OpenCL volume object");
 	}

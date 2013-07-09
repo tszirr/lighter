@@ -14,7 +14,7 @@ namespace ocl
 struct ocl_tag;
 typedef stdx::error<ocl_tag> ocl_error;
 
-#define THROW_OPENCL_ERROR(error, ctx) do { auto result = error; if (result != CL_SUCCESS) throwx( ocl_error(ctx) ); } while (false)
+#define THROW_OPENCL_ERROR(error, ctx) do { auto result = error; if (result != CL_SUCCESS) throwx( ::ocl::ocl_error(ctx) ); } while (false)
 
 template <class Pointer, cl_int (CL_API_CALL* Deleter)(Pointer)>
 struct cl_delete
