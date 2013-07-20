@@ -15,7 +15,7 @@ namespace ogl
 struct ogl_tag;
 typedef stdx::error<ogl_tag> ogl_error;
 
-#define THROW_OPENGL_ERROR(error, ctx) do { auto result = error; if (result != GL_NO_ERROR) throwx( ::ogl::ogl_error(ctx) ); } while (false)
+#define THROW_OPENGL_ERROR(error, ctx) do { auto _uniqueerrorval = error; if (_uniqueerrorval != GL_NO_ERROR) throwx( ::ogl::ogl_error(ctx) ); } while (false)
 #define THROW_OPENGL_LASTERROR(ctx) THROW_OPENGL_ERROR(glGetError(), ctx)
 #define THROW_OPENGL_VERROR(error, ctx) do { error; THROW_OPENGL_LASTERROR(ctx); } while (false)
 
