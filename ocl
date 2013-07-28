@@ -126,6 +126,7 @@ struct Kernel : cl_delete<cl_kernel, clReleaseKernel>::handle_type
 {
 	MOVE_BASE(Kernel, unique_handle)
 
+	Kernel(nullptr_t) { }
 	Kernel(cl_program program, char const* name)
 	{
 		cl_int error;
