@@ -149,6 +149,9 @@ namespace stdx
 #define MOVE_2_MEMBERS(clazz, member1, member2) \
 	clazz(clazz &&right) : member1(std::move(right.member1)), member2(std::move(right.member2)) { } \
 	clazz& operator =(clazz &&right) { std::swap(member1, right.member1); std::swap(member2, right.member2); return *this; }
+#define MOVE_3_MEMBERS(clazz, member1, member2, member3) \
+	clazz(clazz &&right) : member1(std::move(right.member1)), member2(std::move(right.member2)), member3(std::move(right.member3)) { } \
+	clazz& operator =(clazz &&right) { std::swap(member1, right.member1); std::swap(member2, right.member2); std::swap(member3, right.member3); return *this; }
 
 // Recursive transparent conversion functionality
 #define TRANSPARENT_MEMBER(clazz, member) \
