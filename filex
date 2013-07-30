@@ -4,10 +4,20 @@
 #include <fstream>
 #include <map>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+
 namespace stdx
 {
 	struct file_tag;
 	typedef stdx::error<file_tag> file_error;
+
+	inline time_t file_time(char const* name)
+	{
+		struct stat buf;
+		stat(name, &buf);
+		return buf.st_mtime;
+	}
 
 	inline std::string load_file(char const* name)
 	{
