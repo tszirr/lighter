@@ -88,10 +88,12 @@ struct Program : cl_delete<cl_program, clReleaseProgram>::handle_type
 	MOVE_BASE(Program, unique_handle)
 
 	Program(nullptr_t) { }
-	Program(cl_context context, cl_device_id device, char const* source)
+	Program(cl_context context, cl_device_id device, char const* source, char const* preamble = "")
 	{
+		char const* sources[] = { preamble, source };
+
 		cl_int error;
-		reset( clCreateProgramWithSource(context, 1, &source, nullptr, &error) );
+		reset( clCreateProgramWithSource(context, 2, sources, nullptr, &error) );
 		THROW_OPENCL_ERROR(error, "Failed to create OpenCL program");
 
 		error = clBuildProgram(*this, 1, &device, nullptr, nullptr, nullptr);
@@ -118,9 +120,9 @@ struct Program : cl_delete<cl_program, clReleaseProgram>::handle_type
 		std::cout << log << std::endl;
 	}
 
-	static Program fromFile(cl_context context, cl_device_id device, char const* file)
+	static Program fromFile(cl_context context, cl_device_id device, char const* file, char const* preamble = "")
 	{
-		return ocl::Program(context, device, stdx::load_file(file).c_str());
+		return ocl::Program(context, device, stdx::load_file(file).c_str(), preamble);
 	}
 };
 
