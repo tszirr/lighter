@@ -73,10 +73,12 @@ struct CommandStream : cl_delete<cl_command_queue, clReleaseCommandQueue>::handl
 {
 	MOVE_BASE(CommandStream, unique_handle)
 
-	CommandStream(cl_context context, cl_device_id device)
+	CommandStream(cl_context context, cl_device_id device, bool profiling = true)
 	{
+		cl_command_queue_properties const props = (profiling) ? CL_QUEUE_PROFILING_ENABLE : 0;
+
 		cl_int error;
-		reset( clCreateCommandQueue(context, device, 0, &error) );
+		reset( clCreateCommandQueue(context, device, props, &error) );
 		THROW_OPENCL_ERROR(error, "Failed to create the command queue in the OpenCL context");
 	}
 };
@@ -224,6 +226,47 @@ struct Kernel : cl_delete<cl_kernel, clReleaseKernel>::handle_type
 			"Failed to launch OpenCl kernel");
 	}
 };
+
+struct Event : cl_delete<cl_event, clReleaseEvent>::handle_type
+{
+	MOVE_BASE(Event, unique_handle)
+
+	Event(nullptr_t) { }
+	explicit Event(cl_event event)
+		: unique_handle(event) { }
+	explicit Event(cl_command_queue stream)
+	{
+		THROW_OPENCL_ERROR(clEnqueueMarker(stream, rebind()), "Failed to enqueue OpenCL event");
+	}
+
+	cl_ulong timeNS()
+	{
+		cl_ulong time;
+
+		cl_int error = clGetEventProfilingInfo(*this, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &time, NULL);
+		if (error == CL_PROFILING_INFO_NOT_AVAILABLE)
+		{
+			error = clWaitForEvents(1, &get());
+			if (error == CL_SUCCESS)
+				error = clGetEventProfilingInfo(*this, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &time, NULL);
+		}
+		THROW_OPENCL_ERROR(error,  "clGetEventProfilingInfo");
+
+		return time;
+	}
+};
+
+cl_ulong diffNS(Event &startEvent, Event &endEvent)
+{
+	auto end = endEvent.timeNS();
+	auto start = startEvent.timeNS();
+	return end - start;
+}
+
+double diffMS(Event &startEvent, Event &endEvent)
+{
+	return diffNS(startEvent, endEvent) / 1000000.0;
+}
 
 struct Buffer : cl_delete<cl_mem, clReleaseMemObject>::handle_type
 {
