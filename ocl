@@ -23,11 +23,25 @@ struct Context : cl_delete<cl_context, clReleaseContext>::handle_type
 	cl_platform_id platform;
 	cl_device_id device;
 
-	Context()
+	explicit Context(cl_device_type deviceType = CL_DEVICE_TYPE_GPU)
 	{
-		THROW_OPENCL_ERROR( clGetPlatformIDs(1, &platform, nullptr), "Failed to get CL platform ID" );
-		
-		THROW_OPENCL_ERROR( clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &device, nullptr), "No GPU device found." );
+		{
+			cl_platform_id platformIDs[16];
+			cl_uint numPlatformIDs = 0;
+			THROW_OPENCL_ERROR( clGetPlatformIDs(arraylen(platformIDs), platformIDs, &numPlatformIDs), "Failed to get CL platform IDs" );
+
+			cl_int err = CL_DEVICE_NOT_FOUND;
+			for (cl_uint i = 0; i < numPlatformIDs; ++i)
+			{
+				err = clGetDeviceIDs(platformIDs[i], deviceType, 1, &device, nullptr);
+				if (err == CL_SUCCESS)
+				{
+					platform = platformIDs[i];
+					break;
+				}
+			}
+			THROW_OPENCL_ERROR(err, "No matching device found.");
+		}
 
 		char deviceName[2048];
 		THROW_OPENCL_ERROR( clGetDeviceInfo(device, CL_DEVICE_NAME, arraylen(deviceName), &deviceName, nullptr), "Unable to query device name.");
