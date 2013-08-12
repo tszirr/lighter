@@ -23,49 +23,77 @@ struct Context : cl_delete<cl_context, clReleaseContext>::handle_type
 	cl_platform_id platform;
 	cl_device_id device;
 
-	Context()
+	explicit Context(cl_device_type deviceType = CL_DEVICE_TYPE_GPU, bool enableGLSharing = true)
 	{
-		THROW_OPENCL_ERROR( clGetPlatformIDs(1, &platform, nullptr), "Failed to get CL platform ID" );
-		
-		THROW_OPENCL_ERROR( clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &device, nullptr), "No GPU device found." );
+		{
+			cl_platform_id platformIDs[16];
+			cl_uint numPlatformIDs = 0;
+			THROW_OPENCL_ERROR( clGetPlatformIDs(arraylen(platformIDs), platformIDs, &numPlatformIDs), "Failed to get CL platform IDs" );
+
+			cl_int err = CL_DEVICE_NOT_FOUND;
+			for (cl_uint i = 0; i < numPlatformIDs; ++i)
+			{
+				err = clGetDeviceIDs(platformIDs[i], deviceType, 1, &device, nullptr);
+				if (err == CL_SUCCESS)
+				{
+					platform = platformIDs[i];
+					break;
+				}
+			}
+			THROW_OPENCL_ERROR(err, "No matching device found.");
+		}
 
 		char deviceName[2048];
 		THROW_OPENCL_ERROR( clGetDeviceInfo(device, CL_DEVICE_NAME, arraylen(deviceName), &deviceName, nullptr), "Unable to query device name.");
 		std::cout << "OpenCL Device: " << deviceName << std::endl;
 
-		size_t extensionSize;
-		THROW_OPENCL_ERROR( clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, 0, nullptr, &extensionSize), "Failed to get OpenCL extensions");
-		std::string extensions(extensionSize, '\0');
-		THROW_OPENCL_ERROR( clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, extensions.size(), &extensions[0], &extensionSize), "Failed to get OpenCL extensions");
-
-		bool sharingSupported = false;
-
-		for (auto extBegin = extensions.c_str(), extEnd = extBegin + extensions.size(); extBegin < extEnd; )
+		if (enableGLSharing)
 		{
-			auto extDelim = std::find(extBegin, extEnd, ' ');
+			size_t extensionSize;
+			THROW_OPENCL_ERROR( clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, 0, nullptr, &extensionSize), "Failed to get OpenCL extensions");
+			std::string extensions(extensionSize, '\0');
+			THROW_OPENCL_ERROR( clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, extensions.size(), &extensions[0], &extensionSize), "Failed to get OpenCL extensions");
 
-			if (std::search(extBegin, extDelim, GL_SHARING_EXTENSION, stdx::strend(GL_SHARING_EXTENSION)) != extDelim)
+			bool sharingSupported = false;
+
+			for (auto extBegin = extensions.c_str(), extEnd = extBegin + extensions.size(); extBegin < extEnd; )
 			{
-				sharingSupported = true;
-				break;
+				auto extDelim = std::find(extBegin, extEnd, ' ');
+
+				if (std::search(extBegin, extDelim, GL_SHARING_EXTENSION, stdx::strend(GL_SHARING_EXTENSION)) != extDelim)
+				{
+					sharingSupported = true;
+					break;
+				}
+
+				extBegin = extDelim + 1;
 			}
 
-			extBegin = extDelim + 1;
+			if(!sharingSupported)
+				throwx( ocl_error("OpenCL sharing unsupported") );
+
+			cl_context_properties const props[] = 
+			{
+				CL_GL_CONTEXT_KHR, (cl_context_properties) wglGetCurrentContext(), 
+				CL_WGL_HDC_KHR, (cl_context_properties) wglGetCurrentDC(), 
+				CL_CONTEXT_PLATFORM, (cl_context_properties) platform, 
+				0
+			};
+			cl_int error;
+			reset( clCreateContext(props, 1, &device, nullptr, nullptr, &error) );
+			THROW_OPENCL_ERROR( error, "Failed to create OpenCL context");
 		}
-
-		if(!sharingSupported)
-			throwx( ocl_error("OpenCL sharing unsupported") );
-
-		cl_context_properties const props[] = 
+		else
 		{
-			CL_GL_CONTEXT_KHR, (cl_context_properties) wglGetCurrentContext(), 
-			CL_WGL_HDC_KHR, (cl_context_properties) wglGetCurrentDC(), 
-			CL_CONTEXT_PLATFORM, (cl_context_properties) platform, 
-			0
-		};
-		cl_int error;
-		reset( clCreateContext(props, 1, &device, nullptr, nullptr, &error) );
-		THROW_OPENCL_ERROR( error, "Failed to create OpenCL context");
+			cl_context_properties const props[] = 
+			{
+				CL_CONTEXT_PLATFORM, (cl_context_properties) platform, 
+				0
+			};
+			cl_int error;
+			reset( clCreateContext(props, 1, &device, nullptr, nullptr, &error) );
+			THROW_OPENCL_ERROR( error, "Failed to create OpenCL context");
+		}
 	}
 };
 
