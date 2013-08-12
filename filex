@@ -2,7 +2,9 @@
 
 #include "stdx"
 #include <fstream>
+#include <string>
 #include <map>
+#include <vector>
 
 #include <sys/types.h>
 #include <sys/stat.h>
