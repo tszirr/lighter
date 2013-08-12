@@ -23,7 +23,7 @@ struct Context : cl_delete<cl_context, clReleaseContext>::handle_type
 	cl_platform_id platform;
 	cl_device_id device;
 
-	explicit Context(cl_device_type deviceType = CL_DEVICE_TYPE_GPU)
+	explicit Context(cl_device_type deviceType = CL_DEVICE_TYPE_GPU, bool enableGLSharing = true)
 	{
 		{
 			cl_platform_id platformIDs[16];
@@ -47,39 +47,53 @@ struct Context : cl_delete<cl_context, clReleaseContext>::handle_type
 		THROW_OPENCL_ERROR( clGetDeviceInfo(device, CL_DEVICE_NAME, arraylen(deviceName), &deviceName, nullptr), "Unable to query device name.");
 		std::cout << "OpenCL Device: " << deviceName << std::endl;
 
-		size_t extensionSize;
-		THROW_OPENCL_ERROR( clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, 0, nullptr, &extensionSize), "Failed to get OpenCL extensions");
-		std::string extensions(extensionSize, '\0');
-		THROW_OPENCL_ERROR( clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, extensions.size(), &extensions[0], &extensionSize), "Failed to get OpenCL extensions");
-
-		bool sharingSupported = false;
-
-		for (auto extBegin = extensions.c_str(), extEnd = extBegin + extensions.size(); extBegin < extEnd; )
+		if (enableGLSharing)
 		{
-			auto extDelim = std::find(extBegin, extEnd, ' ');
+			size_t extensionSize;
+			THROW_OPENCL_ERROR( clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, 0, nullptr, &extensionSize), "Failed to get OpenCL extensions");
+			std::string extensions(extensionSize, '\0');
+			THROW_OPENCL_ERROR( clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, extensions.size(), &extensions[0], &extensionSize), "Failed to get OpenCL extensions");
 
-			if (std::search(extBegin, extDelim, GL_SHARING_EXTENSION, stdx::strend(GL_SHARING_EXTENSION)) != extDelim)
+			bool sharingSupported = false;
+
+			for (auto extBegin = extensions.c_str(), extEnd = extBegin + extensions.size(); extBegin < extEnd; )
 			{
-				sharingSupported = true;
-				break;
+				auto extDelim = std::find(extBegin, extEnd, ' ');
+
+				if (std::search(extBegin, extDelim, GL_SHARING_EXTENSION, stdx::strend(GL_SHARING_EXTENSION)) != extDelim)
+				{
+					sharingSupported = true;
+					break;
+				}
+
+				extBegin = extDelim + 1;
 			}
 
-			extBegin = extDelim + 1;
+			if(!sharingSupported)
+				throwx( ocl_error("OpenCL sharing unsupported") );
+
+			cl_context_properties const props[] = 
+			{
+				CL_GL_CONTEXT_KHR, (cl_context_properties) wglGetCurrentContext(), 
+				CL_WGL_HDC_KHR, (cl_context_properties) wglGetCurrentDC(), 
+				CL_CONTEXT_PLATFORM, (cl_context_properties) platform, 
+				0
+			};
+			cl_int error;
+			reset( clCreateContext(props, 1, &device, nullptr, nullptr, &error) );
+			THROW_OPENCL_ERROR( error, "Failed to create OpenCL context");
 		}
-
-		if(!sharingSupported)
-			throwx( ocl_error("OpenCL sharing unsupported") );
-
-		cl_context_properties const props[] = 
+		else
 		{
-			CL_GL_CONTEXT_KHR, (cl_context_properties) wglGetCurrentContext(), 
-			CL_WGL_HDC_KHR, (cl_context_properties) wglGetCurrentDC(), 
-			CL_CONTEXT_PLATFORM, (cl_context_properties) platform, 
-			0
-		};
-		cl_int error;
-		reset( clCreateContext(props, 1, &device, nullptr, nullptr, &error) );
-		THROW_OPENCL_ERROR( error, "Failed to create OpenCL context");
+			cl_context_properties const props[] = 
+			{
+				CL_CONTEXT_PLATFORM, (cl_context_properties) platform, 
+				0
+			};
+			cl_int error;
+			reset( clCreateContext(props, 1, &device, nullptr, nullptr, &error) );
+			THROW_OPENCL_ERROR( error, "Failed to create OpenCL context");
+		}
 	}
 };
 
@@ -295,6 +309,26 @@ struct Buffer : cl_delete<cl_mem, clReleaseMemObject>::handle_type
 		if (data && !(flags & CL_MEM_USE_HOST_PTR)) flags |= CL_MEM_COPY_HOST_PTR;
 		reset( clCreateBuffer(context, flags, size, (void*) data, &error) );
 		THROW_OPENCL_ERROR(error, "Failed to create OpenCL buffer object");
+	}
+
+	void writeBytes(cl_command_queue stream, void const* data, size_t size)
+	{
+		THROW_OPENCL_ERROR( clEnqueueWriteBuffer(stream, *this, CL_FALSE, 0, size, data, 0, nullptr, nullptr), "clEnqueueWriteBuffer" );
+	}
+	void readBytes(cl_command_queue stream, void* data, size_t size, cl_bool blocking = CL_TRUE)
+	{
+		THROW_OPENCL_ERROR( clEnqueueReadBuffer(stream, *this, blocking, 0, size, data, 0, nullptr, nullptr), "clEnqueueReadBuffer" );
+	}
+
+	template <class T>
+	void write(cl_command_queue stream, T const* data, size_t count)
+	{
+		writeBytes(stream, data, sizeof(T) * count);
+	}
+	template <class T>
+	void read(cl_command_queue stream, T* data, size_t count)
+	{
+		readBytes(stream, data, sizeof(T) * count);
 	}
 
 	template <class T>
