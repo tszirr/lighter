@@ -283,6 +283,26 @@ struct Buffer : cl_delete<cl_mem, clReleaseMemObject>::handle_type
 		THROW_OPENCL_ERROR(error, "Failed to create OpenCL buffer object");
 	}
 
+	void writeBytes(cl_command_queue stream, void const* data, size_t size)
+	{
+		THROW_OPENCL_ERROR( clEnqueueWriteBuffer(stream, *this, CL_FALSE, 0, size, data, 0, nullptr, nullptr), "clEnqueueWriteBuffer" );
+	}
+	void readBytes(cl_command_queue stream, void* data, size_t size, cl_bool blocking = CL_TRUE)
+	{
+		THROW_OPENCL_ERROR( clEnqueueReadBuffer(stream, *this, blocking, 0, size, data, 0, nullptr, nullptr), "clEnqueueReadBuffer" );
+	}
+
+	template <class T>
+	void write(cl_command_queue stream, T const* data, size_t count)
+	{
+		writeBytes(stream, data, sizeof(T) * count);
+	}
+	template <class T>
+	void read(cl_command_queue stream, T* data, size_t count)
+	{
+		readBytes(stream, data, sizeof(T) * count);
+	}
+
 	template <class T>
 	Buffer create(cl_context context, T* data, size_t count, cl_mem_flags flags = CL_MEM_READ_WRITE)
 	{
