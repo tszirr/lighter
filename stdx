@@ -19,6 +19,34 @@ namespace stdx
 	template <class T, size_t Size>
 	inline T* strend(T (&a)[Size]) { assert(!a[Size - 1]); return &a[Size - 1]; }
 
+	template <class Iterator>
+	struct range
+	{
+		typedef Iterator iterator;
+		typedef Iterator const_iterator;
+
+		iterator first, last;
+
+		range() : first(), last() { }
+		range(iterator f, iterator l) : first((iterator&&) f), last((iterator&&) l) { }
+
+		iterator begin() const { return first; }
+		iterator end() const { return last; }
+		auto size() const -> decltype(last - first) { return last - first; }
+		auto operator [](ptrdiff_t i) const -> decltype(*(first + i)) { return *(first + i); }
+
+		operator bool() const { return first != last; }
+	};
+	template <class T>
+	struct data_range : range<T*>
+	{
+		data_range() { }
+		data_range(T* f, T* l) : typename data_range::range(f, l) { }
+
+		T* data() const { return this->f; }
+		T* data_end() const { return this->l; }
+	};
+
 	class noncopyable
 	{
 		noncopyable(noncopyable const&);
