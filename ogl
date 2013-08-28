@@ -4,6 +4,7 @@
 #include <glfw/glfw3.h>
 
 #include "stdx"
+#include "filex"
 
 #include <algorithm>
 #include <iostream>
@@ -249,6 +250,66 @@ struct GLFWWindow : stdx::noncopyable
 };
 std::map<GLFWwindow*, GLFWWindow*> GLFWWindow::windows;
 
+struct Buffer : glew_delete<GLuint, glDeleteBuffers>::handle_type
+{
+	MOVE_BASE(Buffer, unique_handle)
+
+	Buffer(nullptr_t) { }
+	Buffer()
+	{
+		glGenBuffers(1, rebind());
+		THROW_OPENGL_LASTERROR("glGenBuffers()");
+	}
+
+	void bind(GLenum bufferType, unsigned slot = 0)
+	{
+		glBindBufferBase(bufferType, slot, *this);
+	}
+
+	static void unbind(GLenum bufferType, unsigned slot = 0)
+	{
+		glBindBufferBase(bufferType, slot, 0);
+	}
+
+	static Buffer create(GLenum bufferType, size_t size, void const* data = nullptr, GLenum usage = GL_STATIC_DRAW)
+	{
+		Buffer result;
+		result.bind(bufferType);
+
+		glBufferData(bufferType, size, data, usage);
+		THROW_OPENGL_LASTERROR("glBufferData()");
+
+		return result;
+	}
+
+	template <class T>
+	static Buffer create(GLenum bufferType, T const* data, size_t count, GLenum usage = GL_STATIC_DRAW)
+	{
+		return create(bufferType, count * sizeof(T), data, usage);
+	}
+
+	template <class Range>
+	static Buffer create(GLenum bufferType, Range const& range, GLenum usage = GL_STATIC_DRAW)
+	{
+		return create(bufferType, sizeof(*range.data()) * range.size(), range.data(), usage);
+	}
+
+	template <class T>
+	void write(GLenum bufferType, T const* data, size_t count, size_t destOffset = 0)
+	{
+		bind(bufferType);
+		glBufferSubData(bufferType, sizeof(T) * destOffset, sizeof(T) * count, data);
+		THROW_OPENGL_LASTERROR("glBufferSubData()");
+	}
+	template <class T>
+	void read(GLenum bufferType, T* data, size_t count, size_t srcOffset = 0)
+	{
+		bind(bufferType);
+		glGetBufferSubData(target, sizeof(T) * srcOffset, sizeof(T) * count, data);
+		THROW_OPENGL_LASTERROR("glGetBufferSubData()");
+	}
+};
+
 struct Texture : gl_delete<GLuint, glDeleteTextures>::handle_type
 {
 	MOVE_BASE(Texture, unique_handle)
@@ -286,7 +347,6 @@ struct Texture : gl_delete<GLuint, glDeleteTextures>::handle_type
 		glTexParameteri(textureType, GL_TEXTURE_WRAP_T, GL_CLAMP);
 		THROW_OPENGL_LASTERROR("glTexParameteri()");
 
-//		glTexImage2D(textureType, 0, internalFormat, (GLsizei) width, (GLsizei) height, 0, GL_RED, GL_FLOAT, nullptr);
 		glTexStorage2D(textureType, (GLsizei) levels, internalFormat, (GLsizei) width, (GLsizei) height);
 		THROW_OPENGL_LASTERROR("glTexStorage2D()");
 
@@ -336,6 +396,125 @@ struct Framebuffer : glew_delete<GLuint, glDeleteFramebuffers>::handle_type
 		glReadBuffer(GL_COLOR_ATTACHMENT0);
 		glDrawBuffers((GLsizei) attachmentMapping.size(), attachmentMapping.data());
 
+		return result;
+	}
+};
+
+struct Shader : glew_delete_single<GLuint, glDeleteShader>::handle_type
+{
+	MOVE_BASE(Shader, unique_handle)
+
+	Shader(nullptr_t) { }
+	explicit Shader(GLenum shaderType)
+	{
+		reset( glCreateShader(shaderType) );
+		THROW_OPENGL_LASTERROR("glCreateShader()");
+	}
+
+	static Shader compile(GLenum shaderType, char const* source, char const* preamble = "")
+	{
+		Shader result(shaderType);
+
+		char const* sources[] = { preamble, source };
+		glShaderSource(result, 2, sources, nullptr);
+		THROW_OPENGL_LASTERROR("glShaderSource()");
+
+		glCompileShader(result);
+		THROW_OPENGL_LASTERROR("glCompileShader()");
+
+		if (!printBuildLog(result))
+			THROW_OPENGL_ERROR(GL_INVALID_OPERATION, "Failed to build OpenGL shader");
+	}
+
+	static bool printBuildLog(GLuint shader)
+	{
+		GLint status;
+		glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
+		THROW_OPENGL_LASTERROR("glGetShaderiv(GL_COMPILE_STATUS)");
+
+		GLint logSize;
+		glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logSize);
+		THROW_OPENGL_LASTERROR("glGetShaderiv(GL_INFO_LOG_LENGTH)");
+		std::string log(logSize, 0);
+		glGetShaderInfoLog(shader, log.size(), nullptr, &log[0]);
+		THROW_OPENGL_LASTERROR("glGetShaderInfoLog()");
+
+		std::cout << ((status) ? "Build info:" : "There were build errors:") << std::endl;
+		std::cout << log << std::endl;
+
+		return (status == GL_TRUE);
+	}
+
+	static Shader fromFile(GLenum shaderType, char const* file, char const* preamble = "")
+	{
+		return compile(shaderType, stdx::load_file(file).c_str(), preamble);
+	}
+};
+
+struct Program : glew_delete_single<GLuint, glDeleteProgram>::handle_type
+{
+	MOVE_BASE(Program, unique_handle)
+
+	Program(nullptr_t) { }
+	Program()
+	{
+		reset( glCreateProgram() );
+		THROW_OPENGL_LASTERROR("glCreateProgram()");
+	}
+
+	void bind()
+	{
+		glUseProgram(*this);
+	}
+	static void unbind()
+	{
+		glUseProgram(0);
+	}
+
+	Program& attach(GLuint shader)
+	{
+		glAttachShader(*this, shader);
+		THROW_OPENGL_LASTERROR("glAttachShader()");
+		return *this;
+	}
+
+	void link()
+	{
+		glLinkProgram(*this);
+		THROW_OPENGL_LASTERROR("glLinkProgram()");
+		
+		if (!printLinkLog(*this))
+			THROW_OPENGL_ERROR(GL_INVALID_OPERATION, "Failed to link OpenGL program");
+	}
+
+	static bool printLinkLog(GLuint program)
+	{
+		GLint status;
+		glGetProgramiv(program, GL_LINK_STATUS, &status);
+		THROW_OPENGL_LASTERROR("glGetProgramiv(GL_LINK_STATUS)");
+
+		GLint logSize;
+		glGetProgramiv(program, GL_INFO_LOG_LENGTH, &logSize);
+		THROW_OPENGL_LASTERROR("glGetProgramiv(GL_INFO_LOG_LENGTH)");
+		std::string log(logSize, 0);
+		glGetProgramInfoLog(program, log.size(), nullptr, &log[0]);
+		THROW_OPENGL_LASTERROR("glGetProgramInfoLog()");
+
+		std::cout << ((status) ? "Link info:" : "There were linking errors:") << std::endl;
+		std::cout << log << std::endl;
+
+		return (status == GL_TRUE);
+	}
+
+	static Program fromShaders(GLuint s1, GLuint s2 = 0, GLuint s3 = 0, GLuint s4 = 0, GLuint s5 = 0)
+	{
+		Program result;
+		result.attach(s1);
+		if (s2) result.attach(s2);
+		if (s3) result.attach(s3);
+		if (s4) result.attach(s4);
+		if (s5) result.attach(s5);
+		result.link();
 		return result;
 	}
 };
