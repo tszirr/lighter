@@ -57,8 +57,8 @@ struct gl_delete_single
 			(*Deleter)(ptr);
 	}
 
-	typedef std::unique_ptr< Pointer, gl_delete<Pointer, Deleter> > pointer_type;
-	typedef stdx::unique_handle< Pointer, gl_delete<Pointer, Deleter> > handle_type;
+	typedef std::unique_ptr< Pointer, gl_delete_single<Pointer, Deleter> > pointer_type;
+	typedef stdx::unique_handle< Pointer, gl_delete_single<Pointer, Deleter> > handle_type;
 };
 
 template <class Pointer, void (GLAPIENTRY*& Deleter)(Pointer)>
@@ -71,8 +71,8 @@ struct glew_delete_single
 			(*Deleter)(ptr);
 	}
 
-	typedef std::unique_ptr< Pointer, glew_delete<Pointer, Deleter> > pointer_type;
-	typedef stdx::unique_handle< Pointer, glew_delete<Pointer, Deleter> > handle_type;
+	typedef std::unique_ptr< Pointer, glew_delete_single<Pointer, Deleter> > pointer_type;
+	typedef stdx::unique_handle< Pointer, glew_delete_single<Pointer, Deleter> > handle_type;
 };
 
 } // namespace

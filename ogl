@@ -358,6 +358,28 @@ struct Texture : gl_delete<GLuint, glDeleteTextures>::handle_type
 	}
 };
 
+struct VertexArrays : glew_delete<GLuint, glDeleteVertexArrays>::handle_type
+{
+	MOVE_BASE(VertexArrays, unique_handle)
+
+	VertexArrays(nullptr_t) { }
+	VertexArrays()
+	{
+		glGenVertexArrays(1, rebind());
+		THROW_OPENGL_LASTERROR("glGenVertexArrays()");
+	}
+
+	void bind()
+	{
+		glBindVertexArray(*this);
+	}
+
+	static void unbind()
+	{
+		glBindVertexArray(0);
+	}
+};
+
 struct Framebuffer : glew_delete<GLuint, glDeleteFramebuffers>::handle_type
 {
 	MOVE_BASE(Framebuffer, unique_handle)
@@ -415,8 +437,20 @@ struct Shader : glew_delete_single<GLuint, glDeleteShader>::handle_type
 	{
 		Shader result(shaderType);
 
-		char const* sources[] = { preamble, source };
-		glShaderSource(result, 2, sources, nullptr);
+		char const* shaderTypePreamble;
+		switch (shaderType)
+		{
+		case GL_COMPUTE_SHADER: shaderTypePreamble = "#define cs_main main\n#define IN_CS\n"; break;
+		case GL_VERTEX_SHADER: shaderTypePreamble = "#define vs_main main\n#define IN_VS\n"; break;
+		case GL_FRAGMENT_SHADER: shaderTypePreamble = "#define fs_main main\n#define IN_FS\n"; break;
+		case GL_GEOMETRY_SHADER: shaderTypePreamble = "#define gs_main main\n#define IN_GS\n"; break;
+		case GL_TESS_CONTROL_SHADER: shaderTypePreamble = "#define tcs_main main\n#define IN_TCS\n"; break;
+		case GL_TESS_EVALUATION_SHADER: shaderTypePreamble = "#define tes_main main\n#define IN_TES\n"; break;
+		default: shaderTypePreamble = "";
+		};
+
+		char const* sources[] = { shaderTypePreamble, preamble, source };
+		glShaderSource(result, arraylen(sources), sources, nullptr);
 		THROW_OPENGL_LASTERROR("glShaderSource()");
 
 		glCompileShader(result);
@@ -424,6 +458,8 @@ struct Shader : glew_delete_single<GLuint, glDeleteShader>::handle_type
 
 		if (!printBuildLog(result))
 			THROW_OPENGL_ERROR(GL_INVALID_OPERATION, "Failed to build OpenGL shader");
+
+		return result;
 	}
 
 	static bool printBuildLog(GLuint shader)
@@ -435,12 +471,16 @@ struct Shader : glew_delete_single<GLuint, glDeleteShader>::handle_type
 		GLint logSize;
 		glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logSize);
 		THROW_OPENGL_LASTERROR("glGetShaderiv(GL_INFO_LOG_LENGTH)");
-		std::string log(logSize, 0);
-		glGetShaderInfoLog(shader, log.size(), nullptr, &log[0]);
-		THROW_OPENGL_LASTERROR("glGetShaderInfoLog()");
+		
+		if (logSize > 1)
+		{
+			std::string log(logSize, 0);
+			glGetShaderInfoLog(shader, log.size(), nullptr, &log[0]);
+			THROW_OPENGL_LASTERROR("glGetShaderInfoLog()");
 
-		std::cout << ((status) ? "Build info:" : "There were build errors:") << std::endl;
-		std::cout << log << std::endl;
+			std::cout << ((status) ? "Build info:" : "There were build errors:") << std::endl;
+			std::cout << log << std::endl;
+		}
 
 		return (status == GL_TRUE);
 	}
@@ -496,12 +536,16 @@ struct Program : glew_delete_single<GLuint, glDeleteProgram>::handle_type
 		GLint logSize;
 		glGetProgramiv(program, GL_INFO_LOG_LENGTH, &logSize);
 		THROW_OPENGL_LASTERROR("glGetProgramiv(GL_INFO_LOG_LENGTH)");
-		std::string log(logSize, 0);
-		glGetProgramInfoLog(program, log.size(), nullptr, &log[0]);
-		THROW_OPENGL_LASTERROR("glGetProgramInfoLog()");
+		
+		if (logSize > 1)
+		{
+			std::string log(logSize, 0);
+			glGetProgramInfoLog(program, log.size(), nullptr, &log[0]);
+			THROW_OPENGL_LASTERROR("glGetProgramInfoLog()");
 
-		std::cout << ((status) ? "Link info:" : "There were linking errors:") << std::endl;
-		std::cout << log << std::endl;
+			std::cout << ((status) ? "Link info:" : "There were linking errors:") << std::endl;
+			std::cout << log << std::endl;
+		}
 
 		return (status == GL_TRUE);
 	}
