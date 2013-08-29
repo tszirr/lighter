@@ -2,6 +2,7 @@
 
 #include "stdx"
 #include <fstream>
+#include <sstream>
 #include <string>
 #include <map>
 #include <vector>
@@ -236,6 +237,76 @@ namespace stdx
 		auto it = contents.find(name);
 		if (it == contents.end()) throwx(parse_error(name));	
 		return it->second;
+	}
+
+	namespace detail
+	{
+		namespace process_includes
+		{
+			template <class T>
+			auto string_find(std::string const& str, T const& val, char const* cursor) -> char const*
+			{
+				size_t pos = str.find(val, cursor - str.data());
+				return (pos != std::string::npos) ? str.data() + pos : str.data() + str.size();
+			};
+		}
+	}
+
+	template <class Resolve>
+	std::string process_includes(std::string const& src, std::string const& filename, Resolve const& resolve_include, std::string const& preamble = std::string())
+	{
+		using namespace detail::process_includes;
+
+		std::stringstream result;
+		if (!preamble.empty())
+			result << preamble << std::endl;
+
+		char const *srcBegin = src.data(), *srcEnd = srcBegin + src.size();
+		auto nextSrcCursor = srcBegin;
+		size_t nextSrcLine = 0;
+
+		while (nextSrcCursor < srcEnd)
+		{
+			auto nextIncludeCursor = string_find(src, "#include", nextSrcCursor);
+
+			result << "#line " << nextSrcLine << " \"" << filename << "\"\n";
+			result.write(nextSrcCursor, nextIncludeCursor - nextSrcCursor);
+
+			nextSrcLine += std::count(nextSrcCursor, nextIncludeCursor, '\n');
+			nextSrcCursor = nextIncludeCursor;
+
+			if (nextIncludeCursor < srcEnd)
+			{
+				auto nextIncludeEnd = string_find(src, '\n', nextIncludeCursor);
+
+				auto localInclueStart = string_find(src, '"', nextIncludeCursor);
+				auto systemInclueStart = string_find(src, '<', nextIncludeCursor);
+
+				bool localInclude = true;
+				std::string includeName;
+
+				if (localInclueStart < nextIncludeEnd)
+				{
+					includeName.assign(localInclueStart + 1, string_find(src, '"', localInclueStart + 1));
+					localInclude = true;
+				}
+				else if (systemInclueStart < nextIncludeEnd)
+				{
+					includeName.assign(systemInclueStart + 1, string_find(src, '>', systemInclueStart + 1));
+					localInclude = false;
+				}
+
+				result << resolve_include(includeName, localInclude);
+
+				// Skip #include directive + endl
+				nextSrcCursor = nextIncludeEnd;
+				if (nextIncludeEnd < srcEnd)
+					++nextIncludeEnd;
+				++nextSrcLine;
+			}
+		}
+
+		return result.str();
 	}
 
 } // namespace
