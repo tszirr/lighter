@@ -364,6 +364,28 @@ struct Texture : gl_delete<GLuint, glDeleteTextures>::handle_type
 	}
 };
 
+template <class Resource>
+struct AutoTarget : Resource
+{
+	using Resource::operator =;
+
+	GLenum target;
+
+	AutoTarget(GLenum target, Resource resource)
+		: Resource(std::move(resource))
+		, target(target) { }
+
+	void bind(unsigned slot = 0)
+	{
+		Resource::bind(target, slot);
+	}
+
+	static void unbind(unsigned slot = 0)
+	{
+		Resource::unbind(target, slot);
+	}
+};
+
 struct VertexArrays : glew_delete<GLuint, glDeleteVertexArrays>::handle_type
 {
 	MOVE_BASE(VertexArrays, unique_handle)
