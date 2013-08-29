@@ -18,7 +18,11 @@ namespace ogl
 
 struct GLFW : stdx::noncopyable
 {
-	static GLFW* instance;
+	static GLFW*& instance()
+	{
+		static GLFW* i;
+		return i;
+	}
 
 	static void errorCallback(int error, const char* description)
 	{
@@ -27,7 +31,7 @@ struct GLFW : stdx::noncopyable
 
 	GLFW(int major, int minor, bool debug = true, bool coreProfile = true)
 	{
-		if (instance)
+		if (instance())
 			throwx( ogl_error("GLFW has already been initialized!") );
 
 		glfwSetErrorCallback(errorCallback);
@@ -38,13 +42,13 @@ struct GLFW : stdx::noncopyable
 		glfwDefaultWindowHints();
 		configureGl(major, minor, debug, coreProfile);
 
-		instance = this;
+		instance() = this;
 	}
 	~GLFW()
 	{
 		glfwTerminate();
 
-		instance = nullptr;
+		instance() = nullptr;
 	}
 	
 	void configureGl(int major, int minor, bool debug = true, bool coreProfile = true)
@@ -117,7 +121,6 @@ struct GLFW : stdx::noncopyable
 		glDebugMessageCallback(&GLFW::debugCallback, NULL);
 	}
 };
-GLFW* GLFW::instance = nullptr;
 
 struct GLEW : stdx::noncopyable
 {
@@ -134,40 +137,44 @@ struct GLEW : stdx::noncopyable
 
 struct GLFWWindow : stdx::noncopyable
 {
-	static std::map<GLFWwindow*, GLFWWindow*> windows;
+	static std::map<GLFWwindow*, GLFWWindow*>& windows()
+	{
+		static std::map<GLFWwindow*, GLFWWindow*> w;
+		return w;
+	}
 	
 	void registerThis() throw()
 	{
 		if (window)
-			windows[window] = this;
+			windows()[window] = this;
 	}
 	void unregisterThis() throw()
 	{
 		if (window)
-			windows.erase(window);
+			windows().erase(window);
 	}
 
 	static void resizeCallback(GLFWwindow *window, int w, int h)
 	{
-		auto* self = windows[window];
+		auto* self = windows()[window];
 		if (self && self->resize)
 			self->resize((unsigned) w, (unsigned) h);
 	}
 	static void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
 	{
-		auto* self = windows[window];
+		auto* self = windows()[window];
 		if (action != GLFW_REPEAT && self && self->keyboard)
 			self->keyboard(key, action == GLFW_PRESS);
 	}
 	static void mouseCallback(GLFWwindow *window, double x, double y)
 	{
-		auto* self = windows[window];
+		auto* self = windows()[window];
 		if (self && self->mouse)
 			self->mouse((int) x, (int) y);
 	}
 	static void buttonsCallback(GLFWwindow *window, int button, int action, int mods)
 	{
-		auto* self = windows[window];
+		auto* self = windows()[window];
 		if (self && self->buttons)
 			self->buttons(button, action == GLFW_PRESS);
 	}
@@ -248,7 +255,6 @@ struct GLFWWindow : stdx::noncopyable
 		}
 	}
 };
-std::map<GLFWwindow*, GLFWWindow*> GLFWWindow::windows;
 
 struct Buffer : glew_delete<GLuint, glDeleteBuffers>::handle_type
 {
