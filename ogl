@@ -503,7 +503,7 @@ struct Shader : glew_delete_single<GLuint, glDeleteShader>::handle_type
 		if (logSize > 1)
 		{
 			std::string log(logSize, 0);
-			glGetShaderInfoLog(shader, log.size(), nullptr, &log[0]);
+			glGetShaderInfoLog(shader, (GLsizei) log.size(), nullptr, &log[0]);
 			THROW_OPENGL_LASTERROR("glGetShaderInfoLog()");
 
 			std::cout << ((status) ? "Build info:" : "There were build errors:") << std::endl;
@@ -568,7 +568,7 @@ struct Program : glew_delete_single<GLuint, glDeleteProgram>::handle_type
 		if (logSize > 1)
 		{
 			std::string log(logSize, 0);
-			glGetProgramInfoLog(program, log.size(), nullptr, &log[0]);
+			glGetProgramInfoLog(program, (GLsizei) log.size(), nullptr, &log[0]);
 			THROW_OPENGL_LASTERROR("glGetProgramInfoLog()");
 
 			std::cout << ((status) ? "Link info:" : "There were linking errors:") << std::endl;
