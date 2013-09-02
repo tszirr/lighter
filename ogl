@@ -267,12 +267,22 @@ struct Buffer : glew_delete<GLuint, glDeleteBuffers>::handle_type
 		THROW_OPENGL_LASTERROR("glGenBuffers()");
 	}
 
-	void bind(GLenum bufferType, unsigned slot = 0)
+	void bind(GLenum bufferType)
+	{
+		glBindBuffer(bufferType, *this);
+	}
+
+	static void unbind(GLenum bufferType)
+	{
+		glBindBuffer(bufferType, 0);
+	}
+
+	void bind(GLenum bufferType, unsigned slot)
 	{
 		glBindBufferBase(bufferType, slot, *this);
 	}
 
-	static void unbind(GLenum bufferType, unsigned slot = 0)
+	static void unbind(GLenum bufferType, unsigned slot)
 	{
 		glBindBufferBase(bufferType, slot, 0);
 	}
@@ -375,12 +385,22 @@ struct AutoTarget : Resource
 		: Resource(std::move(resource))
 		, target(target) { }
 
-	void bind(unsigned slot = 0)
+	void bind()
+	{
+		Resource::bind(target);
+	}
+
+	static void unbind()
+	{
+		Resource::unbind(target);
+	}
+
+	void bind(unsigned slot)
 	{
 		Resource::bind(target, slot);
 	}
 
-	static void unbind(unsigned slot = 0)
+	static void unbind(unsigned slot)
 	{
 		Resource::unbind(target, slot);
 	}
