@@ -9,6 +9,17 @@
 
 namespace glm
 {
+	template <class T, size_t N>
+	struct pod_vec { T c[N]; };
+
+	template <class T> pod_vec<T, 2> const& to_pod(glm::detail::tvec2<T> const& v) { return (pod_vec<T, 2> const&) v; }
+	template <class T> pod_vec<T, 3> const& to_pod(glm::detail::tvec3<T> const& v) { return (pod_vec<T, 3> const&) v; }
+	template <class T> pod_vec<T, 4> const& to_pod(glm::detail::tvec4<T> const& v) { return (pod_vec<T, 4> const&) v; }
+
+	template <class T> glm::detail::tvec2<T> const& to_vec(pod_vec<T, 2> const& v) { return (glm::detail::tvec2<T> const&) v; }
+	template <class T> glm::detail::tvec3<T> const& to_vec(pod_vec<T, 3> const& v) { return (glm::detail::tvec3<T> const&) v; }
+	template <class T> glm::detail::tvec4<T> const& to_vec(pod_vec<T, 4> const& v) { return (glm::detail::tvec4<T> const&) v; }
+
 	template <class Char, class Traits, class Comp>
 	std::basic_istream<Char, Traits>& operator >>(std::basic_istream<Char, Traits> &stream, glm::detail::tvec1<Comp> &v)
 	{
