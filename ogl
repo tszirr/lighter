@@ -374,6 +374,47 @@ struct Texture : gl_delete<GLuint, glDeleteTextures>::handle_type
 	}
 };
 
+struct RenderBuffer : glew_delete<GLuint, glDeleteRenderbuffers>::handle_type
+{
+	MOVE_BASE(RenderBuffer, unique_handle)
+
+	RenderBuffer(nullptr_t) { }
+	RenderBuffer()
+	{
+		glGenRenderbuffers(1, rebind());
+		THROW_OPENGL_LASTERROR("glGenRenderbuffers()");
+	}
+
+	void bind()
+	{
+		glBindRenderbuffer(GL_RENDERBUFFER, *this);
+	}
+
+	static void unbind()
+	{
+		glBindRenderbuffer(GL_RENDERBUFFER, 0);
+	}
+
+	static RenderBuffer create(GLenum internalFormat, size_t width, size_t height, size_t samples = 1)
+	{
+		RenderBuffer result;
+		result.bind();
+
+		if(samples > 1)
+		{
+			glRenderbufferStorageMultisample(GL_RENDERBUFFER, (GLsizei) samples, internalFormat, (GLsizei) width, (GLsizei) height);
+			THROW_OPENGL_LASTERROR("glRenderbufferStorageMultisample()");
+		}
+		else
+		{
+			glRenderbufferStorage(GL_RENDERBUFFER, internalFormat, (GLsizei) width, (GLsizei) height);
+			THROW_OPENGL_LASTERROR("glRenderbufferStorage()");
+		}
+
+		return result;
+	}
+};
+
 template <class Resource>
 struct AutoTarget : Resource
 {
@@ -448,7 +489,7 @@ struct Framebuffer : glew_delete<GLuint, glDeleteFramebuffers>::handle_type
 		glBindFramebuffer(target, 0);
 	}
 
-	static Framebuffer create(GLuint const* textures, size_t textureCount)
+	static Framebuffer create(GLuint const* textures, size_t textureCount, GLuint depthBuffer = 0)
 	{
 		Framebuffer result;
 		result.bind();
@@ -466,7 +507,21 @@ struct Framebuffer : glew_delete<GLuint, glDeleteFramebuffers>::handle_type
 		glReadBuffer(GL_COLOR_ATTACHMENT0);
 		glDrawBuffers((GLsizei) attachmentMapping.size(), attachmentMapping.data());
 
+		if (depthBuffer)
+		{
+			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthBuffer);
+			THROW_OPENGL_LASTERROR("glFramebufferRenderbuffer()");
+		}
+
 		return result;
+	}
+
+	static GLuint getAttachement(GLenum attachment, GLenum target = GL_FRAMEBUFFER)
+	{
+		GLint object;
+		glGetFramebufferAttachmentParameteriv(target, attachment, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &object);
+		THROW_OPENGL_LASTERROR("glGetFramebufferAttachmentParameteriv()");
+		return (GLuint) object;
 	}
 };
 
