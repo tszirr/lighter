@@ -167,6 +167,9 @@ namespace stdx
 	#define throwx(x) do { using ::stdx::break_on_error;  auto&& exc = x; if (break_on_error(exc) && ::stdx::is_debugger_present) __debugbreak(); throw exc; } while (false)
 #endif
 
+#define TOKEN_TO_STRING(x) #x
+#define VALUE_TO_STRING(x) TOKEN_TO_STRING(x)
+
 // MSVC 2013 shame
 #define MOVE_BASE(clazz, base) \
 	clazz(clazz &&right) : base(std::move(right)) { } \
