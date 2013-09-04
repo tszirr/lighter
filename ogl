@@ -603,6 +603,9 @@ struct Program : glew_delete_single<GLuint, glDeleteProgram>::handle_type
 	{
 		reset( glCreateProgram() );
 		THROW_OPENGL_LASTERROR("glCreateProgram()");
+
+		glProgramParameteri(*this, GL_PROGRAM_BINARY_RETRIEVABLE_HINT, GL_TRUE);
+		THROW_OPENGL_LASTERROR("glProgramParameteri(GL_PROGRAM_BINARY_RETRIEVABLE_HINT)");
 	}
 
 	void bind()
@@ -628,6 +631,20 @@ struct Program : glew_delete_single<GLuint, glDeleteProgram>::handle_type
 		
 		if (!printLinkLog(*this))
 			THROW_OPENGL_ERROR(GL_INVALID_OPERATION, "Failed to link OpenGL program");
+	}
+
+	std::vector<char> getBinary(GLenum *format = nullptr) const
+	{
+		std::vector<char> result;
+		GLint length;
+		glGetProgramiv(*this, GL_PROGRAM_BINARY_LENGTH, &length);
+		THROW_OPENGL_LASTERROR("glGetProgramiv()");
+		result.resize((size_t) length);
+		GLenum formatTmp;
+		glGetProgramBinary(*this, (GLsizei) result.size(), &length, &formatTmp, result.data());
+		THROW_OPENGL_LASTERROR("glGetProgramBinary()");
+		if (format) *format = formatTmp;
+		return result;
 	}
 
 	static bool printLinkLog(GLuint program)
