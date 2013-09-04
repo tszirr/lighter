@@ -299,13 +299,13 @@ struct Buffer : glew_delete<GLuint, glDeleteBuffers>::handle_type
 	}
 
 	template <class T>
-	static Buffer create(GLenum bufferType, T const* data, size_t count, GLenum usage = GL_STATIC_DRAW)
+	static Buffer init(GLenum bufferType, T const* data, size_t count, GLenum usage = GL_STATIC_DRAW)
 	{
 		return create(bufferType, count * sizeof(T), data, usage);
 	}
 
 	template <class Range>
-	static Buffer create(GLenum bufferType, Range const& range, GLenum usage = GL_STATIC_DRAW)
+	static Buffer init(GLenum bufferType, Range const& range, GLenum usage = GL_STATIC_DRAW)
 	{
 		return create(bufferType, sizeof(*range.data()) * range.size(), range.data(), usage);
 	}
