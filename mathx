@@ -19,6 +19,18 @@ namespace glm
 	template <class T> glm::detail::tvec2<T> const& to_vec(pod_vec<T, 2> const& v) { return (glm::detail::tvec2<T> const&) v; }
 	template <class T> glm::detail::tvec3<T> const& to_vec(pod_vec<T, 3> const& v) { return (glm::detail::tvec3<T> const&) v; }
 	template <class T> glm::detail::tvec4<T> const& to_vec(pod_vec<T, 4> const& v) { return (glm::detail::tvec4<T> const&) v; }
+	
+	template <class T>
+	inline T ceil_div(T x, T d)
+	{
+		return (x + d - T(1)) / d;
+	}
+	template <class T>
+	inline T ceil_mul(T x, T d)
+	{
+		auto r = x % d;
+		return (r == 0) ? x : x + d - r;
+	}
 
 	template <class Char, class Traits, class Comp>
 	std::basic_istream<Char, Traits>& operator >>(std::basic_istream<Char, Traits> &stream, glm::detail::tvec1<Comp> &v)
