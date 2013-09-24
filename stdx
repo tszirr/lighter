@@ -5,6 +5,31 @@
 #include <utility>
 #include <memory>
 
+#ifdef _MSC_VER
+	#pragma warning(push)
+	// Decorated name length exceeded all the time by various STL containers
+	#pragma warning(disable : 4503)
+	// Can't do anything about methods not being inlined
+	#pragma warning(disable : 4714)
+	// Formal parameters named for documentation purposes
+	#pragma warning(disable : 4100)
+	// Constant conditional expressions occur quite often in template code
+	#pragma warning(disable : 4127)
+	// Sometimes, using 'this' in initializier lists is unavoidable
+	#pragma warning(disable : 4355)
+	// We actually want arrays & PODs to be default-initialized
+	#pragma warning(disable : 4351)
+	#pragma warning(disable : 4345)
+	// Assignment operators suppressed intentionally
+	#pragma warning(disable : 4512)
+	// Extern template now standard
+	#pragma warning(disable : 4231)
+	// 'override' specifier is now standard
+	#pragma warning(disable : 4481)
+	// nameless struct/union
+	#pragma warning(disable : 4201)
+#endif
+
 namespace stdx
 {
 	namespace detail
