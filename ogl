@@ -298,30 +298,23 @@ struct Buffer : glew_delete<GLuint, glDeleteBuffers>::handle_type
 		return result;
 	}
 
-	template <class T>
-	static Buffer init(GLenum bufferType, T const* data, size_t count, GLenum usage = GL_STATIC_DRAW)
-	{
-		return create(bufferType, count * sizeof(T), data, usage);
-	}
-
 	template <class Range>
 	static Buffer init(GLenum bufferType, Range const& range, GLenum usage = GL_STATIC_DRAW)
 	{
 		return create(bufferType, sizeof(*range.data()) * range.size(), range.data(), usage);
 	}
-
-	template <class T>
-	void write(GLenum bufferType, T const* data, size_t count, size_t destOffset = 0)
+	template <class Range>
+	void write(GLenum bufferType, Range const& range, size_t destOffset = 0)
 	{
 		bind(bufferType);
-		glBufferSubData(bufferType, sizeof(T) * destOffset, sizeof(T) * count, data);
+		glBufferSubData(bufferType, sizeof(*range.data()) * destOffset, sizeof(*range.data()) * range.size(), range.data());
 		THROW_OPENGL_LASTERROR("glBufferSubData()");
 	}
-	template <class T>
-	void read(GLenum bufferType, T* data, size_t count, size_t srcOffset = 0)
+	template <class Range>
+	void read(GLenum bufferType, Range const& range, size_t srcOffset = 0)
 	{
 		bind(bufferType);
-		glGetBufferSubData(target, sizeof(T) * srcOffset, sizeof(T) * count, data);
+		glGetBufferSubData(target, sizeof(*range.data()) * srcOffset, sizeof(*range.data()) * range.size(), range.data());
 		THROW_OPENGL_LASTERROR("glGetBufferSubData()");
 	}
 };
