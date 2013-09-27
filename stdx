@@ -100,6 +100,18 @@ namespace stdx
 		const_iterator cdata() const { return first; }
 	};
 
+	/// Range type w/ implicit conversion constructors, FOR USE IN PARAMETER LISTS.
+	template <class Value>
+	struct data_range_param : range<Value*>
+	{
+		data_range_param() : first(), last() { }
+		data_range_param(Value* f, Value* l) : range<Value*>(f, l) { }
+		template <class Range>
+		data_range_param(Range& r) : range<Value*>(r.data(), const_cast<Value*>(r.data()) + r.size()) { }
+		template <class Range>
+		data_range_param(Range const& r) : range<Value*>(r.data(), const_cast<Value*>(r.data()) + r.size()) { }
+	};
+
 	template <class Iterator>
 	range<Iterator> make_range(Iterator begin, Iterator end) {
 		return range<Iterator>(begin, end); }
