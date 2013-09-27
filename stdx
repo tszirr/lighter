@@ -192,6 +192,11 @@ namespace stdx
 		}
 		operator transparent_type() const { return get(); }
 		operator bool() const { return get() != pointer(); }
+
+	private:
+		// strictly noncopyable
+		template <class T>
+		unique_handle(unique_handle<T> const &right);
 	};
 
 	template <class T>
