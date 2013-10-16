@@ -8,19 +8,32 @@ namespace appx
 	
 struct Task
 {
+	float progress_pct;
 	bool active;
 
 	Task(char const* name)
-		: active(true) {
+		: progress_pct(0.0f)
+		, active(true) {
 		std::cout << name << ": "; }
 	Task(Task&& right)
-		: active(right.active) { 
+		: progress_pct(right.progress_pct)
+		, active(right.active) { 
 		right.active = false; }
 	~Task() {
 		if (active) std::cout << std::endl; }
 
-	void progress(float percentage) {
-		std::cout << percentage << "% "; }
+	void progress(float nextProgress, float minDisplayDelta = 0.0f)
+	{	
+		progressPct(100.0f * nextProgress, 100.0f * minDisplayDelta);
+	}
+	void progressPct(float nextProgressPct, float minDisplayDeltaPct = 0.0f)
+	{	
+		if (nextProgressPct >= progress_pct + minDisplayDeltaPct)
+		{
+			std::cout << nextProgressPct << "% ";
+			progress_pct = nextProgressPct;
+		}
+	}
 };
 
 } // namespace
