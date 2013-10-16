@@ -343,13 +343,13 @@ struct Texture : gl_delete<GLuint, glDeleteTextures>::handle_type
 	}
 
 	static Texture create(GLenum textureType, GLenum internalFormat, size_t width, size_t height, size_t levels = 1
-		, void* data = nullptr, GLenum dataType = GL_FLOAT, GLenum dataFormat = GL_RED)
+		, void const* data = nullptr, GLenum dataType = GL_FLOAT, GLenum dataFormat = GL_RED)
 	{
 		return create3D(textureType, internalFormat, width, height, 0, levels, data, dataType, dataFormat);
 	}
 
 	static Texture create3D(GLenum textureType, GLenum internalFormat, size_t width, size_t height, size_t depth, size_t levels = 1
-		, void* data = nullptr, GLenum dataType = GL_FLOAT, GLenum dataFormat = GL_RED)
+		, void const* data = nullptr, GLenum dataType = GL_FLOAT, GLenum dataFormat = GL_RED)
 	{
 		Texture result;
 		result.bind(textureType);
