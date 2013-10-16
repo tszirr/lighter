@@ -12,6 +12,24 @@ namespace glm
 	template <class T, size_t N>
 	struct pod_vec { T c[N]; };
 
+	template <class Uniform, size_t N>
+	struct rand_box
+	{
+		typedef pod_vec<typename Uniform::result_type, N> result_type;
+		Uniform c[N];
+		rand_box() { }
+		rand_box(Uniform u) {
+			for (size_t i = 0; i < N; ++i) c[i] = u; }
+		template <class E>
+		result_type operator ()(E& e) const
+		{
+			result_type v;
+			for (size_t i = 0; i < N; ++i)
+				v.c[i] = c[i](e);
+			return v;
+		}
+	};
+
 	template <class T> inline pod_vec<T, 2> const& to_pod(glm::detail::tvec2<T> const& v) { return (pod_vec<T, 2> const&) v; }
 	template <class T> inline pod_vec<T, 3> const& to_pod(glm::detail::tvec3<T> const& v) { return (pod_vec<T, 3> const&) v; }
 	template <class T> inline pod_vec<T, 4> const& to_pod(glm::detail::tvec4<T> const& v) { return (pod_vec<T, 4> const&) v; }
