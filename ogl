@@ -676,4 +676,44 @@ struct Program : glew_delete_single<GLuint, glDeleteProgram>::handle_type
 	}
 };
 
+struct ProgramWithTime : Program
+{
+	char const* preamble;
+	std::string file;
+	time_t time;
+
+	using Program::operator =;
+
+	explicit ProgramWithTime(std::string file, char const *preamble = "")
+		: Program(nullptr)
+		, preamble(preamble)
+		, file(std::move(file))
+		, time(0)
+	{
+		load();
+	}
+	static std::string resolveIncludes(std::string const& include, bool local)
+	{
+		return stdx::process_includes(stdx::load_file(include.c_str()), include, resolveIncludes);
+	}
+	void load()
+	{
+		std::string src = stdx::process_includes(stdx::load_file(file.c_str()), file, resolveIncludes);
+		*this = Program::fromShaders(
+		  Shader::compile(GL_VERTEX_SHADER, src.c_str(), preamble)
+		, Shader::compile(GL_FRAGMENT_SHADER, src.c_str(), preamble)
+		);
+		time = stdx::file_time(file.c_str());
+	}
+	int maybeReload()
+	{
+		if (stdx::file_time(file.c_str()) > time)
+		{
+			try { load(); return 1; }
+			catch (ogl_error const &) { return -1; }
+		}
+		return 0;
+	}
+};
+
 } // namespace
