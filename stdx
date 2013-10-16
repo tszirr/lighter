@@ -47,16 +47,16 @@ namespace stdx
 
 	// MSVC' extra invitation in decltype
 	template <class T>
-	typename std::make_unsigned<T>::type to_unsigned(T sgn) { return sgn; }
+	inline typename std::make_unsigned<T>::type to_unsigned(T sgn) { return sgn; }
 	template <class T>
-	typename std::make_signed<T>::type to_signed(T usgn) { return usgn; }
+	inline typename std::make_signed<T>::type to_signed(T usgn) { return usgn; }
 
 	// SFINAE
 	template <class I>
-	auto maybe_deref_iterator(I it, typename I::iterator_category* = nullptr) -> decltype(*it) { return *it; }
+	inline auto maybe_deref_iterator(I it, typename I::iterator_category* = nullptr) -> decltype(*it) { return *it; }
 	template <class I>
-	auto maybe_deref_iterator(I* it) -> decltype(*it) { return *it; }
-	void maybe_deref_iterator(...) { }
+	inline auto maybe_deref_iterator(I* it) -> decltype(*it) { return *it; }
+	inline void maybe_deref_iterator(...) { }
 
 	/// Range type.
 	template <class Iterator>
@@ -113,23 +113,23 @@ namespace stdx
 	};
 
 	template <class Iterator>
-	range<Iterator> make_range(Iterator begin, Iterator end) {
+	inline range<Iterator> make_range(Iterator begin, Iterator end) {
 		return range<Iterator>(begin, end); }
 	template <class Iterator, class Size>
-	range<Iterator> make_range_n(Iterator begin, Size len) {
+	inline range<Iterator> make_range_n(Iterator begin, Size len) {
 		return range<Iterator>(begin, begin + len); }
 	template <class Range>
-	range<typename Range::iterator> make_range(Range &r) {
+	inline range<typename Range::iterator> make_range(Range &r) {
 		return range<typename Range::iterator>(r.begin(), r.end()); }
 	template <class Range>
-	range<typename Range::const_iterator> make_range(Range const &r) {
+	inline range<typename Range::const_iterator> make_range(Range const &r) {
 		return range<typename Range::const_iterator>(r.begin(), r.end()); }
 
 	template <class Range>
-	range<typename Range::pointer> data_range(Range &r) {
+	inline range<typename Range::pointer> data_range(Range &r) {
 		return range<typename Range::pointer>(r.data(), r.data() + r.size()); }
 	template <class Range>
-	range<typename Range::const_pointer> data_range(Range const &r) {
+	inline range<typename Range::const_pointer> data_range(Range const &r) {
 		return range<typename Range::const_pointer>(r.data(), r.data() + r.size()); }
 
 	class noncopyable
@@ -242,7 +242,7 @@ namespace stdx
 	};
 
 	template <class T>
-	auto get_transparent(T &&v)
+	inline auto get_transparent(T &&v)
 		-> decltype(transparent_type<typename std::remove_reference<T>::type>::get(std::forward<T>(v)))
 	{
 		return transparent_type<typename std::remove_reference<T>::type>::get(std::forward<T>(v));
