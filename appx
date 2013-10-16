@@ -1,0 +1,26 @@
+#pragma once
+
+#include "stdx"
+#include <iostream>
+
+namespace appx
+{
+	
+struct Task
+{
+	bool active;
+
+	Task(char const* name)
+		: active(true) {
+		std::cout << name << ": "; }
+	Task(Task&& right)
+		: active(right.active) { 
+		right.active = false; }
+	~Task() {
+		if (active) std::cout << std::endl; }
+
+	void progress(float percentage) {
+		std::cout << percentage << "% "; }
+};
+
+} // namespace
