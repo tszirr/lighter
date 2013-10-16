@@ -286,14 +286,14 @@ struct Event : cl_delete<cl_event, clReleaseEvent>::handle_type
 	}
 };
 
-cl_ulong diffNS(Event &startEvent, Event &endEvent)
+inline cl_ulong diffNS(Event &startEvent, Event &endEvent)
 {
 	auto end = endEvent.timeNS();
 	auto start = startEvent.timeNS();
 	return end - start;
 }
 
-double diffMS(Event &startEvent, Event &endEvent)
+inline double diffMS(Event &startEvent, Event &endEvent)
 {
 	return diffNS(startEvent, endEvent) / 1000000.0;
 }
