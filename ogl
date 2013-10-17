@@ -342,7 +342,7 @@ struct Texture : gl_delete<GLuint, glDeleteTextures>::handle_type
 		glBindTexture(textureType, 0);
 	}
 
-	static Texture create(GLenum textureType, GLenum internalFormat, size_t width, size_t height, size_t levels = 1
+	static Texture create2D(GLenum textureType, GLenum internalFormat, size_t width, size_t height, size_t levels = 1
 		, void const* data = nullptr, GLenum dataType = GL_FLOAT, GLenum dataFormat = GL_RED)
 	{
 		return create3D(textureType, internalFormat, width, height, 0, levels, data, dataType, dataFormat);
@@ -368,27 +368,41 @@ struct Texture : gl_delete<GLuint, glDeleteTextures>::handle_type
 		if (depth == 0) {
 			glTexStorage2D(textureType, (GLsizei) levels, internalFormat, (GLsizei) width, (GLsizei) height);
 			THROW_OPENGL_LASTERROR("glTexStorage2D()");
-
-			if (data) {
-				glTexSubImage2D(textureType, 0, 0, 0, (GLsizei) width, (GLsizei) height, dataFormat, dataType, data);
-				THROW_OPENGL_LASTERROR("glTexSubImage2D()");
-			}
 		}
 		else {
 			glTexStorage3D(textureType, (GLsizei) levels, internalFormat, (GLsizei) width, (GLsizei) height, (GLsizei) depth);
 			THROW_OPENGL_LASTERROR("glTexStorage3D()");
-
-			if (data) {
-				glTexSubImage3D(textureType, 0, 0, 0, 0, (GLsizei) width, (GLsizei) height, (GLsizei) depth, dataFormat, dataType, data);
-				THROW_OPENGL_LASTERROR("glTexSubImage3D()");
-			}
 		}
 
 		glTexParameteri(textureType, GL_TEXTURE_BASE_LEVEL, 0);
 		glTexParameteri(textureType, GL_TEXTURE_MAX_LEVEL, (int) levels - 1);
 		THROW_OPENGL_LASTERROR("glTexParameteri()");
 
+		if (data)
+			result.write(textureType, 0, data, dataType, dataFormat, width, height, depth);
+
 		return result;
+	}
+
+	void write(GLenum textureType, size_t level
+		, void const* data, GLenum dataType, GLenum dataFormat
+		, size_t width, size_t height, size_t depth = 0
+		, size_t offsetX = 0, size_t offsetY = 0, size_t offsetZ = 0)
+	{
+		bind(textureType);
+
+		if (depth == 0) {
+			glTexSubImage2D(textureType, (GLsizei) level, (GLsizei) offsetX, (GLsizei) offsetY
+				, (GLsizei) width, (GLsizei) height
+				, dataFormat, dataType, data);
+			THROW_OPENGL_LASTERROR("glTexSubImage2D()");
+		}
+		else {
+			glTexSubImage3D(textureType, (GLsizei) level, (GLsizei) offsetX, (GLsizei) offsetY, (GLsizei) offsetZ
+				, (GLsizei) width, (GLsizei) height, (GLsizei) depth
+				, dataFormat, dataType, data);
+			THROW_OPENGL_LASTERROR("glTexSubImage3D()");
+		}
 	}
 };
 
