@@ -61,6 +61,10 @@ struct GLFW : stdx::noncopyable
 		if (debug)
 			glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
 	}
+	void enableVSync(bool enable)
+	{
+		glfwSwapInterval((int) enable);
+	}
 	
 	static void APIENTRY debugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, GLvoid* userParam)
 	{
