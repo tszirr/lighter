@@ -263,7 +263,7 @@ namespace stdx
 
 		char const *srcBegin = src.data(), *srcEnd = srcBegin + src.size();
 		auto nextSrcCursor = srcBegin;
-		size_t nextSrcLine = 0;
+		size_t nextSrcLine = 1;
 
 		while (nextSrcCursor < srcEnd)
 		{
