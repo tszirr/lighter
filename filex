@@ -22,15 +22,39 @@ namespace stdx
 		return buf.st_mtime;
 	}
 
-	inline std::string load_file(char const* name)
+	inline std::ifstream read_file(char const* name, std::ios_base::openmode om = std::ios_base::in)
 	{
-		std::string str;
-
-		std::ifstream t(name);
+		std::ifstream t(name, om);
 		if (t.fail())
 			throwx( file_error(name) );
 
 		t.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+		return t;
+	}
+	inline std::ifstream read_binary_file(char const* name, std::ios_base::openmode om = std::ios_base::in)
+	{
+		return read_file(name, om | std::ios_base::binary);
+	}
+
+	inline std::ofstream write_file(char const* name, std::ios_base::openmode om = std::ios_base::trunc)
+	{
+		std::ofstream t(name, om);
+		if (t.fail())
+			throwx( file_error(name) );
+
+		t.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+		return t;
+	}
+	inline std::ofstream write_binary_file(char const* name, std::ios_base::openmode om = std::ios_base::trunc)
+	{
+		return write_file(name, om | std::ios_base::binary);
+	}
+
+	inline std::string load_file(char const* name)
+	{
+		std::string str;
+
+		auto t = read_file(name);
 		t.seekg(0, std::ios::end);   
 		str.reserve((size_t) t.tellg());
 		t.seekg(0, std::ios::beg);
@@ -43,11 +67,7 @@ namespace stdx
 	{
 		std::vector<char> data;
 
-		std::ifstream t(name, std::ios_base::binary);
-		if (t.fail())
-			throwx( file_error(name) );
-
-		t.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+		auto t = read_binary_file(name);
 		t.seekg(0, std::ios::end);   
 		data.resize((size_t) t.tellg());
 		t.seekg(0, std::ios::beg);
@@ -56,6 +76,26 @@ namespace stdx
 		return data;
 	}
 	
+	template <class T>
+	inline void serialize_binary(std::ostream& stream, T const& val) {
+		stream.write(&reinterpret_cast<char const&>(val), sizeof(val)); }
+	template <class T>
+	inline void serialize_binary(std::istream& stream, T& val) {
+		stream.read(&reinterpret_cast<char&>(val), sizeof(val)); }
+
+	template <class Range>
+	inline void serialize_container_binary(std::ostream& stream, Range const& range) {
+		serialize_binary(stream, range.size());
+		stream.write(reinterpret_cast<char const*>(range.data()), sizeof(*range.data()) * range.size());
+	}
+	template <class Range>
+	inline void serialize_container_binary(std::istream& stream, Range& range) {
+		size_t size = 0;
+		serialize_binary(stream, size);
+		range.resize(size);
+		stream.read(reinterpret_cast<char*>(range.data()), sizeof(*range.data()) * range.size());
+	}
+
 	/// Character stream buffer class that is required to allow for allocation-free usage of STL streaming facilities.
 	template < class Elem, class Traits = std::char_traits<Elem> >
 	class basic_charbuf : public std::basic_streambuf<Elem, Traits>
