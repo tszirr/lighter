@@ -296,12 +296,12 @@ namespace stdx
 					localInclude = false;
 				}
 
-				result << resolve_include(includeName, localInclude);
+				result << resolve_include(includeName, localInclude) << '\n';
 
-				// Skip #include directive + endl
+				// Skip #include directive
 				nextSrcCursor = nextIncludeEnd;
-				if (nextIncludeEnd < srcEnd)
-					++nextIncludeEnd;
+				if (nextSrcCursor < srcEnd)
+					++nextSrcCursor;
 				++nextSrcLine;
 			}
 		}
