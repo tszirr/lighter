@@ -83,6 +83,36 @@ namespace glm
 		return stream;
 	}
 
+	template <class Char, class Traits, class Comp>
+	std::basic_ostream<Char, Traits>& operator <<(std::basic_ostream<Char, Traits> &stream, glm::detail::tvec1<Comp> &v)
+	{
+		stream << v.x;
+		return stream;
+	}
+	template <class Char, class Traits, class Comp>
+	std::basic_ostream<Char, Traits>& operator <<(std::basic_ostream<Char, Traits> &stream, glm::detail::tvec2<Comp> &v)
+	{
+		stream << v.x << ' ';
+		stream << v.y;
+		return stream;
+	}
+	template <class Char, class Traits, class Comp>
+	std::basic_ostream<Char, Traits>& operator <<(std::basic_ostream<Char, Traits> &stream, glm::detail::tvec3<Comp> &v)
+	{
+		stream << v.x << ' ';
+		stream << v.y << ' ';
+		stream << v.z;
+		return stream;
+	}
+	template <class Char, class Traits, class Comp>
+	std::basic_ostream<Char, Traits>& operator <<(std::basic_ostream<Char, Traits> &stream, glm::detail::tvec4<Comp> &v)
+	{
+		stream << v.x << ' ';
+		stream << v.y << ' ';
+		stream << v.z << ' ';
+		stream << v.w;
+		return stream;
+	}
 	
 	/// Puts a zero bit in-between each of the lower 16 bits of the given value.
 	inline unsigned bitsep1(unsigned x)

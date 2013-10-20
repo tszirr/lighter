@@ -282,3 +282,7 @@ namespace stdx
 	typedef decltype(clazz::member) transparent_type; \
 	stdx::transparent_type<decltype(clazz::member)>::type const& get() const { return stdx::get_transparent(member); } \
 	operator stdx::transparent_type<decltype(clazz::member)>::type() const { return member; }
+
+#define INPLACE_OSTREAM(t, x) static_cast<t&>(t() << x)
+#define INPLACE_SSTREAM(x) INPLACE_OSTREAM(std::stringstream, x)
+#define INPLACE_STR(x) INPLACE_SSTREAM(x).str()
