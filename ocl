@@ -483,4 +483,41 @@ struct BindGuard
 template <class T>
 inline BindGuard<T> bind_guarded(cl_command_queue stream, T &bound) { return BindGuard<T>(stream, bound); }
 
+struct ProgramWithTime : Program
+{
+	char const* preamble;
+	std::string file;
+	time_t time;
+
+	using Program::operator =;
+
+	explicit ProgramWithTime(cl_context context, cl_device_id device, std::string file, char const *preamble = "")
+		: Program(nullptr)
+		, preamble(preamble)
+		, file(std::move(file))
+		, time(0)
+	{
+		load(context, device);
+	}
+	static std::string resolveIncludes(std::string const& include, bool local)
+	{
+		return stdx::process_includes(stdx::load_file(include.c_str()), include, resolveIncludes);
+	}
+	void load(cl_context context, cl_device_id device)
+	{
+		std::string src = stdx::process_includes(stdx::load_file(file.c_str()), file, resolveIncludes);
+		*this = Program(context, device, src.c_str(), preamble);
+		time = stdx::file_time(file.c_str());
+	}
+	int maybeReload(cl_context context, cl_device_id device)
+	{
+		if (stdx::file_time(file.c_str()) > time)
+		{
+			try { load(context, device); return 1; }
+			catch (ocl_error const &) { return -1; }
+		}
+		return 0;
+	}
+};
+
 } // namespace
