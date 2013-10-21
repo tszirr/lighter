@@ -236,7 +236,7 @@ struct Kernel : cl_delete<cl_kernel, clReleaseKernel>::handle_type
 		size_t globalSize[] = { ceil_mul(globalX, localX) };
 		size_t localSize[] = { localX };
 		THROW_OPENCL_ERROR(
-			clEnqueueNDRangeKernel(stream, *this, arraylen(globalSize), nullptr, &globalX, &localX, 0, nullptr, nullptr),
+			clEnqueueNDRangeKernel(stream, *this, arraylen(globalSize), nullptr, globalSize, localSize, 0, nullptr, nullptr),
 			"Failed to launch OpenCl kernel");
 	}
 	void launch(cl_command_queue stream, size_t globalX, size_t globalY, size_t localX, size_t localY) const

@@ -29,6 +29,9 @@
 	#pragma warning(disable : 4481)
 	// nameless struct/union
 	#pragma warning(disable : 4201)
+	// requiring user-defined ctors: wrong for pointers, generally useless
+	#pragma warning(disable : 4510)
+	#pragma warning(disable : 4610)
 #endif
 
 namespace stdx
