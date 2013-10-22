@@ -254,7 +254,7 @@ namespace stdx
 } // namespace
 
 #define arraylen(x) sizeof(::stdx::detail::arraylen_helper(x))
-#ifdef NDEBUG
+#if defined(NDEBUG) && !defined(DEBUG_EXCEPTIONS)
 	#define throwx(x) throw x
 #else
 	#define throwx(x) do { using ::stdx::break_on_error;  auto&& exc = x; if (break_on_error(exc) && ::stdx::is_debugger_present) __debugbreak(); throw exc; } while (false)
