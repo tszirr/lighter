@@ -546,4 +546,36 @@ struct ProgramWithTime : Program
 	}
 };
 
+struct KernelWithTime : Kernel
+{
+	ProgramWithTime const* program;
+	char const* kernelName;
+	time_t time;
+
+	using Kernel::operator =;
+
+	explicit KernelWithTime(ProgramWithTime const* program, char const* kernelName)
+		: Kernel(nullptr)
+		, program(program)
+		, kernelName(kernelName)
+		, time(0)
+	{
+		load();
+	}
+	void load()
+	{
+		*this = Kernel(*program, kernelName);
+		time = program->time;
+	}
+	int maybeReload()
+	{
+		if (program->time > time)
+		{
+			try { load(); return 1; }
+			catch (ocl_error const &) { return -1; }
+		}
+		return 0;
+	}
+};
+
 } // namespace
