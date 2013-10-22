@@ -418,6 +418,29 @@ struct BufferedVolume
 	void copyToVolume(cl_command_queue stream) { ocl::bufferToImage(stream, buffer, volume); }
 };
 
+struct GlBuffer : cl_delete<cl_mem, clReleaseMemObject>::handle_type
+{
+	MOVE_BASE(GlBuffer, unique_handle)
+
+	GlBuffer(nullptr_t) { }
+	GlBuffer(cl_context context, GLuint glBuffer, cl_mem_flags flags = CL_MEM_READ_WRITE)
+	{
+		cl_int error;
+		reset( clCreateFromGLBuffer(context, flags, glBuffer, &error) );
+		THROW_OPENCL_ERROR(error, "Failed to create OpenCL buffer object");
+	}
+
+	void bind(cl_command_queue stream)
+	{
+		THROW_OPENCL_ERROR( clEnqueueAcquireGLObjects(stream, 1, &get(), 0, nullptr, nullptr), "clEnqueueAcquireGLObjects()" );
+	}
+
+	void unbind(cl_command_queue stream)
+	{
+		THROW_OPENCL_ERROR( clEnqueueReleaseGLObjects(stream, 1, &get(), 0, nullptr, nullptr), "clEnqueueReleaseGLObjects()" );
+	}
+};
+
 struct GlTexture : cl_delete<cl_mem, clReleaseMemObject>::handle_type
 {
 	MOVE_BASE(GlTexture, unique_handle)
@@ -426,7 +449,10 @@ struct GlTexture : cl_delete<cl_mem, clReleaseMemObject>::handle_type
 	GlTexture(cl_context context, GLenum glTextureType, GLuint glTexture, cl_mem_flags flags = CL_MEM_READ_WRITE, size_t mipLevel = 0)
 	{
 		cl_int error;
-		reset( clCreateFromGLTexture2D(context, flags, glTextureType, (GLint) mipLevel, glTexture, &error) );
+		if (glTextureType != GL_TEXTURE_3D && glTextureType != GL_TEXTURE_2D_ARRAY)
+			reset( clCreateFromGLTexture2D(context, flags, glTextureType, (GLint) mipLevel, glTexture, &error) );
+		else
+			reset( clCreateFromGLTexture3D(context, flags, glTextureType, (GLint) mipLevel, glTexture, &error) );
 		THROW_OPENCL_ERROR(error, "Failed to create OpenCL texture object");
 	}
 
