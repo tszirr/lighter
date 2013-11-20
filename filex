@@ -22,13 +22,18 @@ namespace stdx
 		return buf.st_mtime;
 	}
 
+	inline void enable_stream_exceptions(std::ios_base &t)
+	{
+		t.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+	}
+
 	inline std::ifstream read_file(char const* name, std::ios_base::openmode om = std::ios_base::in)
 	{
 		std::ifstream t(name, om);
 		if (t.fail())
 			throwx( file_error(name) );
 
-		t.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+		enable_stream_exceptions(t);
 		return t;
 	}
 	inline std::ifstream read_binary_file(char const* name, std::ios_base::openmode om = std::ios_base::in)
@@ -42,7 +47,7 @@ namespace stdx
 		if (t.fail())
 			throwx( file_error(name) );
 
-		t.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+		enable_stream_exceptions(t);
 		return t;
 	}
 	inline std::ofstream write_binary_file(char const* name, std::ios_base::openmode om = std::ios_base::trunc)
@@ -259,7 +264,7 @@ namespace stdx
 		if (it == contents.end()) throwx(parse_error(name));
 		auto begin = it->second.c_str(), end = begin + it->second.size();
 		basic_charstream<Char> result(const_cast<Char*>(begin), const_cast<Char*>(end));
-		result.exceptions(std::ios_base::failbit | std::ios_base::badbit);
+		enable_stream_exceptions(result);
 		return result;
 	}
 
