@@ -222,7 +222,7 @@ struct Kernel : cl_delete<cl_kernel, clReleaseKernel>::handle_type
 		unsigned idx;
 
 		template <class T>
-		arg_stream operator <<(T const& arg)
+		arg_stream operator <<(T const& arg) const
 		{
 			auto result(*this);
 			k->set(result.idx++, arg);
