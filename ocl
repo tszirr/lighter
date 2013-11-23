@@ -18,7 +18,7 @@ namespace ocl
 
 struct Context : cl_delete<cl_context, clReleaseContext>::handle_type
 {
-	MOVE_BASE(Context, unique_handle)
+	MOVE_GENERATE(Context, MOVE_3, BASE, unique_handle, MEMBER, platform, MEMBER, device)
 
 	cl_platform_id platform;
 	cl_device_id device;
@@ -404,7 +404,7 @@ struct BufferedVolume
 	ocl::Volume volume;
 	ocl::Buffer buffer;
 
-	MOVE_2_MEMBERS(BufferedVolume, volume, buffer);
+	MOVE_GENERATE(BufferedVolume, MOVE_2, MEMBER, volume, MEMBER, buffer)
 
 	BufferedVolume(nullptr_t)
 		: volume(nullptr)
@@ -487,9 +487,10 @@ struct GlGuard : stdx::noncopyable
 template <class T>
 struct BindGuard
 {
+	MOVE_GENERATE(BindGuard, MOVE_2, MEMBER, stream, MEMBER, bound)
+
 	cl_command_queue stream;
 	stdx::unique_handle<T*> bound;
-	MOVE_2_MEMBERS(BindGuard, stream, bound)
 
 	BindGuard(cl_command_queue stream, T &bound)
 		: stream(stream),
