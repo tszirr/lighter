@@ -1,0 +1,456 @@
+#pragma once
+
+#include "cudabase"
+#include "oglbase"
+#include <cudaGL.h>
+
+#include "stdx"
+#include "filex"
+
+#include <algorithm>
+#include <iostream>
+#include <string>
+
+namespace cuda
+{
+
+struct CUDA : stdx::noncopyable
+{
+	CUDA()
+	{
+		THROW_CUDA_ERROR(cuInit(0), "cuInit");
+	}
+};
+
+struct Context : cuda_delete<CUcontext, cuCtxDestroy>::handle_type
+{
+	MOVE_GENERATE(Context, MOVE_2, BASE, unique_handle, MEMBER, device)
+
+	CUdevice device;
+
+	explicit Context(unsigned int flags = 0)
+	{
+		THROW_CUDA_ERROR(cuDeviceGet(&device, 0), "cuDeviceGet");
+
+		char deviceName[2048];
+		THROW_CUDA_ERROR( cuDeviceGetName(deviceName, arraylen(deviceName), device), "Unable to query device name.");
+		std::cout << "CUDA Device: " << deviceName << std::endl;
+
+		THROW_CUDA_ERROR(cuCtxCreate(rebind(), flags, device), "cuDeviceGet");
+	}
+};
+
+struct CommandStream : cuda_delete<CUstream, cuStreamDestroy>::handle_type
+{
+	MOVE_BASE(CommandStream, unique_handle)
+
+	// Default stream
+	CommandStream(nullptr_t) { }
+	// New stream
+	explicit CommandStream(unsigned int flags = CU_STREAM_DEFAULT)
+	{
+		THROW_CUDA_ERROR(cuStreamCreate(rebind(), flags), "cuStreamCreate");
+	}
+};
+
+struct Module : cuda_delete<CUmodule, cuModuleUnload>::handle_type
+{
+	MOVE_BASE(Module, unique_handle)
+
+	Module(nullptr_t) { }
+	Module(char const* binary)
+	{
+		CUjit_option opt[] = { CU_JIT_TARGET_FROM_CUCONTEXT };
+		void* val[arraylen(opt)] = { nullptr };
+		THROW_CUDA_ERROR(cuModuleLoadDataEx(rebind(), binary, (unsigned) arraylen(opt), opt, val), "cuModuleLoadDataEx");
+	}
+
+	static Module fromFile(char const* file)
+	{
+		return Module(stdx::load_binary_file(file).data());
+	}
+};
+
+struct Kernel : cuda_no_delete<CUfunction>::handle_type
+{
+	MOVE_BASE(Kernel, unique_handle)
+
+	Kernel(nullptr_t) { }
+	Kernel(CUmodule module, char const* name)
+	{
+		THROW_CUDA_ERROR(cuModuleGetFunction(rebind(), module, name), "cuModuleGetFunction");
+	}
+
+	template <class T>
+	static T ceil_div(T x, T d)
+	{
+		return (x + d - 1) / d;
+	}
+	template <class T>
+	static T ceil_mul(T x, T d)
+	{
+		auto r = x % d;
+		return (r == 0) ? x : x + d - r;
+	}
+
+	struct arg_pointers { void** kernelParameters; };
+	struct arg_stream_seed
+	{
+		operator arg_pointers() const { arg_pointers p = { nullptr }; return p; }
+	};
+	template <class Type, class Prev = arg_stream_seed>
+	struct arg_stream
+	{
+		Prev prev;
+		Type const* ptr;
+
+		operator arg_pointers() const { arg_pointers p = { (void**) &prev }; return p; }
+	};
+	template <class Type>
+	struct arg_stream<Type, arg_stream_seed>
+	{
+		Type const* ptr;
+
+		operator arg_pointers() const { arg_pointers p = { (void**) &ptr }; return p; }
+	};
+
+	template <class T>
+	friend arg_stream<T> operator <<(arg_stream_seed const& start, T const& arg)
+	{
+		arg_stream<T> result = { &arg };
+		return result;
+	}
+	template <class T, class PrevT, class PrevP>
+	friend arg_stream<T, arg_stream<PrevT, PrevP>> operator <<(arg_stream<PrevT, PrevP> const& prev, T const& arg)
+	{
+		arg_stream<T, arg_stream<PrevT, PrevP>> result = { prev, &arg };
+		return result;
+	}
+	
+	arg_stream_seed args() const { return arg_stream_seed(); }
+	
+	void launch(CUstream stream, size_t globalX, size_t localX, arg_pointers args = arg_stream_seed()) const
+	{
+		THROW_CUDA_ERROR(
+			cuLaunchKernel(*this, (unsigned) ceil_div(globalX, localX), 1, 1, (unsigned) localX, 1, 1, 0, stream, args.kernelParameters, nullptr),
+			"Failed to launch CUDA kernel");
+	}
+	void launch(CUstream stream, size_t globalX, size_t globalY, size_t localX, size_t localY, arg_pointers args = arg_stream_seed()) const
+	{
+		THROW_CUDA_ERROR(
+			cuLaunchKernel(*this, (unsigned) ceil_div(globalX, localX), (unsigned) ceil_div(globalY, localY), 1
+				, (unsigned) localX, (unsigned) localY, 1, 0, stream, args.kernelParameters, nullptr),
+			"Failed to launch CUDA kernel");
+	}
+	void launch(CUstream stream, size_t globalX, size_t globalY, size_t globalZ, size_t localX, size_t localY, size_t localZ, arg_pointers args = arg_stream_seed()) const
+	{
+		THROW_CUDA_ERROR(
+			cuLaunchKernel(*this, (unsigned) ceil_div(globalX, localX), (unsigned) ceil_div(globalY, localY), (unsigned) ceil_div(globalZ, localZ)
+				, (unsigned) localX, (unsigned) localY, (unsigned) localZ, 0, stream, args.kernelParameters, nullptr),
+			"Failed to launch CUDA kernel");
+	}
+};
+
+struct Event : cuda_delete<CUevent, cuEventDestroy>::handle_type
+{
+	MOVE_BASE(Event, unique_handle)
+
+	Event(nullptr_t) { }
+	explicit Event(CUevent event)
+		: unique_handle(event) { }
+	explicit Event(CUstream stream, unsigned int flags = CU_EVENT_DEFAULT)
+	{
+		THROW_CUDA_ERROR(cuEventCreate(rebind(), flags), "Failed to create CUDA event");
+	}
+
+	void record(CUstream stream)
+	{
+		THROW_CUDA_ERROR(cuEventRecord(*this, stream), "Failed to record CUDA event");
+	}
+};
+
+inline double diffMS(CUevent startEvent, CUevent endEvent)
+{
+	float elapsedMs = 0.0f;
+	cuEventSynchronize(endEvent);
+	THROW_CUDA_ERROR(cuEventElapsedTime(&elapsedMs, startEvent, endEvent), "cuEventElapsedTime");
+	return (double) elapsedMs;
+}
+
+struct Buffer : cuda_delete<CUdeviceptr, cuMemFree>::handle_type
+{
+	MOVE_BASE(Buffer, unique_handle)
+
+	Buffer(nullptr_t) { }
+	Buffer(size_t size)
+	{
+		THROW_CUDA_ERROR( cuMemAlloc(rebind(), size), "cuMemAlloc" );
+	}
+	Buffer(CUstream stream, void const* data, size_t size)
+	{
+		Buffer result(size);
+		if (data) result.writeBytes(stream, data, size);
+		*this = std::move(result);
+	}
+
+	void writeBytes(CUstream stream, void const* data, size_t size)
+	{
+		THROW_CUDA_ERROR( cuMemcpyHtoD(*this, data, size), "cuMemcpyHtoD" );
+	}
+	void readBytes(CUstream stream, void* data, size_t size)
+	{
+		THROW_CUDA_ERROR( cuMemcpyDtoH(data, *this, size), "cuMemcpyDtoH" );
+	}
+
+	template <class T>
+	void write(CUstream stream, T const* data, size_t count)
+	{
+		writeBytes(stream, data, sizeof(T) * count);
+	}
+	template <class T>
+	void read(CUstream stream, T* data, size_t count)
+	{
+		readBytes(stream, data, sizeof(T) * count);
+	}
+
+	template <class T>
+	Buffer create(CUstream stream, T* data, size_t count)
+	{
+		return Buffer(stream, data, sizeof(T) * count);
+	}
+	template <class Range>
+	Buffer create(CUstream stream, Range const& range)
+	{
+		return Buffer(stream, range.data(), sizeof(*range.data()) * range.size());
+	}
+};
+/*
+struct Image : cl_delete<cl_mem, clReleaseMemObject>::handle_type
+{
+	MOVE_BASE(Image, unique_handle)
+
+	Image(nullptr_t) { }
+	Image(cl_context context, cl_channel_order channelOrder, cl_channel_type channelType, size_t w, size_t h, void const* data, cl_mem_flags flags = CL_MEM_READ_WRITE)
+	{
+		cl_int error;
+		cl_image_format format = { channelOrder, channelType };
+		if (data && !(flags & CL_MEM_USE_HOST_PTR)) flags |= CL_MEM_COPY_HOST_PTR;
+		reset( clCreateImage2D (context, flags, &format, w, h, 0, (void*) data, &error) );
+		THROW_OPENCL_ERROR(error, "Failed to create OpenCL image object");
+	}
+};
+
+struct Volume : cl_delete<cl_mem, clReleaseMemObject>::handle_type
+{
+	MOVE_BASE(Volume, unique_handle)
+
+	Volume(nullptr_t) { }
+	Volume(cl_context context, cl_channel_order channelOrder, cl_channel_type channelType, size_t w, size_t h, size_t d, void const* data, cl_mem_flags flags = CL_MEM_READ_WRITE)
+	{
+		cl_int error;
+		cl_image_format format = { channelOrder, channelType };
+		if (data && !(flags & CL_MEM_USE_HOST_PTR)) flags |= CL_MEM_COPY_HOST_PTR;
+		reset( clCreateImage3D (context, flags, &format, w, h, d, 0, 0, (void*) data, &error) );
+		THROW_OPENCL_ERROR(error, "Failed to create OpenCL volume object");
+	}
+};
+
+inline size_t imageSizeInfo(cl_mem image, cl_image_info paramName)
+{
+	size_t result;
+	THROW_OPENCL_ERROR( clGetImageInfo(image, paramName, sizeof(result), &result, nullptr), "clGetImageInfo" );
+	return result;
+}
+inline size_t imageWidth(cl_mem image) { return imageSizeInfo(image, CL_IMAGE_WIDTH); }
+inline size_t imageHeight(cl_mem image) { return imageSizeInfo(image, CL_IMAGE_HEIGHT); }
+inline size_t imageDepth(cl_mem image) { return imageSizeInfo(image, CL_IMAGE_DEPTH); }
+inline size_t imageElementSize(cl_mem image) { return imageSizeInfo(image, CL_IMAGE_ELEMENT_SIZE); }
+
+inline void bufferToImage(cl_command_queue stream, cl_mem buffer, cl_mem image,
+						  size_t offsetX = 0, size_t sizeX = -1,
+						  size_t offsetY = 0, size_t sizeY = -1,
+						  size_t offsetZ = 0, size_t sizeZ = -1)
+{
+	if (sizeX == -1) sizeX = imageWidth(image);
+	if (sizeY == -1) sizeY = imageHeight(image);
+	if (sizeZ == -1) { sizeZ = imageDepth(image); if (sizeZ == 0) sizeZ = 1; }
+
+	size_t offset[3] = { offsetX, offsetY, offsetZ };
+	size_t region[3] = { sizeX, sizeY, sizeZ };
+	THROW_OPENCL_ERROR( clEnqueueCopyBufferToImage(stream, buffer, image, 0, offset, region, 0, nullptr, nullptr), "clEnqueueCopyBufferToImage" );
+}
+
+struct BufferedVolume
+{
+	ocl::Volume volume;
+	ocl::Buffer buffer;
+
+	MOVE_2_MEMBERS(BufferedVolume, volume, buffer);
+
+	BufferedVolume(nullptr_t)
+		: volume(nullptr)
+		, buffer(nullptr) { }
+	BufferedVolume(cl_context context, cl_channel_order channelOrder, cl_channel_type channelType, size_t w, size_t h, size_t d, void const* data, cl_mem_flags flags = 0)
+		: volume(context, channelOrder, channelType, w, h, d, data, (flags & CL_MEM_WRITE_ACCESS_FLAG_MASK) ? flags : flags | CL_MEM_READ_ONLY)
+		, buffer(context, nullptr, w * h * d * ocl::imageElementSize(volume), (flags & CL_MEM_WRITE_ACCESS_FLAG_MASK) ? flags : flags | CL_MEM_WRITE_ONLY)
+	{
+	}
+
+	void copyToVolume(cl_command_queue stream) { ocl::bufferToImage(stream, buffer, volume); }
+};
+
+struct GlBuffer : cl_delete<cl_mem, clReleaseMemObject>::handle_type
+{
+	MOVE_BASE(GlBuffer, unique_handle)
+
+	GlBuffer(nullptr_t) { }
+	GlBuffer(cl_context context, GLuint glBuffer, cl_mem_flags flags = CL_MEM_READ_WRITE)
+	{
+		cl_int error;
+		reset( clCreateFromGLBuffer(context, flags, glBuffer, &error) );
+		THROW_OPENCL_ERROR(error, "Failed to create OpenCL buffer object");
+	}
+
+	void bind(cl_command_queue stream)
+	{
+		THROW_OPENCL_ERROR( clEnqueueAcquireGLObjects(stream, 1, &get(), 0, nullptr, nullptr), "clEnqueueAcquireGLObjects()" );
+	}
+
+	void unbind(cl_command_queue stream)
+	{
+		THROW_OPENCL_ERROR( clEnqueueReleaseGLObjects(stream, 1, &get(), 0, nullptr, nullptr), "clEnqueueReleaseGLObjects()" );
+	}
+};
+
+struct GlTexture : cl_delete<cl_mem, clReleaseMemObject>::handle_type
+{
+	MOVE_BASE(GlTexture, unique_handle)
+
+	GlTexture(nullptr_t) { }
+	GlTexture(cl_context context, GLenum glTextureType, GLuint glTexture, cl_mem_flags flags = CL_MEM_READ_WRITE, size_t mipLevel = 0)
+	{
+		cl_int error;
+		if (glTextureType != GL_TEXTURE_3D && glTextureType != GL_TEXTURE_2D_ARRAY)
+			reset( clCreateFromGLTexture2D(context, flags, glTextureType, (GLint) mipLevel, glTexture, &error) );
+		else
+			reset( clCreateFromGLTexture3D(context, flags, glTextureType, (GLint) mipLevel, glTexture, &error) );
+		THROW_OPENCL_ERROR(error, "Failed to create OpenCL texture object");
+	}
+
+	void bind(cl_command_queue stream)
+	{
+		THROW_OPENCL_ERROR( clEnqueueAcquireGLObjects(stream, 1, &get(), 0, nullptr, nullptr), "clEnqueueAcquireGLObjects()" );
+	}
+
+	void unbind(cl_command_queue stream)
+	{
+		THROW_OPENCL_ERROR( clEnqueueReleaseGLObjects(stream, 1, &get(), 0, nullptr, nullptr), "clEnqueueReleaseGLObjects()" );
+	}
+};
+
+struct GlGuard : stdx::noncopyable
+{
+	cl_command_queue stream;
+
+	GlGuard(cl_command_queue stream)
+		: stream(stream)
+	{
+		glFinish();
+		THROW_OPENGL_LASTERROR("glFinish()");
+	}
+
+	~GlGuard()
+	{
+		THROW_OPENCL_ERROR( clFinish(stream), "clFinish()" );
+	}
+};
+
+template <class T>
+struct BindGuard
+{
+	cl_command_queue stream;
+	stdx::unique_handle<T*> bound;
+	MOVE_2_MEMBERS(BindGuard, stream, bound)
+
+	BindGuard(cl_command_queue stream, T &bound)
+		: stream(stream),
+		bound(&bound)
+	{
+		bound.bind(stream);
+	}
+	~BindGuard()
+	{
+		if (bound)
+			bound.get()->unbind(stream);
+	}
+
+	void disarm() { bound = nullptr; }
+};
+
+template <class T>
+inline BindGuard<T> bind_guarded(cl_command_queue stream, T &bound) { return BindGuard<T>(stream, bound); }
+*/
+struct ModuleWithTime : Module
+{
+	char const* preamble;
+	std::string file;
+	time_t time;
+
+	using Module::operator =;
+
+	explicit ModuleWithTime(std::string file)
+		: Module(nullptr)
+		, preamble(preamble)
+		, file(std::move(file))
+		, time(0)
+	{
+	}
+	void load()
+	{
+		*this = Module::fromFile(file.c_str());
+		time = stdx::file_time(file.c_str());
+	}
+	int maybeReload()
+	{
+		if (stdx::file_time(file.c_str()) > time)
+		{
+			try { load(); return 1; }
+			catch (cuda_error const &) { return -1; }
+		}
+		return 0;
+	}
+};
+
+struct KernelWithTime : Kernel
+{
+	ModuleWithTime const* module;
+	char const* kernelName;
+	time_t time;
+
+	using Kernel::operator =;
+
+	explicit KernelWithTime(ModuleWithTime const* module, char const* kernelName)
+		: Kernel(nullptr)
+		, module(module)
+		, kernelName(kernelName)
+		, time(0)
+	{
+		load();
+	}
+	void load()
+	{
+		*this = Kernel(*module, kernelName);
+		time = module->time;
+	}
+	int maybeReload()
+	{
+		if (module->time > time)
+		{
+			try { load(); return 1; }
+			catch (cuda_error const &) { return -1; }
+		}
+		return 0;
+	}
+};
+
+} // namespace
