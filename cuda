@@ -241,6 +241,15 @@ struct Image : cuda_delete<CUarray, cuArrayDestroy>::handle_type
 		
 		THROW_CUDA_ERROR(cuArray3DCreate(rebind(), &desc), "cuArray3DCreate");
 	}
+
+	static Image create2D(unsigned numChannels, CUarray_format format, size_t w, size_t h, unsigned flags = 0)
+	{
+		return Image(numChannels, format, w, h, 0, flags);
+	}
+	static Image create3D(unsigned numChannels, CUarray_format format, size_t w, size_t h, size_t d, unsigned flags = 0)
+	{
+		return Image(numChannels, format, w, h, d, flags);
+	}
 };
 
 struct MippedImage : cuda_delete<CUmipmappedArray, cuMipmappedArrayDestroy>::handle_type
@@ -259,6 +268,15 @@ struct MippedImage : cuda_delete<CUmipmappedArray, cuMipmappedArrayDestroy>::han
 		desc.Flags = flags;
 		
 		THROW_CUDA_ERROR(cuMipmappedArrayCreate(rebind(), &desc, (unsigned) levels), "cuMipmappedArrayCreate");
+	}
+
+	static MippedImage create2D(unsigned numChannels, CUarray_format format, size_t w, size_t h, size_t levels, unsigned flags = 0)
+	{
+		return MippedImage(numChannels, format, w, h, 0, levels, flags);
+	}
+	static MippedImage create3D(unsigned numChannels, CUarray_format format, size_t w, size_t h, size_t d, size_t levels, unsigned flags = 0)
+	{
+		return MippedImage(numChannels, format, w, h, d, levels, flags);
 	}
 };
 
