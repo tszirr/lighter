@@ -188,9 +188,8 @@ struct Buffer : cuda_delete<CUdeviceptr, cuMemFree>::handle_type
 	}
 	Buffer(CUstream stream, void const* data, size_t size)
 	{
-		Buffer result(size);
-		if (data) result.writeBytes(stream, data, size);
-		*this = std::move(result);
+		*this = Buffer(size);
+		if (data) writeBytes(stream, data, size);
 	}
 
 	void writeBytes(CUstream stream, void const* data, size_t size)
@@ -224,153 +223,212 @@ struct Buffer : cuda_delete<CUdeviceptr, cuMemFree>::handle_type
 		return Buffer(stream, range.data(), sizeof(*range.data()) * range.size());
 	}
 };
-/*
-struct Image : cl_delete<cl_mem, clReleaseMemObject>::handle_type
+
+struct Image : cuda_delete<CUarray, cuArrayDestroy>::handle_type
 {
 	MOVE_BASE(Image, unique_handle)
 
 	Image(nullptr_t) { }
-	Image(cl_context context, cl_channel_order channelOrder, cl_channel_type channelType, size_t w, size_t h, void const* data, cl_mem_flags flags = CL_MEM_READ_WRITE)
+	Image(unsigned numChannels, CUarray_format format, size_t w, size_t h, size_t d = 0, unsigned flags = 0)
 	{
-		cl_int error;
-		cl_image_format format = { channelOrder, channelType };
-		if (data && !(flags & CL_MEM_USE_HOST_PTR)) flags |= CL_MEM_COPY_HOST_PTR;
-		reset( clCreateImage2D (context, flags, &format, w, h, 0, (void*) data, &error) );
-		THROW_OPENCL_ERROR(error, "Failed to create OpenCL image object");
+		CUDA_ARRAY3D_DESCRIPTOR desc = { 0 };
+		desc.Width = w;
+		desc.Height = h;
+		desc.Depth = d;
+		desc.Format = format;
+		desc.NumChannels = numChannels;
+		desc.Flags = flags;
+		
+		THROW_CUDA_ERROR(cuArray3DCreate(rebind(), &desc), "cuArray3DCreate");
 	}
 };
 
-struct Volume : cl_delete<cl_mem, clReleaseMemObject>::handle_type
+struct MippedImage : cuda_delete<CUmipmappedArray, cuMipmappedArrayDestroy>::handle_type
 {
-	MOVE_BASE(Volume, unique_handle)
+	MOVE_BASE(MippedImage, unique_handle)
 
-	Volume(nullptr_t) { }
-	Volume(cl_context context, cl_channel_order channelOrder, cl_channel_type channelType, size_t w, size_t h, size_t d, void const* data, cl_mem_flags flags = CL_MEM_READ_WRITE)
+	MippedImage(nullptr_t) { }
+	MippedImage(unsigned numChannels, CUarray_format format, size_t w, size_t h, size_t d, size_t levels, unsigned flags = 0)
 	{
-		cl_int error;
-		cl_image_format format = { channelOrder, channelType };
-		if (data && !(flags & CL_MEM_USE_HOST_PTR)) flags |= CL_MEM_COPY_HOST_PTR;
-		reset( clCreateImage3D (context, flags, &format, w, h, d, 0, 0, (void*) data, &error) );
-		THROW_OPENCL_ERROR(error, "Failed to create OpenCL volume object");
+		CUDA_ARRAY3D_DESCRIPTOR desc = { 0 };
+		desc.Width = w;
+		desc.Height = h;
+		desc.Depth = d;
+		desc.Format = format;
+		desc.NumChannels = numChannels;
+		desc.Flags = flags;
+		
+		THROW_CUDA_ERROR(cuMipmappedArrayCreate(rebind(), &desc, (unsigned) levels), "cuMipmappedArrayCreate");
 	}
 };
 
-inline size_t imageSizeInfo(cl_mem image, cl_image_info paramName)
+inline CUDA_RESOURCE_DESC resource_desc(CUdeviceptr res, size_t size, unsigned numChannels, CUarray_format format)
 {
-	size_t result;
-	THROW_OPENCL_ERROR( clGetImageInfo(image, paramName, sizeof(result), &result, nullptr), "clGetImageInfo" );
-	return result;
+	CUDA_RESOURCE_DESC rd = { };
+	rd.res.linear.devPtr = res;
+	rd.res.linear.sizeInBytes = size;
+	rd.res.linear.numChannels = numChannels;
+	rd.res.linear.format = format;
+	rd.resType = CU_RESOURCE_TYPE_LINEAR;
+	return rd;
 }
-inline size_t imageWidth(cl_mem image) { return imageSizeInfo(image, CL_IMAGE_WIDTH); }
-inline size_t imageHeight(cl_mem image) { return imageSizeInfo(image, CL_IMAGE_HEIGHT); }
-inline size_t imageDepth(cl_mem image) { return imageSizeInfo(image, CL_IMAGE_DEPTH); }
-inline size_t imageElementSize(cl_mem image) { return imageSizeInfo(image, CL_IMAGE_ELEMENT_SIZE); }
-
-inline void bufferToImage(cl_command_queue stream, cl_mem buffer, cl_mem image,
-						  size_t offsetX = 0, size_t sizeX = -1,
-						  size_t offsetY = 0, size_t sizeY = -1,
-						  size_t offsetZ = 0, size_t sizeZ = -1)
+inline CUDA_RESOURCE_DESC resource_desc(CUarray res)
 {
-	if (sizeX == -1) sizeX = imageWidth(image);
-	if (sizeY == -1) sizeY = imageHeight(image);
-	if (sizeZ == -1) { sizeZ = imageDepth(image); if (sizeZ == 0) sizeZ = 1; }
-
-	size_t offset[3] = { offsetX, offsetY, offsetZ };
-	size_t region[3] = { sizeX, sizeY, sizeZ };
-	THROW_OPENCL_ERROR( clEnqueueCopyBufferToImage(stream, buffer, image, 0, offset, region, 0, nullptr, nullptr), "clEnqueueCopyBufferToImage" );
+	CUDA_RESOURCE_DESC rd = { };
+	rd.res.array.hArray = res;
+	rd.resType = CU_RESOURCE_TYPE_ARRAY;
+	return rd;
+}
+inline CUDA_RESOURCE_DESC resource_desc(CUmipmappedArray res)
+{
+	CUDA_RESOURCE_DESC rd = { };
+	rd.res.mipmap.hMipmappedArray = res;
+	rd.resType = CU_RESOURCE_TYPE_MIPMAPPED_ARRAY;
+	return rd;
 }
 
-struct BufferedVolume
+inline CUDA_TEXTURE_DESC linear_texture_desc(CUaddress_mode addressMode = CU_TR_ADDRESS_MODE_CLAMP,
+											 bool normalizedCoords = true,
+											 bool srgb = false,
+											 bool normalizedInts = true,
+											 CUfilter_mode mipFilterMode = CU_TR_FILTER_MODE_LINEAR,
+											 CUfilter_mode filterMode = CU_TR_FILTER_MODE_LINEAR)
 {
-	ocl::Volume volume;
-	ocl::Buffer buffer;
+	CUDA_TEXTURE_DESC d = { };
+	d.filterMode = filterMode;
+	d.addressMode[0] = d.addressMode[1] = d.addressMode[2] = addressMode;
+	d.maxMipmapLevelClamp = 2.0e16f;
+	d.mipmapFilterMode = mipFilterMode;
+	if (normalizedCoords)
+		d.flags |= CU_TRSF_NORMALIZED_COORDINATES;
+	if (!normalizedInts)
+		d.flags |= CU_TRSF_READ_AS_INTEGER;
+	return d;
+}
 
-	MOVE_2_MEMBERS(BufferedVolume, volume, buffer);
+inline CUDA_TEXTURE_DESC point_texture_desc(CUaddress_mode addressMode = CU_TR_ADDRESS_MODE_CLAMP,
+											bool normalizedCoords = true,
+											bool srgb = false,
+											bool normalizedInts = true,
+											CUfilter_mode mipFilterMode = CU_TR_FILTER_MODE_POINT,
+											CUfilter_mode filterMode = CU_TR_FILTER_MODE_POINT)
+{
+	return linear_texture_desc(addressMode, normalizedCoords, srgb, normalizedInts, mipFilterMode, filterMode);
+}
 
-	BufferedVolume(nullptr_t)
-		: volume(nullptr)
-		, buffer(nullptr) { }
-	BufferedVolume(cl_context context, cl_channel_order channelOrder, cl_channel_type channelType, size_t w, size_t h, size_t d, void const* data, cl_mem_flags flags = 0)
-		: volume(context, channelOrder, channelType, w, h, d, data, (flags & CL_MEM_WRITE_ACCESS_FLAG_MASK) ? flags : flags | CL_MEM_READ_ONLY)
-		, buffer(context, nullptr, w * h * d * ocl::imageElementSize(volume), (flags & CL_MEM_WRITE_ACCESS_FLAG_MASK) ? flags : flags | CL_MEM_WRITE_ONLY)
+struct Texture : cuda_delete<CUtexObject, cuTexObjectDestroy>::handle_type
+{
+	MOVE_BASE(Texture, unique_handle)
+
+	Texture(nullptr_t) { }
+	Texture(CUDA_RESOURCE_DESC const& resDesc, CUDA_TEXTURE_DESC const& texDesc, CUDA_RESOURCE_VIEW_DESC const* pRVDesc = nullptr)
 	{
+		THROW_CUDA_ERROR(cuTexObjectCreate(rebind(), &resDesc, &texDesc, pRVDesc), "cuTexObjectCreate");
 	}
-
-	void copyToVolume(cl_command_queue stream) { ocl::bufferToImage(stream, buffer, volume); }
+	template <class Res>
+	Texture(Res const& res, CUDA_TEXTURE_DESC const& texDesc, CUDA_RESOURCE_VIEW_DESC const* pRVDesc = nullptr)
+	{
+		*this = Texture(resource_desc(res), texDesc, pRVDesc);
+	}
 };
 
-struct GlBuffer : cl_delete<cl_mem, clReleaseMemObject>::handle_type
+inline CUDA_RESOURCE_DESC surface_resource_desc(CUarray res)
+{
+	return resource_desc(res);
+}
+
+struct Surface : cuda_delete<CUsurfObject, cuSurfObjectDestroy>::handle_type
+{
+	MOVE_BASE(Surface, unique_handle)
+
+	Surface(nullptr_t) { }
+	Surface(CUDA_RESOURCE_DESC const& resDesc)
+	{
+		THROW_CUDA_ERROR(cuSurfObjectCreate(rebind(), &resDesc), "cuTexObjectCreate");
+	}
+	template <class Res>
+	Surface(Res const& res)
+	{
+		*this = Surface(surface_resource_desc(res));
+	}
+};
+
+struct GlBuffer : cuda_no_delete<CUgraphicsResource>::handle_type
 {
 	MOVE_BASE(GlBuffer, unique_handle)
 
 	GlBuffer(nullptr_t) { }
-	GlBuffer(cl_context context, GLuint glBuffer, cl_mem_flags flags = CL_MEM_READ_WRITE)
+	GlBuffer(GLuint glBuffer, unsigned int flags = CU_GRAPHICS_REGISTER_FLAGS_NONE)
 	{
-		cl_int error;
-		reset( clCreateFromGLBuffer(context, flags, glBuffer, &error) );
-		THROW_OPENCL_ERROR(error, "Failed to create OpenCL buffer object");
+		THROW_CUDA_ERROR( cuGraphicsGLRegisterBuffer(rebind(), glBuffer, flags), "cuGraphicsGLRegisterBuffer" );
 	}
 
-	void bind(cl_command_queue stream)
+	void bind(CUstream stream)
 	{
-		THROW_OPENCL_ERROR( clEnqueueAcquireGLObjects(stream, 1, &get(), 0, nullptr, nullptr), "clEnqueueAcquireGLObjects()" );
+		THROW_CUDA_ERROR( cuGraphicsMapResources(1, (CUgraphicsResource*) &get(), stream), "cuGraphicsMapResources" );
+	}
+	void unbind(CUstream stream)
+	{
+		THROW_CUDA_ERROR( cuGraphicsUnmapResources(1, (CUgraphicsResource*) &get(), stream), "cuGraphicsMapResources" );
 	}
 
-	void unbind(cl_command_queue stream)
+	CUdeviceptr pointer(size_t *pSize = nullptr)
 	{
-		THROW_OPENCL_ERROR( clEnqueueReleaseGLObjects(stream, 1, &get(), 0, nullptr, nullptr), "clEnqueueReleaseGLObjects()" );
+		CUdeviceptr result;
+		THROW_CUDA_ERROR( cuGraphicsResourceGetMappedPointer(&result, pSize, *this), "cuGraphicsResourceGetMappedPointer" );
+		return result;
 	}
 };
 
-struct GlTexture : cl_delete<cl_mem, clReleaseMemObject>::handle_type
+struct GlTexture : cuda_no_delete<CUgraphicsResource>::handle_type
 {
 	MOVE_BASE(GlTexture, unique_handle)
 
 	GlTexture(nullptr_t) { }
-	GlTexture(cl_context context, GLenum glTextureType, GLuint glTexture, cl_mem_flags flags = CL_MEM_READ_WRITE, size_t mipLevel = 0)
+	GlTexture(GLenum glTextureType, GLuint glTexture, unsigned int flags = CU_GRAPHICS_REGISTER_FLAGS_NONE, size_t mipLevel = 0)
 	{
-		cl_int error;
-		if (glTextureType != GL_TEXTURE_3D && glTextureType != GL_TEXTURE_2D_ARRAY)
-			reset( clCreateFromGLTexture2D(context, flags, glTextureType, (GLint) mipLevel, glTexture, &error) );
-		else
-			reset( clCreateFromGLTexture3D(context, flags, glTextureType, (GLint) mipLevel, glTexture, &error) );
-		THROW_OPENCL_ERROR(error, "Failed to create OpenCL texture object");
+		THROW_CUDA_ERROR( cuGraphicsGLRegisterImage(rebind(), glTexture, glTextureType, flags), "cuGraphicsGLRegisterImage" );
 	}
 
-	void bind(cl_command_queue stream)
+	void bind(CUstream stream)
 	{
-		THROW_OPENCL_ERROR( clEnqueueAcquireGLObjects(stream, 1, &get(), 0, nullptr, nullptr), "clEnqueueAcquireGLObjects()" );
+		THROW_CUDA_ERROR( cuGraphicsMapResources(1, (CUgraphicsResource*) &get(), stream), "cuGraphicsMapResources" );
+	}
+	void unbind(CUstream stream)
+	{
+		THROW_CUDA_ERROR( cuGraphicsUnmapResources(1, (CUgraphicsResource*) &get(), stream), "cuGraphicsMapResources" );
 	}
 
-	void unbind(cl_command_queue stream)
+	CUarray subImage(size_t level = 0, size_t element = 0)
 	{
-		THROW_OPENCL_ERROR( clEnqueueReleaseGLObjects(stream, 1, &get(), 0, nullptr, nullptr), "clEnqueueReleaseGLObjects()" );
+		CUarray result;
+		THROW_CUDA_ERROR( cuGraphicsSubResourceGetMappedArray(&result, *this, (unsigned) element, (unsigned) level), "cuGraphicsSubResourceGetMappedArray" );
+		return result;
+	}
+	CUmipmappedArray mippedImage()
+	{
+		CUmipmappedArray result;
+		THROW_CUDA_ERROR( cuGraphicsResourceGetMappedMipmappedArray(&result, *this), "cuGraphicsResourceGetMappedPointer" );
+		return result;
 	}
 };
 
-struct GlGuard : stdx::noncopyable
+inline CUDA_RESOURCE_DESC resource_desc(GlTexture& res)
 {
-	cl_command_queue stream;
-
-	GlGuard(cl_command_queue stream)
-		: stream(stream)
-	{
-		glFinish();
-		THROW_OPENGL_LASTERROR("glFinish()");
-	}
-
-	~GlGuard()
-	{
-		THROW_OPENCL_ERROR( clFinish(stream), "clFinish()" );
-	}
-};
+	return resource_desc(res.mippedImage());
+}
+inline CUDA_RESOURCE_DESC surface_resource_desc(GlTexture& res)
+{
+	return resource_desc(res.subImage());
+}
 
 template <class T>
 struct BindGuard
 {
-	cl_command_queue stream;
+	CUstream stream;
 	stdx::unique_handle<T*> bound;
-	MOVE_2_MEMBERS(BindGuard, stream, bound)
+
+	MOVE_GENERATE(BindGuard, MOVE_2, MEMBER, stream, MEMBER, bound)
 
 	BindGuard(cl_command_queue stream, T &bound)
 		: stream(stream),
@@ -388,8 +446,8 @@ struct BindGuard
 };
 
 template <class T>
-inline BindGuard<T> bind_guarded(cl_command_queue stream, T &bound) { return BindGuard<T>(stream, bound); }
-*/
+inline BindGuard<T> bind_guarded(CUstream stream, T &bound) { return BindGuard<T>(stream, bound); }
+
 struct ModuleWithTime : Module
 {
 	char const* preamble;
