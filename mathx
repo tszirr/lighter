@@ -2,10 +2,14 @@
 
 #define GLM_SWIZZLE
 #define GLM_ADL_FRIENDLY
+#define GLM_FORCE_CXX11
 
 #include <glm/glm.hpp>
-#include <glm/ext.hpp>
-#include <iosfwd>
+
+#ifndef MATHX_MINIMAL
+	#include <glm/ext.hpp>
+	#include <iosfwd>
+#endif
 
 namespace glm
 {
@@ -52,6 +56,7 @@ namespace glm
 		return (r == 0) ? x : x + d - r;
 	}
 
+#ifndef MATHX_MINIMAL
 	template <class Char, class Traits, class Comp>
 	std::basic_istream<Char, Traits>& operator >>(std::basic_istream<Char, Traits> &stream, glm::detail::tvec1<Comp> &v)
 	{
@@ -113,6 +118,7 @@ namespace glm
 		stream << v.w;
 		return stream;
 	}
+#endif
 	
 	/// Puts a zero bit in-between each of the lower 16 bits of the given value.
 	inline unsigned bitsep1(unsigned x)
