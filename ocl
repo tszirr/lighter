@@ -363,28 +363,30 @@ struct Image : cl_delete<cl_mem, clReleaseMemObject>::handle_type
 	MOVE_BASE(Image, unique_handle)
 
 	Image(nullptr_t) { }
-	Image(cl_context context, cl_channel_order channelOrder, cl_channel_type channelType, size_t w, size_t h, void const* data, cl_mem_flags flags = CL_MEM_READ_WRITE)
+	Image(cl_context context, cl_channel_order channelOrder, cl_channel_type channelType, size_t w, size_t h, void const* data, cl_mem_flags flags)
 	{
 		cl_int error;
 		cl_image_format format = { channelOrder, channelType };
 		if (data && !(flags & CL_MEM_USE_HOST_PTR)) flags |= CL_MEM_COPY_HOST_PTR;
-		reset( clCreateImage2D (context, flags, &format, w, h, 0, (void*) data, &error) );
+		reset( clCreateImage2D(context, flags, &format, w, h, 0, (void*) data, &error) );
 		THROW_OPENCL_ERROR(error, "Failed to create OpenCL image object");
 	}
-};
-
-struct Volume : cl_delete<cl_mem, clReleaseMemObject>::handle_type
-{
-	MOVE_BASE(Volume, unique_handle)
-
-	Volume(nullptr_t) { }
-	Volume(cl_context context, cl_channel_order channelOrder, cl_channel_type channelType, size_t w, size_t h, size_t d, void const* data, cl_mem_flags flags = CL_MEM_READ_WRITE)
+	Image(cl_context context, cl_channel_order channelOrder, cl_channel_type channelType, size_t w, size_t h, size_t d, void const* data, cl_mem_flags flags)
 	{
 		cl_int error;
 		cl_image_format format = { channelOrder, channelType };
 		if (data && !(flags & CL_MEM_USE_HOST_PTR)) flags |= CL_MEM_COPY_HOST_PTR;
-		reset( clCreateImage3D (context, flags, &format, w, h, d, 0, 0, (void*) data, &error) );
+		reset( clCreateImage3D(context, flags, &format, w, h, d, 0, 0, (void*) data, &error) );
 		THROW_OPENCL_ERROR(error, "Failed to create OpenCL volume object");
+	}
+
+	static Image create2D(cl_context context, cl_channel_order channelOrder, cl_channel_type channelType, size_t w, size_t h, void const* data = nullptr, cl_mem_flags flags = CL_MEM_READ_WRITE)
+	{
+		return Image(context, channelOrder, channelType, w, h, data, flags);
+	}
+	static Image create3D(cl_context context, cl_channel_order channelOrder, cl_channel_type channelType, size_t w, size_t h, size_t d, void const* data = nullptr, cl_mem_flags flags = CL_MEM_READ_WRITE)
+	{
+		return Image(context, channelOrder, channelType, w, h, d, data, flags);
 	}
 };
 
@@ -415,7 +417,7 @@ inline void bufferToImage(cl_command_queue stream, cl_mem buffer, cl_mem image,
 
 struct BufferedVolume
 {
-	ocl::Volume volume;
+	ocl::Image volume;
 	ocl::Buffer buffer;
 
 	MOVE_GENERATE(BufferedVolume, MOVE_2, MEMBER, volume, MEMBER, buffer)

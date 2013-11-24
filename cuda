@@ -47,27 +47,27 @@ struct CommandStream : cuda_delete<CUstream, cuStreamDestroy>::handle_type
 	// Default stream
 	CommandStream(nullptr_t) { }
 	// New stream
-	explicit CommandStream(unsigned int flags = CU_STREAM_DEFAULT)
+	explicit CommandStream(CUcontext ctx, unsigned int flags = CU_STREAM_DEFAULT)
 	{
 		THROW_CUDA_ERROR(cuStreamCreate(rebind(), flags), "cuStreamCreate");
 	}
 };
 
-struct Module : cuda_delete<CUmodule, cuModuleUnload>::handle_type
+struct Program : cuda_delete<CUmodule, cuModuleUnload>::handle_type
 {
-	MOVE_BASE(Module, unique_handle)
+	MOVE_BASE(Program, unique_handle)
 
-	Module(nullptr_t) { }
-	Module(char const* binary)
+	Program(nullptr_t) { }
+	Program(CUcontext context, char const* binary)
 	{
 		CUjit_option opt[] = { CU_JIT_TARGET_FROM_CUCONTEXT };
 		void* val[arraylen(opt)] = { nullptr };
 		THROW_CUDA_ERROR(cuModuleLoadDataEx(rebind(), binary, (unsigned) arraylen(opt), opt, val), "cuModuleLoadDataEx");
 	}
 
-	static Module fromFile(char const* file)
+	static Program fromFile(CUcontext context, char const* file)
 	{
-		return Module(stdx::load_binary_file(file).data());
+		return Program(context, stdx::load_binary_file(file).data());
 	}
 };
 
@@ -182,14 +182,14 @@ struct Buffer : cuda_delete<CUdeviceptr, cuMemFree>::handle_type
 	MOVE_BASE(Buffer, unique_handle)
 
 	Buffer(nullptr_t) { }
-	Buffer(size_t size)
+	Buffer(CUcontext context, size_t size)
 	{
 		THROW_CUDA_ERROR( cuMemAlloc(rebind(), size), "cuMemAlloc" );
 	}
-	Buffer(CUstream stream, void const* data, size_t size)
+	Buffer(CUcontext context, void const* data, size_t size)
 	{
-		*this = Buffer(size);
-		if (data) writeBytes(stream, data, size);
+		*this = Buffer(context, size);
+		if (data) writeBytes(nullptr, data, size);
 	}
 
 	void writeBytes(CUstream stream, void const* data, size_t size)
@@ -224,12 +224,48 @@ struct Buffer : cuda_delete<CUdeviceptr, cuMemFree>::handle_type
 	}
 };
 
+inline size_t format_bytes(CUarray_format format)
+{
+	switch (format)
+	{
+	case CU_AD_FORMAT_SIGNED_INT8:
+	case CU_AD_FORMAT_UNSIGNED_INT8:
+		return 1;
+	case CU_AD_FORMAT_SIGNED_INT16:
+	case CU_AD_FORMAT_UNSIGNED_INT16:
+	case CU_AD_FORMAT_HALF:
+		return 2;
+	case CU_AD_FORMAT_SIGNED_INT32:
+	case CU_AD_FORMAT_UNSIGNED_INT32:
+	case CU_AD_FORMAT_FLOAT:
+		return 4;
+	default:
+		assert(false);
+		return 0;
+	}
+}
+
+inline void memcpy(CUarray dest, void const* data, unsigned numChannels, CUarray_format format, size_t w, size_t h, size_t d = 1)
+{
+	CUDA_MEMCPY3D memcpy = { 0 };
+	memcpy.WidthInBytes = format_bytes(format) * numChannels * w;
+	memcpy.Height = h;
+	memcpy.Depth = d;
+	memcpy.srcMemoryType = CU_MEMORYTYPE_HOST;
+	memcpy.srcHost = data;
+	memcpy.srcPitch = memcpy.WidthInBytes;
+	memcpy.srcHeight = memcpy.Height;
+	memcpy.dstMemoryType = CU_MEMORYTYPE_ARRAY;
+	memcpy.dstArray = dest;
+	THROW_CUDA_ERROR(cuMemcpy3D(&memcpy), "cuMemcpy3D");
+}
+
 struct Image : cuda_delete<CUarray, cuArrayDestroy>::handle_type
 {
 	MOVE_BASE(Image, unique_handle)
 
 	Image(nullptr_t) { }
-	Image(unsigned numChannels, CUarray_format format, size_t w, size_t h, size_t d = 0, unsigned flags = 0)
+	Image(CUcontext context, unsigned numChannels, CUarray_format format, size_t w, size_t h, size_t d, void const* data, unsigned flags)
 	{
 		CUDA_ARRAY3D_DESCRIPTOR desc = { 0 };
 		desc.Width = w;
@@ -238,17 +274,19 @@ struct Image : cuda_delete<CUarray, cuArrayDestroy>::handle_type
 		desc.Format = format;
 		desc.NumChannels = numChannels;
 		desc.Flags = flags;
-		
 		THROW_CUDA_ERROR(cuArray3DCreate(rebind(), &desc), "cuArray3DCreate");
+
+		if (data)
+			memcpy(*this, data, numChannels, format, w, h, d);
 	}
 
-	static Image create2D(unsigned numChannels, CUarray_format format, size_t w, size_t h, unsigned flags = 0)
+	static Image create2D(CUcontext context, unsigned numChannels, CUarray_format format, size_t w, size_t h, void const* data = nullptr, unsigned flags = 0)
 	{
-		return Image(numChannels, format, w, h, 0, flags);
+		return Image(context, numChannels, format, w, h, 0, data, flags);
 	}
-	static Image create3D(unsigned numChannels, CUarray_format format, size_t w, size_t h, size_t d, unsigned flags = 0)
+	static Image create3D(CUcontext context, unsigned numChannels, CUarray_format format, size_t w, size_t h, size_t d, void const* data = nullptr, unsigned flags = 0)
 	{
-		return Image(numChannels, format, w, h, d, flags);
+		return Image(context, numChannels, format, w, h, d, data, flags);
 	}
 };
 
@@ -257,7 +295,7 @@ struct MippedImage : cuda_delete<CUmipmappedArray, cuMipmappedArrayDestroy>::han
 	MOVE_BASE(MippedImage, unique_handle)
 
 	MippedImage(nullptr_t) { }
-	MippedImage(unsigned numChannels, CUarray_format format, size_t w, size_t h, size_t d, size_t levels, unsigned flags = 0)
+	MippedImage(CUcontext context, unsigned numChannels, CUarray_format format, size_t w, size_t h, size_t d, size_t levels, void const* data, unsigned flags)
 	{
 		CUDA_ARRAY3D_DESCRIPTOR desc = { 0 };
 		desc.Width = w;
@@ -266,17 +304,28 @@ struct MippedImage : cuda_delete<CUmipmappedArray, cuMipmappedArrayDestroy>::han
 		desc.Format = format;
 		desc.NumChannels = numChannels;
 		desc.Flags = flags;
-		
 		THROW_CUDA_ERROR(cuMipmappedArrayCreate(rebind(), &desc, (unsigned) levels), "cuMipmappedArrayCreate");
+
+		if (data)
+			memcpy(subImage(0), data, numChannels, format, w, h, d);
 	}
 
-	static MippedImage create2D(unsigned numChannels, CUarray_format format, size_t w, size_t h, size_t levels, unsigned flags = 0)
+	static MippedImage create2D(CUcontext context, unsigned numChannels, CUarray_format format, size_t w, size_t h, size_t levels,
+		void const* data = nullptr, unsigned flags = 0)
 	{
-		return MippedImage(numChannels, format, w, h, 0, levels, flags);
+		return MippedImage(context, numChannels, format, w, h, 0, levels, data, flags);
 	}
-	static MippedImage create3D(unsigned numChannels, CUarray_format format, size_t w, size_t h, size_t d, size_t levels, unsigned flags = 0)
+	static MippedImage create3D(CUcontext context, unsigned numChannels, CUarray_format format, size_t w, size_t h, size_t d, size_t levels,
+		void const* data = nullptr, unsigned flags = 0)
 	{
-		return MippedImage(numChannels, format, w, h, d, levels, flags);
+		return MippedImage(context, numChannels, format, w, h, d, levels, data, flags);
+	}
+
+	CUarray subImage(size_t level = 0)
+	{
+		CUarray result;
+		THROW_CUDA_ERROR( cuMipmappedArrayGetLevel(&result, *this, (unsigned) level), "cuMipmappedArrayGetLevel" );
+		return result;
 	}
 };
 
@@ -339,14 +388,14 @@ struct Texture : cuda_delete<CUtexObject, cuTexObjectDestroy>::handle_type
 	MOVE_BASE(Texture, unique_handle)
 
 	Texture(nullptr_t) { }
-	Texture(CUDA_RESOURCE_DESC const& resDesc, CUDA_TEXTURE_DESC const& texDesc, CUDA_RESOURCE_VIEW_DESC const* pRVDesc = nullptr)
+	Texture(CUcontext context, CUDA_RESOURCE_DESC const& resDesc, CUDA_TEXTURE_DESC const& texDesc, CUDA_RESOURCE_VIEW_DESC const* pRVDesc = nullptr)
 	{
 		THROW_CUDA_ERROR(cuTexObjectCreate(rebind(), &resDesc, &texDesc, pRVDesc), "cuTexObjectCreate");
 	}
 	template <class Res>
-	Texture(Res const& res, CUDA_TEXTURE_DESC const& texDesc, CUDA_RESOURCE_VIEW_DESC const* pRVDesc = nullptr)
+	Texture(CUcontext context, Res const& res, CUDA_TEXTURE_DESC const& texDesc, CUDA_RESOURCE_VIEW_DESC const* pRVDesc = nullptr)
 	{
-		*this = Texture(resource_desc(res), texDesc, pRVDesc);
+		*this = Texture(context, resource_desc(res), texDesc, pRVDesc);
 	}
 };
 
@@ -360,14 +409,14 @@ struct Surface : cuda_delete<CUsurfObject, cuSurfObjectDestroy>::handle_type
 	MOVE_BASE(Surface, unique_handle)
 
 	Surface(nullptr_t) { }
-	Surface(CUDA_RESOURCE_DESC const& resDesc)
+	Surface(CUcontext context, CUDA_RESOURCE_DESC const& resDesc)
 	{
 		THROW_CUDA_ERROR(cuSurfObjectCreate(rebind(), &resDesc), "cuTexObjectCreate");
 	}
 	template <class Res>
-	Surface(Res const& res)
+	Surface(CUcontext context, Res const& res)
 	{
-		*this = Surface(surface_resource_desc(res));
+		*this = Surface(context, surface_resource_desc(res));
 	}
 };
 
@@ -376,7 +425,7 @@ struct GlBuffer : cuda_no_delete<CUgraphicsResource>::handle_type
 	MOVE_BASE(GlBuffer, unique_handle)
 
 	GlBuffer(nullptr_t) { }
-	GlBuffer(GLuint glBuffer, unsigned int flags = CU_GRAPHICS_REGISTER_FLAGS_NONE)
+	GlBuffer(CUcontext context, GLuint glBuffer, unsigned int flags = CU_GRAPHICS_REGISTER_FLAGS_NONE)
 	{
 		THROW_CUDA_ERROR( cuGraphicsGLRegisterBuffer(rebind(), glBuffer, flags), "cuGraphicsGLRegisterBuffer" );
 	}
@@ -403,7 +452,7 @@ struct GlTexture : cuda_no_delete<CUgraphicsResource>::handle_type
 	MOVE_BASE(GlTexture, unique_handle)
 
 	GlTexture(nullptr_t) { }
-	GlTexture(GLenum glTextureType, GLuint glTexture, unsigned int flags = CU_GRAPHICS_REGISTER_FLAGS_NONE, size_t mipLevel = 0)
+	GlTexture(CUcontext context, GLenum glTextureType, GLuint glTexture, unsigned int flags = CU_GRAPHICS_REGISTER_FLAGS_NONE)
 	{
 		THROW_CUDA_ERROR( cuGraphicsGLRegisterImage(rebind(), glTexture, glTextureType, flags), "cuGraphicsGLRegisterImage" );
 	}
@@ -448,7 +497,7 @@ struct BindGuard
 
 	MOVE_GENERATE(BindGuard, MOVE_2, MEMBER, stream, MEMBER, bound)
 
-	BindGuard(cl_command_queue stream, T &bound)
+	BindGuard(CUstream stream, T &bound)
 		: stream(stream),
 		bound(&bound)
 	{
@@ -466,31 +515,32 @@ struct BindGuard
 template <class T>
 inline BindGuard<T> bind_guarded(CUstream stream, T &bound) { return BindGuard<T>(stream, bound); }
 
-struct ModuleWithTime : Module
+struct ProgramWithTime : Program
 {
 	char const* preamble;
 	std::string file;
 	time_t time;
 
-	using Module::operator =;
+	using Program::operator =;
 
-	explicit ModuleWithTime(std::string file)
-		: Module(nullptr)
+	explicit ProgramWithTime(CUcontext context, std::string file)
+		: Program(nullptr)
 		, preamble(preamble)
 		, file(std::move(file))
 		, time(0)
 	{
+		load(context);
 	}
-	void load()
+	void load(CUcontext context)
 	{
-		*this = Module::fromFile(file.c_str());
+		*this = Program::fromFile(context, file.c_str());
 		time = stdx::file_time(file.c_str());
 	}
-	int maybeReload()
+	int maybeReload(CUcontext context)
 	{
 		if (stdx::file_time(file.c_str()) > time)
 		{
-			try { load(); return 1; }
+			try { load(context); return 1; }
 			catch (cuda_error const &) { return -1; }
 		}
 		return 0;
@@ -499,13 +549,13 @@ struct ModuleWithTime : Module
 
 struct KernelWithTime : Kernel
 {
-	ModuleWithTime const* module;
+	ProgramWithTime const* module;
 	char const* kernelName;
 	time_t time;
 
 	using Kernel::operator =;
 
-	explicit KernelWithTime(ModuleWithTime const* module, char const* kernelName)
+	explicit KernelWithTime(ProgramWithTime const* module, char const* kernelName)
 		: Kernel(nullptr)
 		, module(module)
 		, kernelName(kernelName)
