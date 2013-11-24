@@ -1,0 +1,100 @@
+#pragma once
+
+#include <cuda.h>
+#ifdef __CUDA_ARCH__ 
+	#include <cuda_runtime.h>
+#else
+	#include <host_defines.h>
+	#include <builtin_types.h>
+#endif
+
+#include "mathx"
+
+namespace cudax
+{
+
+template <class T>
+inline __host__ __device__ T* asRuntimePtr(CUdeviceptr ptr)
+{
+	return reinterpret_cast<T*>( static_cast<uintptr_t>(ptr) );
+}
+
+template <class T>
+inline __host__ __device__ CUdeviceptr asDriverPtr(T* ptr)
+{
+	return static_cast<CUdeviceptr>( reinterpret_cast<uintptr_t>(ptr) );
+}
+
+template <class T> struct CudaToGlm;
+template <> struct CudaToGlm<float1> { typedef glm::mediump_float Type; };
+template <> struct CudaToGlm<float2> { typedef glm::vec2 Type; };
+template <> struct CudaToGlm<float3> { typedef glm::vec3 Type; };
+template <> struct CudaToGlm<float4> { typedef glm::vec4 Type; };
+
+template <> struct CudaToGlm<int1> { typedef glm::mediump_int Type; };
+template <> struct CudaToGlm<int2> { typedef glm::ivec2 Type; };
+template <> struct CudaToGlm<int3> { typedef glm::ivec3 Type; };
+template <> struct CudaToGlm<int4> { typedef glm::ivec4 Type; };
+
+template <> struct CudaToGlm<uint1> { typedef glm::mediump_uint Type; };
+template <> struct CudaToGlm<uint2> { typedef glm::uvec2 Type; };
+template <> struct CudaToGlm<uint3> { typedef glm::uvec3 Type; };
+template <> struct CudaToGlm<uint4> { typedef glm::uvec4 Type; };
+
+template <class T>
+inline __host__ __device__ typename CudaToGlm<T>::Type toGlm(T const& cuda)
+{
+	return reinterpret_cast<typename CudaToGlm<T>::Type const&>(cuda);
+}
+
+template <class T> struct GlmToCuda;
+template <> struct GlmToCuda<glm::mediump_float> { typedef float1 Type; };
+template <> struct GlmToCuda<glm::vec2> { typedef float2 Type; };
+template <> struct GlmToCuda<glm::vec3> { typedef float3 Type; };
+template <> struct GlmToCuda<glm::vec4> { typedef float4 Type; };
+
+template <> struct GlmToCuda<glm::mediump_int> { typedef int1 Type; };
+template <> struct GlmToCuda<glm::ivec2> { typedef int2 Type; };
+template <> struct GlmToCuda<glm::ivec3> { typedef int3 Type; };
+template <> struct GlmToCuda<glm::ivec4> { typedef int4 Type; };
+
+template <> struct GlmToCuda<glm::mediump_uint> { typedef uint1 Type; };
+template <> struct GlmToCuda<glm::uvec2> { typedef uint2 Type; };
+template <> struct GlmToCuda<glm::uvec3> { typedef uint3 Type; };
+template <> struct GlmToCuda<glm::uvec4> { typedef uint4 Type; };
+
+template <class T>
+inline __host__ __device__ typename GlmToCuda<T>::Type toCuda(T const& glm)
+{
+	return reinterpret_cast<typename GlmToCuda<T>::Type const&>(glm);
+}
+
+#ifdef __CUDA_ARCH__ 
+
+template <class Type>
+__device__ inline Type surf2Dread(cudaSurfaceObject_t surf, int2 coord)
+{
+	Type x;
+	surf2Dread(&x, surf, coord.x * sizeof(Type), coord.y);
+	return x;
+}
+template <class Type>
+__device__ inline Type surf2Dread(cudaSurfaceObject_t surf, glm::ivec2 coord)
+{
+	return toGlm( surf2Dread<typename GlmToCuda<Type>::Type>(surf, toCuda(coord)) );
+}
+
+template <class Type>
+__device__ inline void surf2Dwrite(Type const& x, cudaSurfaceObject_t surf, int2 coord)
+{
+	surf2Dwrite(x, surf, coord.x * sizeof(Type), coord.y);
+}
+template <class Type>
+__device__ inline void surf2Dwrite(Type const& x, cudaSurfaceObject_t surf, glm::ivec2 coord)
+{
+	surf2Dwrite(toCuda(x), surf, toCuda(coord));
+}
+
+#endif
+
+} // namespace
