@@ -73,11 +73,12 @@ namespace stdx
 		std::vector<char> data;
 
 		auto t = read_binary_file(name);
-		t.seekg(0, std::ios::end);   
-		data.resize((size_t) t.tellg() + (size_t) nullterminated);
+		t.seekg(0, std::ios::end);
+		size_t fileSize = (size_t) t.tellg();
+		data.resize(fileSize + (size_t) nullterminated);
 		t.seekg(0, std::ios::beg);
 
-		t.read(data.data(), data.size());
+		t.read(data.data(), fileSize);
 		return data;
 	}
 	
