@@ -393,7 +393,7 @@ struct Texture : cuda_delete<CUtexObject, cuTexObjectDestroy>::handle_type
 		THROW_CUDA_ERROR(cuTexObjectCreate(rebind(), &resDesc, &texDesc, pRVDesc), "cuTexObjectCreate");
 	}
 	template <class Res>
-	Texture(CUcontext context, Res const& res, CUDA_TEXTURE_DESC const& texDesc, CUDA_RESOURCE_VIEW_DESC const* pRVDesc = nullptr)
+	Texture(CUcontext context, Res& res, CUDA_TEXTURE_DESC const& texDesc, CUDA_RESOURCE_VIEW_DESC const* pRVDesc = nullptr)
 	{
 		*this = Texture(context, resource_desc(res), texDesc, pRVDesc);
 	}
@@ -414,7 +414,7 @@ struct Surface : cuda_delete<CUsurfObject, cuSurfObjectDestroy>::handle_type
 		THROW_CUDA_ERROR(cuSurfObjectCreate(rebind(), &resDesc), "cuTexObjectCreate");
 	}
 	template <class Res>
-	Surface(CUcontext context, Res const& res)
+	Surface(CUcontext context, Res& res)
 	{
 		*this = Surface(context, surface_resource_desc(res));
 	}
