@@ -206,7 +206,7 @@ namespace stdx
 			return reinterpret_cast<pointer const&>(*this);
 		}
 		operator transparent_type() const { return get(); }
-		operator bool() const { return get() != pointer(); }
+		bool valid() const { return get() != pointer(); }
 
 	private:
 		// strictly noncopyable

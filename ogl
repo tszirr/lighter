@@ -149,12 +149,12 @@ struct GLFWWindow : stdx::noncopyable
 	
 	void registerThis() throw()
 	{
-		if (window)
+		if (window.valid())
 			windows()[window] = this;
 	}
 	void unregisterThis() throw()
 	{
-		if (window)
+		if (window.valid())
 			windows().erase(window);
 	}
 
@@ -194,7 +194,7 @@ struct GLFWWindow : stdx::noncopyable
 	GLFWWindow(int w, int h, char const *title, GLFWmonitor *monitor = glfwGetPrimaryMonitor(), GLFWwindow *share = nullptr)
 	{
 		window.reset( glfwCreateWindow(w, h, title, monitor, share) );
-		if (!window)
+		if (!window.valid())
 			throwx( ogl_error("Failed to create glfw window!") );
 		glfwSetFramebufferSizeCallback(window, resizeCallback);
 		glfwSetKeyCallback(window, keyCallback);
@@ -205,7 +205,7 @@ struct GLFWWindow : stdx::noncopyable
 	}
 	~GLFWWindow()
 	{
-		if (window)
+		if (window.valid())
 		{
 			glfwDestroyWindow(window);
 			unregisterThis();
