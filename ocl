@@ -16,6 +16,14 @@
 namespace ocl
 {
 
+struct cl_context_with_device
+{
+	cl_context context;
+	cl_device_id device;
+
+	operator cl_context() const { return context; }
+};
+
 struct Context : cl_delete<cl_context, clReleaseContext>::handle_type
 {
 	MOVE_GENERATE(Context, MOVE_3, BASE, unique_handle, MEMBER, platform, MEMBER, device)
@@ -95,18 +103,24 @@ struct Context : cl_delete<cl_context, clReleaseContext>::handle_type
 			THROW_OPENCL_ERROR( error, "Failed to create OpenCL context");
 		}
 	}
+
+	operator cl_context_with_device() const
+	{
+		cl_context_with_device r = { get(), device };
+		return r;
+	}
 };
 
 struct CommandStream : cl_delete<cl_command_queue, clReleaseCommandQueue>::handle_type
 {
 	MOVE_BASE(CommandStream, unique_handle)
 
-	CommandStream(cl_context context, cl_device_id device, bool profiling = true)
+	CommandStream(cl_context_with_device context, bool profiling = true)
 	{
 		cl_command_queue_properties const props = (profiling) ? CL_QUEUE_PROFILING_ENABLE : 0;
 
 		cl_int error;
-		reset( clCreateCommandQueue(context, device, props, &error) );
+		reset( clCreateCommandQueue(context, context.device, props, &error) );
 		THROW_OPENCL_ERROR(error, "Failed to create the command queue in the OpenCL context");
 	}
 };
@@ -116,7 +130,7 @@ struct Program : cl_delete<cl_program, clReleaseProgram>::handle_type
 	MOVE_BASE(Program, unique_handle)
 
 	Program(nullptr_t) { }
-	Program(cl_context context, cl_device_id device, char const* source, char const* preamble = "")
+	Program(cl_context_with_device context, char const* source, char const* preamble = "")
 	{
 		char const* sources[] = { preamble, source };
 
@@ -124,10 +138,10 @@ struct Program : cl_delete<cl_program, clReleaseProgram>::handle_type
 		reset( clCreateProgramWithSource(context, 2, sources, nullptr, &error) );
 		THROW_OPENCL_ERROR(error, "Failed to create OpenCL program");
 
-		error = clBuildProgram(*this, 1, &device, nullptr, nullptr, nullptr);
+		error = clBuildProgram(*this, 1, &context.device, nullptr, nullptr, nullptr);
 		if(error != CL_SUCCESS)
 		{
-			printBuildLog(*this, device);
+			printBuildLog(*this, context.device);
 			THROW_OPENCL_ERROR(error, "Failed to build OpenCL program");
 		}
 	}
@@ -148,9 +162,9 @@ struct Program : cl_delete<cl_program, clReleaseProgram>::handle_type
 		std::cout << log << std::endl;
 	}
 
-	static Program fromFile(cl_context context, cl_device_id device, char const* file, char const* preamble = "")
+	static Program fromFile(cl_context_with_device context, char const* file, char const* preamble = "")
 	{
-		return ocl::Program(context, device, stdx::load_file(file).c_str(), preamble);
+		return ocl::Program(context, stdx::load_file(file).c_str(), preamble);
 	}
 };
 
@@ -166,13 +180,13 @@ struct Kernel : cl_delete<cl_kernel, clReleaseKernel>::handle_type
 		THROW_OPENCL_ERROR(error, "Failed to create OpenCL kernel");
 	}
 
-	static Kernel fromSource(cl_context context, cl_device_id device, char const* source, char const* name)
+	static Kernel fromSource(cl_context_with_device context, char const* source, char const* name)
 	{
-		return ocl::Kernel(ocl::Program(context, device, source), name);
+		return ocl::Kernel(ocl::Program(context, source), name);
 	}
-	static Kernel fromFile(cl_context context, cl_device_id device, char const* file, char const* name)
+	static Kernel fromFile(cl_context_with_device context, char const* file, char const* name)
 	{
-		return ocl::Kernel(ocl::Program::fromFile(context, device, file), name);
+		return ocl::Kernel(ocl::Program::fromFile(context, file), name);
 	}
 
 	template <class T>
@@ -518,29 +532,29 @@ struct ProgramWithTime : Program
 
 	using Program::operator =;
 
-	explicit ProgramWithTime(cl_context context, cl_device_id device, std::string file, char const *preamble = "")
+	explicit ProgramWithTime(cl_context_with_device context, std::string file, char const *preamble = "")
 		: Program(nullptr)
 		, preamble(preamble)
 		, file(std::move(file))
 		, time(0)
 	{
-		load(context, device);
+		load(context);
 	}
 	static std::string resolveIncludes(std::string const& include, bool local)
 	{
 		return stdx::process_includes(stdx::load_file(include.c_str()), include, resolveIncludes);
 	}
-	void load(cl_context context, cl_device_id device)
+	void load(cl_context_with_device context)
 	{
 		std::string src = stdx::process_includes(stdx::load_file(file.c_str()), file, resolveIncludes);
-		*this = Program(context, device, src.c_str(), preamble);
+		*this = Program(context, src.c_str(), preamble);
 		time = stdx::file_time(file.c_str());
 	}
-	int maybeReload(cl_context context, cl_device_id device)
+	int maybeReload(cl_context_with_device context)
 	{
 		if (stdx::file_time(file.c_str()) > time)
 		{
-			try { load(context, device); return 1; }
+			try { load(context); return 1; }
 			catch (ocl_error const &) { return -1; }
 		}
 		return 0;
