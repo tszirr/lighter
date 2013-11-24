@@ -67,7 +67,7 @@ struct Program : cuda_delete<CUmodule, cuModuleUnload>::handle_type
 
 	static Program fromFile(CUcontext context, char const* file)
 	{
-		return Program(context, stdx::load_binary_file(file).data());
+		return Program(context, stdx::load_binary_file(file, true).data());
 	}
 };
 

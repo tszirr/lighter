@@ -68,13 +68,13 @@ namespace stdx
 		return str;
 	}
 	
-	inline std::vector<char> load_binary_file(char const* name)
+	inline std::vector<char> load_binary_file(char const* name, bool nullterminated = false)
 	{
 		std::vector<char> data;
 
 		auto t = read_binary_file(name);
 		t.seekg(0, std::ios::end);   
-		data.resize((size_t) t.tellg());
+		data.resize((size_t) t.tellg() + (size_t) nullterminated);
 		t.seekg(0, std::ios::beg);
 
 		t.read(data.data(), data.size());
