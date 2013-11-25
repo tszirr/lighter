@@ -399,6 +399,42 @@ struct Texture : cuda_delete<CUtexObject, cuTexObjectDestroy>::handle_type
 	}
 };
 
+void bind_texture(CUtexref ref, CUDA_RESOURCE_DESC const& resDesc)
+{
+	if (resDesc.resType == CUresourcetype::CU_RESOURCE_TYPE_MIPMAPPED_ARRAY)
+		THROW_CUDA_ERROR(cuTexRefSetMipmappedArray(ref, resDesc.res.mipmap.hMipmappedArray, resDesc.flags), "cuTexRefSetMipmappedArray");
+	else if (resDesc.resType == CUresourcetype::CU_RESOURCE_TYPE_ARRAY)
+		THROW_CUDA_ERROR(cuTexRefSetArray(ref, resDesc.res.array.hArray, resDesc.flags), "cuTexRefSetArray");
+	else if (resDesc.resType == CUresourcetype::CU_RESOURCE_TYPE_PITCH2D)
+	{
+		CUDA_ARRAY_DESCRIPTOR ad;
+		ad.NumChannels = resDesc.res.pitch2D.numChannels;
+		ad.Format = resDesc.res.pitch2D.format;
+		ad.Width = resDesc.res.pitch2D.width;
+		ad.Height = resDesc.res.pitch2D.height;
+		THROW_CUDA_ERROR(cuTexRefSetAddress2D(ref, &ad, resDesc.res.pitch2D.devPtr, resDesc.res.pitch2D.pitchInBytes), "cuTexRefSetAddress2D");
+	}
+	else if (resDesc.resType == CUresourcetype::CU_RESOURCE_TYPE_LINEAR)
+		THROW_CUDA_ERROR(cuTexRefSetAddress(nullptr, ref, resDesc.res.linear.devPtr, resDesc.res.linear.sizeInBytes), "cuTexRefSetAddress");
+}
+void configure_texture(CUtexref ref, CUDA_TEXTURE_DESC const& texDesc)
+{
+	for (int i = 0; i < 3; ++i)
+		cuTexRefSetAddressMode(ref, i, texDesc.addressMode[i]);
+	cuTexRefSetFilterMode(ref, texDesc.filterMode);
+	cuTexRefSetMipmapFilterMode(ref, texDesc.mipmapFilterMode);
+	cuTexRefSetMaxAnisotropy(ref, texDesc.maxAnisotropy);
+	cuTexRefSetFlags(ref, texDesc.flags);
+	cuTexRefSetMipmapLevelClamp(ref, texDesc.minMipmapLevelClamp, texDesc.maxMipmapLevelClamp);
+	cuTexRefSetMipmapLevelBias(ref, texDesc.mipmapLevelBias);
+}
+
+inline void bind_texture(CUtexref ref, CUDA_RESOURCE_DESC const& resDesc, CUDA_TEXTURE_DESC const& texDesc)
+{
+	bind_texture(ref, resDesc);
+	configure_texture(ref, texDesc);
+}
+
 inline CUDA_RESOURCE_DESC surface_resource_desc(CUarray res)
 {
 	return resource_desc(res);
@@ -419,6 +455,16 @@ struct Surface : cuda_delete<CUsurfObject, cuSurfObjectDestroy>::handle_type
 		*this = Surface(context, surface_resource_desc(res));
 	}
 };
+
+void bind_surface(CUsurfref ref, CUDA_RESOURCE_DESC const& resDesc)
+{
+	THROW_CUDA_ERROR(
+		(resDesc.resType == CUresourcetype::CU_RESOURCE_TYPE_ARRAY)
+			? cuSurfRefSetArray(ref, resDesc.res.array.hArray, resDesc.flags)
+			: CUDA_ERROR_INVALID_VALUE
+		, "cuTexRefSetArray"
+	);
+}
 
 struct GlBuffer : cuda_no_delete<CUgraphicsResource>::handle_type
 {
