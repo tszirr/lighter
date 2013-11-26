@@ -151,6 +151,59 @@ struct Kernel : cuda_no_delete<CUfunction>::handle_type
 	}
 };
 
+struct Variable : cuda_no_delete<CUdeviceptr>::handle_type
+{
+	MOVE_BASE(Variable, unique_handle)
+
+	Variable(nullptr_t) { }
+	explicit Variable(CUdeviceptr event)
+		: unique_handle(event) { }
+	explicit Variable(CUmodule module, char const *name)
+	{
+		THROW_CUDA_ERROR(cuModuleGetGlobal(rebind(), nullptr, module, name), "Failed to retrieve global variable");
+	}
+};
+
+struct TextureVariable : cuda_no_delete<CUtexref>::handle_type
+{
+	MOVE_BASE(TextureVariable, unique_handle)
+
+	TextureVariable(nullptr_t) { }
+	explicit TextureVariable(CUtexref event)
+		: unique_handle(event) { }
+	explicit TextureVariable(CUmodule module, char const *name)
+	{
+		THROW_CUDA_ERROR(cuModuleGetTexRef(rebind(), module, name), "Failed to retrieve texture variable");
+	}
+};
+
+struct SurfaceVariable : cuda_no_delete<CUsurfref>::handle_type
+{
+	MOVE_BASE(SurfaceVariable, unique_handle)
+
+	SurfaceVariable(nullptr_t) { }
+	explicit SurfaceVariable(CUsurfref event)
+		: unique_handle(event) { }
+	explicit SurfaceVariable(CUmodule module, char const *name)
+	{
+		THROW_CUDA_ERROR(cuModuleGetSurfRef(rebind(), module, name), "Failed to retrieve surface variable");
+	}
+};
+
+struct RebindVariable
+{
+	CUmodule module;
+
+	RebindVariable(CUmodule module)
+		: module(module) { }
+
+	template <class Member>
+	void operator ()(Member& member)
+	{
+		member = typename Member::mem_type(module, member.name());
+	}
+};
+
 struct Event : cuda_delete<CUevent, cuEventDestroy>::handle_type
 {
 	MOVE_BASE(Event, unique_handle)
@@ -434,6 +487,11 @@ inline void bind_texture(CUtexref ref, CUDA_RESOURCE_DESC const& resDesc, CUDA_T
 	bind_texture(ref, resDesc);
 	configure_texture(ref, texDesc);
 }
+template <class Res>
+inline void bind_texture(CUtexref ref, Res& res, CUDA_TEXTURE_DESC const& texDesc)
+{
+	bind_texture(ref, resource_desc(res), texDesc);
+}
 
 inline CUDA_RESOURCE_DESC surface_resource_desc(CUarray res)
 {
@@ -464,6 +522,11 @@ void bind_surface(CUsurfref ref, CUDA_RESOURCE_DESC const& resDesc)
 			: CUDA_ERROR_INVALID_VALUE
 		, "cuTexRefSetArray"
 	);
+}
+template <class Res>
+inline void bind_surface(CUsurfref ref, Res& res)
+{
+	bind_surface(ref, surface_resource_desc(res));
 }
 
 struct GlBuffer : cuda_no_delete<CUgraphicsResource>::handle_type

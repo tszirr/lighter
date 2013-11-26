@@ -71,26 +71,26 @@ inline __host__ __device__ typename GlmToCuda<T>::Type toCuda(T const& glm)
 
 #ifdef __CUDA_ARCH__ 
 
-template <class Type>
-__device__ inline Type surf2Dread(cudaSurfaceObject_t surf, int2 coord)
+template <class Type, class SurfaceType>
+__device__ inline Type surf2Dread(SurfaceType surf, int2 coord)
 {
 	Type x;
 	surf2Dread(&x, surf, coord.x * sizeof(Type), coord.y);
 	return x;
 }
-template <class Type>
-__device__ inline Type surf2Dread(cudaSurfaceObject_t surf, glm::ivec2 coord)
+template <class Type, class SurfaceType>
+__device__ inline Type surf2Dread(SurfaceType surf, glm::ivec2 coord)
 {
 	return toGlm( surf2Dread<typename GlmToCuda<Type>::Type>(surf, toCuda(coord)) );
 }
 
-template <class Type>
-__device__ inline void surf2Dwrite(Type const& x, cudaSurfaceObject_t surf, int2 coord)
+template <class Type, class SurfaceType>
+__device__ inline void surf2Dwrite(Type const& x, SurfaceType surf, int2 coord)
 {
 	surf2Dwrite(x, surf, coord.x * sizeof(Type), coord.y);
 }
-template <class Type>
-__device__ inline void surf2Dwrite(Type const& x, cudaSurfaceObject_t surf, glm::ivec2 coord)
+template <class Type, class SurfaceType>
+__device__ inline void surf2Dwrite(Type const& x, SurfaceType surf, glm::ivec2 coord)
 {
 	surf2Dwrite(toCuda(x), surf, toCuda(coord));
 }
