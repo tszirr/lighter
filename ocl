@@ -516,7 +516,7 @@ struct BindGuard
 	}
 	~BindGuard()
 	{
-		if (bound)
+		if (bound.valid())
 			bound.get()->unbind(stream);
 	}
 
