@@ -25,6 +25,10 @@ inline __host__ __device__ CUdeviceptr asDriverPtr(T* ptr)
 	return static_cast<CUdeviceptr>( reinterpret_cast<uintptr_t>(ptr) );
 }
 
+typedef glm::tvec2<unsigned short> hbvec2;
+typedef glm::tvec3<unsigned short> hbvec3;
+typedef glm::tvec4<unsigned short> hbvec4;
+
 template <class T> struct CudaToGlm;
 template <> struct CudaToGlm<float1> { typedef glm::mediump_float Type; };
 template <> struct CudaToGlm<float2> { typedef glm::vec2 Type; };
@@ -37,9 +41,9 @@ template <> struct CudaToGlm<int3> { typedef glm::ivec3 Type; };
 template <> struct CudaToGlm<int4> { typedef glm::ivec4 Type; };
 
 template <> struct CudaToGlm<ushort1> { typedef unsigned short Type; };
-template <> struct CudaToGlm<ushort2> { typedef glm::tvec2<unsigned short> Type; };
-template <> struct CudaToGlm<ushort3> { typedef glm::tvec3<unsigned short> Type; };
-template <> struct CudaToGlm<ushort4> { typedef glm::tvec4<unsigned short> Type; };
+template <> struct CudaToGlm<ushort2> { typedef hbvec2 Type; };
+template <> struct CudaToGlm<ushort3> { typedef hbvec3 Type; };
+template <> struct CudaToGlm<ushort4> { typedef hbvec4 Type; };
 
 template <> struct CudaToGlm<uint1> { typedef glm::mediump_uint Type; };
 template <> struct CudaToGlm<uint2> { typedef glm::uvec2 Type; };
@@ -105,22 +109,22 @@ __device__ inline void surf2Dwrite(Type const& x, SurfaceType surf, glm::ivec2 c
 	surf2Dwrite(toCuda(x), surf, toCuda(coord));
 }
 
-__device__ inline glm::tvec3<unsigned short> toHalf(glm::vec3 const& v)
+__device__ inline hbvec3 toHalf(glm::vec3 const& v)
 {
-	return glm::tvec3<unsigned short>( __float2half_rn(v.x), __float2half_rn(v.y), __float2half_rn(v.z) );
+	return hbvec3( __float2half_rn(v.x), __float2half_rn(v.y), __float2half_rn(v.z) );
 }
 
-__device__ inline glm::tvec4<unsigned short> toHalf(glm::vec4 const& v)
+__device__ inline hbvec4 toHalf(glm::vec4 const& v)
 {
-	return glm::tvec4<unsigned short>( __float2half_rn(v.x), __float2half_rn(v.y), __float2half_rn(v.z), __float2half_rn(v.w) );
+	return hbvec4( __float2half_rn(v.x), __float2half_rn(v.y), __float2half_rn(v.z), __float2half_rn(v.w) );
 }
 
-__device__ inline glm::vec3 fromHalf(glm::tvec3<unsigned short> const& v)
+__device__ inline glm::vec3 fromHalf(hbvec3 const& v)
 {
 	return glm::vec3( __half2float(v.x), __half2float(v.y), __half2float(v.z) );
 }
 
-__device__ inline glm::vec4 fromHalf(glm::tvec4<unsigned short> const& v)
+__device__ inline glm::vec4 fromHalf(hbvec4 const& v)
 {
 	return glm::vec4( __half2float(v.x), __half2float(v.y), __half2float(v.z), __half2float(v.w) );
 }
