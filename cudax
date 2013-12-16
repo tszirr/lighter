@@ -86,51 +86,51 @@ inline __host__ __device__ typename GlmToCuda<T>::Type toCuda(T const& glm)
 #ifdef __CUDA_ARCH__ 
 
 template <class Type, class SurfaceType>
-__device__ inline Type surf2Dread(SurfaceType surf, int2 coord)
+__device__ inline Type surf2Dread(SurfaceType surf, int2 coord, cudaSurfaceBoundaryMode boundaryMode = cudaBoundaryModeTrap)
 {
 	Type x;
-	::surf2Dread(&x, surf, coord.x * sizeof(Type), coord.y);
+	::surf2Dread(&x, surf, coord.x * sizeof(Type), coord.y, boundaryMode);
 	return x;
 }
 template <class Type, class SurfaceType>
-__device__ inline Type surf2Dread(SurfaceType surf, glm::ivec2 coord)
+__device__ inline Type surf2Dread(SurfaceType surf, glm::ivec2 coord, cudaSurfaceBoundaryMode boundaryMode = cudaBoundaryModeTrap)
 {
-	return toGlm( surf2Dread<typename GlmToCuda<Type>::Type>(surf, toCuda(coord)) );
+	return toGlm( surf2Dread<typename GlmToCuda<Type>::Type>(surf, toCuda(coord), boundaryMode) );
 }
 
 template <class Type, class SurfaceType>
-__device__ inline void surf2Dwrite(Type const& x, SurfaceType surf, int2 coord)
+__device__ inline void surf2Dwrite(Type const& x, SurfaceType surf, int2 coord, cudaSurfaceBoundaryMode boundaryMode = cudaBoundaryModeTrap)
 {
-	::surf2Dwrite(x, surf, coord.x * sizeof(Type), coord.y);
+	::surf2Dwrite(x, surf, coord.x * sizeof(Type), coord.y, boundaryMode);
 }
 template <class Type, class SurfaceType>
-__device__ inline void surf2Dwrite(Type const& x, SurfaceType surf, glm::ivec2 coord)
+__device__ inline void surf2Dwrite(Type const& x, SurfaceType surf, glm::ivec2 coord, cudaSurfaceBoundaryMode boundaryMode = cudaBoundaryModeTrap)
 {
-	surf2Dwrite(toCuda(x), surf, toCuda(coord));
+	surf2Dwrite(toCuda(x), surf, toCuda(coord), boundaryMode);
 }
 
 template <class Type, class SurfaceType>
-__device__ inline Type surf3Dread(SurfaceType surf, int3 coord)
+__device__ inline Type surf3Dread(SurfaceType surf, int3 coord, cudaSurfaceBoundaryMode boundaryMode = cudaBoundaryModeTrap)
 {
 	Type x;
-	::surf3Dread(&x, surf, coord.x * sizeof(Type), coord.y, coord.z);
+	::surf3Dread(&x, surf, coord.x * sizeof(Type), coord.y, coord.z, boundaryMode);
 	return x;
 }
 template <class Type, class SurfaceType>
-__device__ inline Type surf3Dread(SurfaceType surf, glm::ivec3 coord)
+__device__ inline Type surf3Dread(SurfaceType surf, glm::ivec3 coord, cudaSurfaceBoundaryMode boundaryMode = cudaBoundaryModeTrap)
 {
-	return toGlm( surf3Dread<typename GlmToCuda<Type>::Type>(surf, toCuda(coord)) );
+	return toGlm( surf3Dread<typename GlmToCuda<Type>::Type>(surf, toCuda(coord), boundaryMode) );
 }
 
 template <class Type, class SurfaceType>
-__device__ inline void surf3Dwrite(Type const& x, SurfaceType surf, int3 coord)
+__device__ inline void surf3Dwrite(Type const& x, SurfaceType surf, int3 coord, cudaSurfaceBoundaryMode boundaryMode = cudaBoundaryModeTrap)
 {
-	::surf3Dwrite(x, surf, coord.x * sizeof(Type), coord.y, coord.z);
+	::surf3Dwrite(x, surf, coord.x * sizeof(Type), coord.y, coord.z, boundaryMode);
 }
 template <class Type, class SurfaceType>
-__device__ inline void surf3Dwrite(Type const& x, SurfaceType surf, glm::ivec3 coord)
+__device__ inline void surf3Dwrite(Type const& x, SurfaceType surf, glm::ivec3 coord, cudaSurfaceBoundaryMode boundaryMode = cudaBoundaryModeTrap)
 {
-	surf3Dwrite(toCuda(x), surf, toCuda(coord));
+	surf3Dwrite(toCuda(x), surf, toCuda(coord), boundaryMode);
 }
 
 template <class Type, class Vec>
