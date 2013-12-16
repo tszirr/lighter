@@ -89,7 +89,7 @@ template <class Type, class SurfaceType>
 __device__ inline Type surf2Dread(SurfaceType surf, int2 coord)
 {
 	Type x;
-	surf2Dread(&x, surf, coord.x * sizeof(Type), coord.y);
+	::surf2Dread(&x, surf, coord.x * sizeof(Type), coord.y);
 	return x;
 }
 template <class Type, class SurfaceType>
@@ -101,7 +101,7 @@ __device__ inline Type surf2Dread(SurfaceType surf, glm::ivec2 coord)
 template <class Type, class SurfaceType>
 __device__ inline void surf2Dwrite(Type const& x, SurfaceType surf, int2 coord)
 {
-	surf2Dwrite(x, surf, coord.x * sizeof(Type), coord.y);
+	::surf2Dwrite(x, surf, coord.x * sizeof(Type), coord.y);
 }
 template <class Type, class SurfaceType>
 __device__ inline void surf2Dwrite(Type const& x, SurfaceType surf, glm::ivec2 coord)
@@ -113,7 +113,7 @@ template <class Type, class SurfaceType>
 __device__ inline Type surf3Dread(SurfaceType surf, int3 coord)
 {
 	Type x;
-	surf3Dread(&x, surf, coord.x * sizeof(Type), coord.y, coord.z);
+	::surf3Dread(&x, surf, coord.x * sizeof(Type), coord.y, coord.z);
 	return x;
 }
 template <class Type, class SurfaceType>
@@ -125,12 +125,44 @@ __device__ inline Type surf3Dread(SurfaceType surf, glm::ivec3 coord)
 template <class Type, class SurfaceType>
 __device__ inline void surf3Dwrite(Type const& x, SurfaceType surf, int3 coord)
 {
-	surf3Dwrite(x, surf, coord.x * sizeof(Type), coord.y, coord.z);
+	::surf3Dwrite(x, surf, coord.x * sizeof(Type), coord.y, coord.z);
 }
 template <class Type, class SurfaceType>
 __device__ inline void surf3Dwrite(Type const& x, SurfaceType surf, glm::ivec3 coord)
 {
 	surf3Dwrite(toCuda(x), surf, toCuda(coord));
+}
+
+template <class Type, class Vec>
+__device__ inline Type tex2D(cudaTextureObject_t surf, Vec coord, typename CudaToGlm<Vec>::Type* enable_if_cuda_vec = nullptr)
+{
+	return ::tex2D<Type>(surf, (float) coord.x, (float) coord.y);
+}
+template <class Type, class SurfaceType, class Vec>
+__device__ inline Type tex2D(SurfaceType surf, Vec coord, typename CudaToGlm<Vec>::Type* enable_if_cuda_vec = nullptr)
+{
+	return ::tex2D(surf, (float) coord.x, (float) coord.y);
+}
+template <class Type, class SurfaceType, class Vec>
+__device__ inline Type tex2D(SurfaceType surf, Vec coord, typename GlmToCuda<Vec>::Type* enable_if_glm_vec = nullptr)
+{
+	return toGlm( tex2D<typename GlmToCuda<Type>::Type>(surf, toCuda(coord)) );
+}
+
+template <class Type, class Vec>
+__device__ inline Type tex3D(cudaTextureObject_t surf, Vec coord, typename CudaToGlm<Vec>::Type* enable_if_cuda_vec = nullptr)
+{
+	return ::tex3D<Type>(surf, (float) coord.x, (float) coord.y, (float) coord.z);
+}
+template <class Type, class SurfaceType, class Vec>
+__device__ inline Type tex3D(SurfaceType surf, Vec coord, typename CudaToGlm<Vec>::Type* enable_if_cuda_vec = nullptr)
+{
+	return ::tex3D(surf, (float) coord.x, (float) coord.y, (float) coord.z);
+}
+template <class Type, class SurfaceType, class Vec>
+__device__ inline Type tex3D(SurfaceType surf, Vec coord, typename GlmToCuda<Vec>::Type* enable_if_glm_vec = nullptr)
+{
+	return toGlm( tex3D<typename GlmToCuda<Type>::Type>(surf, toCuda(coord)) );
 }
 
 __device__ inline hbvec3 toHalf(glm::vec3 const& v)
