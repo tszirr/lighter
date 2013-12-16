@@ -529,6 +529,39 @@ inline void bind_surface(CUsurfref ref, Res& res)
 	bind_surface(ref, surface_resource_desc(res));
 }
 
+template <class Resource>
+struct WithSurface : Resource
+{
+	MOVE_GENERATE(WithSurface, MOVE_2, BASE, Resource, MEMBER, surface)
+	using Resource::operator =;
+	Surface surface;
+	WithSurface(Resource resource, Surface surface = nullptr)
+		: Resource(move(resource))
+		, surface(move(surface)) { }
+};
+template <class Resource>
+struct WithTexture : Resource
+{
+	MOVE_GENERATE(WithTexture, MOVE_2, BASE, Resource, MEMBER, texture)
+	using Resource::operator =;
+	Texture texture;
+	WithTexture(Resource resource, Texture texture = nullptr)
+		: Resource(move(resource))
+		, texture(move(texture)) { }
+};
+template <class Resource>
+struct WithTextureAndSurface : WithSurface<WithTexture<Resource>>
+{
+	MOVE_BASE(WithTextureAndSurface, WithSurface<WithTexture<Resource>>)
+	using Resource::operator =;
+	WithTextureAndSurface(Resource resource)
+		: resource(move(resource)) { }
+	WithTextureAndSurface(Resource resource, Texture texture, Surface surface)
+		: resource(move(resource))
+		, texture(move(texture))
+		, surface(move(surface)) { }
+};
+
 struct GlBuffer : cuda_no_delete<CUgraphicsResource>::handle_type
 {
 	MOVE_BASE(GlBuffer, unique_handle)

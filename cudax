@@ -109,6 +109,30 @@ __device__ inline void surf2Dwrite(Type const& x, SurfaceType surf, glm::ivec2 c
 	surf2Dwrite(toCuda(x), surf, toCuda(coord));
 }
 
+template <class Type, class SurfaceType>
+__device__ inline Type surf3Dread(SurfaceType surf, int3 coord)
+{
+	Type x;
+	surf3Dread(&x, surf, coord.x * sizeof(Type), coord.y, coord.z);
+	return x;
+}
+template <class Type, class SurfaceType>
+__device__ inline Type surf3Dread(SurfaceType surf, glm::ivec3 coord)
+{
+	return toGlm( surf3Dread<typename GlmToCuda<Type>::Type>(surf, toCuda(coord)) );
+}
+
+template <class Type, class SurfaceType>
+__device__ inline void surf3Dwrite(Type const& x, SurfaceType surf, int3 coord)
+{
+	surf3Dwrite(x, surf, coord.x * sizeof(Type), coord.y, coord.z);
+}
+template <class Type, class SurfaceType>
+__device__ inline void surf3Dwrite(Type const& x, SurfaceType surf, glm::ivec3 coord)
+{
+	surf3Dwrite(toCuda(x), surf, toCuda(coord));
+}
+
 __device__ inline hbvec3 toHalf(glm::vec3 const& v)
 {
 	return hbvec3( __float2half_rn(v.x), __float2half_rn(v.y), __float2half_rn(v.z) );
