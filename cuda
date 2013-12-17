@@ -455,9 +455,9 @@ struct Texture : cuda_delete<CUtexObject, cuTexObjectDestroy>::handle_type
 void bind_texture(CUtexref ref, CUDA_RESOURCE_DESC const& resDesc)
 {
 	if (resDesc.resType == CUresourcetype::CU_RESOURCE_TYPE_MIPMAPPED_ARRAY)
-		THROW_CUDA_ERROR(cuTexRefSetMipmappedArray(ref, resDesc.res.mipmap.hMipmappedArray, resDesc.flags), "cuTexRefSetMipmappedArray");
+		THROW_CUDA_ERROR(cuTexRefSetMipmappedArray(ref, resDesc.res.mipmap.hMipmappedArray, CU_TRSA_OVERRIDE_FORMAT), "cuTexRefSetMipmappedArray");
 	else if (resDesc.resType == CUresourcetype::CU_RESOURCE_TYPE_ARRAY)
-		THROW_CUDA_ERROR(cuTexRefSetArray(ref, resDesc.res.array.hArray, resDesc.flags), "cuTexRefSetArray");
+		THROW_CUDA_ERROR(cuTexRefSetArray(ref, resDesc.res.array.hArray, CU_TRSA_OVERRIDE_FORMAT), "cuTexRefSetArray");
 	else if (resDesc.resType == CUresourcetype::CU_RESOURCE_TYPE_PITCH2D)
 	{
 		CUDA_ARRAY_DESCRIPTOR ad;
@@ -518,7 +518,7 @@ void bind_surface(CUsurfref ref, CUDA_RESOURCE_DESC const& resDesc)
 {
 	THROW_CUDA_ERROR(
 		(resDesc.resType == CUresourcetype::CU_RESOURCE_TYPE_ARRAY)
-			? cuSurfRefSetArray(ref, resDesc.res.array.hArray, resDesc.flags)
+			? cuSurfRefSetArray(ref, resDesc.res.array.hArray, 0)
 			: CUDA_ERROR_INVALID_VALUE
 		, "cuTexRefSetArray"
 	);
