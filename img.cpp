@@ -84,7 +84,8 @@ void load_image(void* image, ImageType::T elementType, unsigned channels, void* 
 
 	// Allocate dest image
 	desc.channels = channels;
-	allocate(desc, image);
+	unsigned numPixels = desc.dim.x * desc.dim.y * desc.dim.z;
+	char* destBytes = (char*) allocate(desc, image);
 
 	auto colType = FreeImage_GetColorType(bmp);
 	auto imgType = FreeImage_GetImageType(bmp);
@@ -111,6 +112,16 @@ void load_image(void* image, ImageType::T elementType, unsigned channels, void* 
 			// may assume FIC_RGB or FIC_RGBA here
 			assert(imgType == FIT_BITMAP && (colType == FIC_RGB || colType == FIC_RGBALPHA));
 
+			auto bytesPerPixel = FreeImage_GetBPP(bmp) / 8;
+			auto pitch = FreeImage_GetPitch(bmp);
+
+			if (bytesPerPixel / 1 == desc.channels && pitch == desc.dim.x * bytesPerPixel)
+				memcpy(destBytes, FreeImage_GetBits(bmp), numPixels * bytesPerPixel);
+			else
+			{
+				// todo: required GL data format?
+			}
+
 			// todo: copy to channels
 		}
 		break;
@@ -124,16 +135,32 @@ void load_image(void* image, ImageType::T elementType, unsigned channels, void* 
 			if (!bmp.valid()) throwx(img_error("Unsupported image format conversion"));
 			imgType = FreeImage_GetImageType(bmp);
 			colType = FreeImage_GetColorType(bmp);
-
+			
 			assert(imgType == FIT_UINT16 || imgType == FIT_INT16 || imgType == FIT_RGB16 || imgType == FIT_RGBA16);
-
-			// todo: copy to channels
+			
+			auto bytesPerPixel = FreeImage_GetBPP(bmp) / 8;
+			auto pitch = FreeImage_GetPitch(bmp);
+			
+			if (bytesPerPixel / 2 == desc.channels && pitch == desc.dim.x * bytesPerPixel)
+				memcpy(destBytes, FreeImage_GetBits(bmp), numPixels * bytesPerPixel);
+			else
+			{
+				// todo: copy to channels
+			}
 		}
 		break;
 	case ImageType::float32bpp:
 		if (imgType == FIT_FLOAT || imgType == FIT_RGBF || imgType == FIT_RGBAF)
 		{
-			// todo: copy to channels
+			auto bytesPerPixel = FreeImage_GetBPP(bmp) / 8;
+			auto pitch = FreeImage_GetPitch(bmp);
+
+			if (bytesPerPixel / 4 == desc.channels && pitch == desc.dim.x * bytesPerPixel)
+				memcpy(destBytes, FreeImage_GetBits(bmp), numPixels * bytesPerPixel);
+			else
+			{
+				// todo: copy to channels
+			}
 		}
 		else if (imgType == FIT_BITMAP)
 		{
