@@ -76,7 +76,7 @@ void load_image(void* image, ImageType::T elementType, unsigned channels, void* 
 	// Load image
 	FIMEMORY fifStream = { (void*) imageData };
 	bmp_handle bmp( FreeImage_LoadFromMemory(FIF_UNKNOWN, &fifStream, 0) );
-	if (!bmp.valid()) throwx(img_error("Unsupported image type"));
+	if (!bmp.valid()) throwx(img_error("Unsupported image type or format"));
 
 	// Read header
 	auto desc = image_desc(bmp);
@@ -182,6 +182,9 @@ void load_image(void* image, ImageType::T elementType, unsigned channels, void* 
 			// todo: 16 bit to float & copy to channels
 		}
 		break;
+
+	default:
+		throwx(img_error("Unsupported image format"));
 	}
 }
 
