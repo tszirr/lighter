@@ -1,0 +1,73 @@
+#pragma once
+
+#include "stdx"
+#include "mathx"
+#include <vector>
+
+namespace img
+{
+
+struct img_tag;
+typedef stdx::error<img_tag> img_error;
+
+struct ImageDesc
+{
+	unsigned channels;
+	glm::uvec3 dim;
+
+	ImageDesc()
+		: channels(1)
+		, dim(0) { }
+};
+
+struct ImageType
+{
+	enum T
+	{
+		int8bpp,
+		int16bpp,
+		float32bpp
+	};
+};
+
+template <class Element> struct ElementToImageType;
+template <> struct ElementToImageType<signed char> { static ImageType::T const value = ImageType::int8bpp; };
+template <> struct ElementToImageType<unsigned char> { static ImageType::T const value = ImageType::int8bpp; };
+template <> struct ElementToImageType<signed short> { static ImageType::T const value = ImageType::int16bpp; };
+template <> struct ElementToImageType<unsigned short> { static ImageType::T const value = ImageType::int16bpp; };
+template <> struct ElementToImageType<float> { static ImageType::T const value = ImageType::float32bpp; };
+
+template <class Element>
+struct Image : ImageDesc
+{
+	MOVE_GENERATE(Image, MOVE_2, BASE, ImageDesc, MEMBER, pixels);
+
+	std::vector<Element> pixels;
+
+	Image() { }
+	Image(ImageDesc const& desc)
+		: ImageDesc(desc)
+	{
+		pixels.resize(desc.dim.x * desc.dim.y * desc.dim.z * desc.channels);
+	}
+};
+
+ImageDesc load_image_desc(const char* imageData, size_t imageDataLen);
+void load_image(void* image, ImageType::T elementType, unsigned channels, void* (*allocate)(ImageDesc const& desc, void* image),
+				const char* imageData, size_t imageDataLen);
+
+template <class Image>
+void* allocate_image(ImageDesc const& desc, void* image)
+{
+	return (*static_cast<Image*>(image) = Image(desc)).pixels.data();
+}
+
+template <class Element, unsigned Channels>
+Image<Element> load_image(const char* imageData, size_t imageDataLen)
+{
+	Image<Element> image;
+	load_image(&image, ElementToImageType<Element>::value, Channels, &allocate_image<decltype(image)>, imageData, imageDataLen);
+	return image;
+}
+
+} // namespace
