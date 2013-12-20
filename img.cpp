@@ -99,7 +99,7 @@ ImageDesc load_image_desc(const char* imageData, size_t imageDataLen)
 	return image_desc(bmp);
 }
 
-void load_image(void* image, ImageType::T elementType, unsigned channels, void* (*allocate)(ImageDesc const& desc, void* image), const char* imageData, size_t imageDataLen)
+void load_image(void* destImage, ImageType::T destElementType, unsigned destChannels, void* (*allocate)(ImageDesc const& desc, void* image), const char* imageData, size_t imageDataLen)
 {
 	prepareFreeImage();
 
@@ -109,18 +109,20 @@ void load_image(void* image, ImageType::T elementType, unsigned channels, void* 
 	if (!bmp.valid()) throwx(img_error("Unsupported image type or format"));
 
 	// Read header
-	auto desc = image_desc(bmp);
+	auto destDesc = image_desc(bmp);
+	unsigned numPixels = destDesc.dim.x * destDesc.dim.y * destDesc.dim.z;
+
+	// Fix up desc
+	destDesc.channels = destChannels;
 
 	// Allocate dest image
-	desc.channels = channels;
-	unsigned numPixels = desc.dim.x * desc.dim.y * desc.dim.z;
-	char* destBytes = (char*) allocate(desc, image);
+	char* destBytes = (char*) allocate(destDesc, destImage);
 
 	auto colType = FreeImage_GetColorType(bmp);
 	auto imgType = FreeImage_GetImageType(bmp);
 
 	// Convert
-	switch(elementType)
+	switch(destElementType)
 	{
 	case ImageType::int8bpp:
 		{
@@ -142,17 +144,17 @@ void load_image(void* image, ImageType::T elementType, unsigned channels, void* 
 			assert(imgType == FIT_BITMAP && (colType == FIC_RGB || colType == FIC_RGBALPHA));
 
 			auto bytesPerPixel = FreeImage_GetBPP(bmp) / 8;
-			auto srcChannels = bytesPerPixel / 1;
+			auto channels = bytesPerPixel / 1;
 			auto pitch = FreeImage_GetPitch(bmp);
 			auto bits = FreeImage_GetBits(bmp);
 
-			if (srcChannels == desc.channels && pitch == desc.dim.x * bytesPerPixel)
+			if (channels == destDesc.channels && pitch == destDesc.dim.x * bytesPerPixel)
 				memcpy(destBytes, bits, numPixels * bytesPerPixel);
 			else
 				copy_channels(
-					reinterpret_cast<unsigned char*>(destBytes), desc.channels,
-					reinterpret_cast<unsigned char const*>(bits), srcChannels, pitch,
-					glm::uvec2(desc.dim), (unsigned char)(0x00), (unsigned char)(0xff), copy_channel_identity());
+					reinterpret_cast<unsigned char*>(destBytes), destDesc.channels,
+					reinterpret_cast<unsigned char const*>(bits), channels, pitch,
+					glm::uvec2(destDesc.dim), (unsigned char)(0x00), (unsigned char)(0xff), copy_channel_identity());
 		}
 		break;
 	case ImageType::int16bpp:
@@ -169,34 +171,34 @@ void load_image(void* image, ImageType::T elementType, unsigned channels, void* 
 			assert(imgType == FIT_UINT16 || imgType == FIT_INT16 || imgType == FIT_RGB16 || imgType == FIT_RGBA16);
 			
 			auto bytesPerPixel = FreeImage_GetBPP(bmp) / 8;
-			auto srcChannels = bytesPerPixel / 2;
+			auto channels = bytesPerPixel / 2;
 			auto pitch = FreeImage_GetPitch(bmp);
 			auto bits = FreeImage_GetBits(bmp);
 
-			if (srcChannels == desc.channels && pitch == desc.dim.x * bytesPerPixel)
+			if (channels == destDesc.channels && pitch == destDesc.dim.x * bytesPerPixel)
 				memcpy(destBytes, bits, numPixels * bytesPerPixel);
 			else
 				copy_channels(
-					reinterpret_cast<unsigned short*>(destBytes), desc.channels,
-					reinterpret_cast<unsigned short const*>(bits), srcChannels, pitch,
-					glm::uvec2(desc.dim), (unsigned short)(0x0000), (unsigned short)(0xffff), copy_channel_identity());
+					reinterpret_cast<unsigned short*>(destBytes), destDesc.channels,
+					reinterpret_cast<unsigned short const*>(bits), channels, pitch,
+					glm::uvec2(destDesc.dim), (unsigned short)(0x0000), (unsigned short)(0xffff), copy_channel_identity());
 		}
 		break;
 	case ImageType::float32bpp:
 		if (imgType == FIT_FLOAT || imgType == FIT_RGBF || imgType == FIT_RGBAF)
 		{
 			auto bytesPerPixel = FreeImage_GetBPP(bmp) / 8;
-			auto srcChannels = bytesPerPixel / 4;
+			auto channels = bytesPerPixel / 4;
 			auto pitch = FreeImage_GetPitch(bmp);
 			auto bits = FreeImage_GetBits(bmp);
 
-			if (srcChannels == desc.channels && pitch == desc.dim.x * bytesPerPixel)
+			if (channels == destDesc.channels && pitch == destDesc.dim.x * bytesPerPixel)
 				memcpy(destBytes, bits, numPixels * bytesPerPixel);
 			else
 				copy_channels(
-					reinterpret_cast<float*>(destBytes), desc.channels,
-					reinterpret_cast<float const*>(bits), srcChannels, pitch,
-					glm::uvec2(desc.dim), 0.0f, 1.0f, copy_channel_identity());
+					reinterpret_cast<float*>(destBytes), destDesc.channels,
+					reinterpret_cast<float const*>(bits), channels, pitch,
+					glm::uvec2(destDesc.dim), 0.0f, 1.0f, copy_channel_identity());
 		}
 		else if (imgType == FIT_BITMAP)
 		{
@@ -212,26 +214,26 @@ void load_image(void* image, ImageType::T elementType, unsigned channels, void* 
 			assert(imgType == FIT_BITMAP && (colType == FIC_RGB || colType == FIC_RGBALPHA));
 
 			auto bytesPerPixel = FreeImage_GetBPP(bmp) / 8;
-			auto srcChannels = bytesPerPixel / 1;
+			auto channels = bytesPerPixel / 1;
 			auto pitch = FreeImage_GetPitch(bmp);
 			auto bits = FreeImage_GetBits(bmp);
 
 			copy_channels(
-				reinterpret_cast<float*>(destBytes), desc.channels,
-				reinterpret_cast<unsigned char const*>(bits), srcChannels, pitch,
-				glm::uvec2(desc.dim), 0.0f, 1.0f, [](unsigned char val){ return float(val) / float(0xff); });
+				reinterpret_cast<float*>(destBytes), destDesc.channels,
+				reinterpret_cast<unsigned char const*>(bits), channels, pitch,
+				glm::uvec2(destDesc.dim), 0.0f, 1.0f, [](unsigned char val){ return float(val) / float(0xff); });
 		}
 		else if (imgType == FIT_UINT16 || imgType == FIT_INT16 || imgType == FIT_RGB16 || imgType == FIT_RGBA16)
 		{
 			auto bytesPerPixel = FreeImage_GetBPP(bmp) / 8;
-			auto srcChannels = bytesPerPixel / 2;
+			auto channels = bytesPerPixel / 2;
 			auto pitch = FreeImage_GetPitch(bmp);
 			auto bits = FreeImage_GetBits(bmp);
 
 			copy_channels(
-				reinterpret_cast<float*>(destBytes), desc.channels,
-				reinterpret_cast<unsigned short const*>(bits), srcChannels, pitch,
-				glm::uvec2(desc.dim), 0.0f, 1.0f, [](unsigned short val){ return float(val) / float(0xffff); });
+				reinterpret_cast<float*>(destBytes), destDesc.channels,
+				reinterpret_cast<unsigned short const*>(bits), channels, pitch,
+				glm::uvec2(destDesc.dim), 0.0f, 1.0f, [](unsigned short val){ return float(val) / float(0xffff); });
 		}
 		break;
 
