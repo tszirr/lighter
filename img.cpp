@@ -24,8 +24,10 @@ template <class Handle>
 struct FreeImageDeleter
 {
 	typedef Handle pointer;
+	void operator ()(FIMEMORY* mem) { if (mem) FreeImage_CloseMemory(mem); }
 	void operator ()(FIBITMAP* bmp) { if (bmp) FreeImage_Unload(bmp); }
 };
+typedef stdx::unique_handle< FIMEMORY*, FreeImageDeleter<FIMEMORY*> > mem_handle;
 typedef stdx::unique_handle< FIBITMAP*, FreeImageDeleter<FIBITMAP*> > bmp_handle;
 
 struct copy_channel_identity
@@ -67,6 +69,20 @@ inline void copy_channels(D* destBytes, unsigned destChannels, S const* srcBytes
 	}
 }
 
+bmp_handle load_bmp(stdx::data_range_param<const char> imageData, int flags = 0)
+{
+	// Load image header
+	mem_handle fifStream( FreeImage_OpenMemory((BYTE*)(imageData.data()), static_cast<DWORD>(imageData.size())) );
+
+	auto fifType = FreeImage_GetFileTypeFromMemory(fifStream);
+	if (fifType == FIF_UNKNOWN) throwx(img_error("Unknown or unidentifiable file format (FreeImage)"));
+
+	bmp_handle bmp( FreeImage_LoadFromMemory(fifType, fifStream, flags) );
+	if (!bmp.valid()) throwx(img_error("Unsupported image type or format (FreeImage)"));
+
+	return bmp;
+}
+
 } // namespace
 
 ImageDesc image_desc(FIBITMAP* bmp)
@@ -88,25 +104,23 @@ ImageDesc image_desc(FIBITMAP* bmp)
 	return desc;
 }
 
-ImageDesc load_image_desc(const char* imageData, size_t imageDataLen)
+ImageDesc load_image_desc(stdx::data_range_param<const char> imageData)
 {
 	prepareFreeImage();
 
 	// Load image header
-	FIMEMORY fifStream = { (void*) imageData };
-	bmp_handle bmp( FreeImage_LoadFromMemory(FIF_UNKNOWN, &fifStream, FIF_LOAD_NOPIXELS) );
+	auto bmp = load_bmp(imageData, FIF_LOAD_NOPIXELS);
 
 	return image_desc(bmp);
 }
 
-void load_image(void* destImage, ImageType::T destElementType, unsigned destChannels, void* (*allocate)(ImageDesc const& desc, void* image), const char* imageData, size_t imageDataLen)
+void load_image(void* destImage, ImageType::T destElementType, unsigned destChannels, void* (*allocate)(ImageDesc const& desc, void* image),
+				stdx::data_range_param<const char> imageData)
 {
 	prepareFreeImage();
 
 	// Load image
-	FIMEMORY fifStream = { (void*) imageData };
-	bmp_handle bmp( FreeImage_LoadFromMemory(FIF_UNKNOWN, &fifStream, 0) );
-	if (!bmp.valid()) throwx(img_error("Unsupported image type or format"));
+	auto bmp = load_bmp(imageData);
 
 	// Read header
 	auto destDesc = image_desc(bmp);
