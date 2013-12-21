@@ -30,21 +30,25 @@ typedef glm::tvec3<unsigned short> hbvec3;
 typedef glm::tvec4<unsigned short> hbvec4;
 
 template <class T> struct CudaToGlm;
+template <> struct CudaToGlm<float> { typedef glm::mediump_float Type; };
 template <> struct CudaToGlm<float1> { typedef glm::mediump_float Type; };
 template <> struct CudaToGlm<float2> { typedef glm::vec2 Type; };
 template <> struct CudaToGlm<float3> { typedef glm::vec3 Type; };
 template <> struct CudaToGlm<float4> { typedef glm::vec4 Type; };
 
+template <> struct CudaToGlm<int> { typedef glm::mediump_int Type; };
 template <> struct CudaToGlm<int1> { typedef glm::mediump_int Type; };
 template <> struct CudaToGlm<int2> { typedef glm::ivec2 Type; };
 template <> struct CudaToGlm<int3> { typedef glm::ivec3 Type; };
 template <> struct CudaToGlm<int4> { typedef glm::ivec4 Type; };
 
+template <> struct CudaToGlm<unsigned short> { typedef unsigned short Type; };
 template <> struct CudaToGlm<ushort1> { typedef unsigned short Type; };
 template <> struct CudaToGlm<ushort2> { typedef hbvec2 Type; };
 template <> struct CudaToGlm<ushort3> { typedef hbvec3 Type; };
 template <> struct CudaToGlm<ushort4> { typedef hbvec4 Type; };
 
+template <> struct CudaToGlm<unsigned int> { typedef glm::mediump_uint Type; };
 template <> struct CudaToGlm<uint1> { typedef glm::mediump_uint Type; };
 template <> struct CudaToGlm<uint2> { typedef glm::uvec2 Type; };
 template <> struct CudaToGlm<uint3> { typedef glm::uvec3 Type; };
@@ -57,22 +61,26 @@ inline __host__ __device__ typename CudaToGlm<T>::Type toGlm(T const& cuda)
 }
 
 template <class T> struct GlmToCuda;
-template <> struct GlmToCuda<glm::mediump_float> { typedef float1 Type; };
+template <> struct GlmToCuda<glm::mediump_float> { typedef float Type; };
+template <> struct GlmToCuda<glm::tvec1<glm::mediump_float>> { typedef float1 Type; };
 template <> struct GlmToCuda<glm::vec2> { typedef float2 Type; };
 template <> struct GlmToCuda<glm::vec3> { typedef float3 Type; };
 template <> struct GlmToCuda<glm::vec4> { typedef float4 Type; };
 
-template <> struct GlmToCuda<glm::mediump_int> { typedef int1 Type; };
+template <> struct GlmToCuda<glm::mediump_int> { typedef int Type; };
+template <> struct GlmToCuda<glm::tvec1<glm::mediump_int>> { typedef int1 Type; };
 template <> struct GlmToCuda<glm::ivec2> { typedef int2 Type; };
 template <> struct GlmToCuda<glm::ivec3> { typedef int3 Type; };
 template <> struct GlmToCuda<glm::ivec4> { typedef int4 Type; };
 
-template <> struct GlmToCuda<unsigned short> { typedef ushort1 Type; };
+template <> struct GlmToCuda<unsigned short> { typedef unsigned short Type; };
+template <> struct GlmToCuda<glm::tvec1<unsigned short>> { typedef ushort1 Type; };
 template <> struct GlmToCuda<glm::tvec2<unsigned short>> { typedef ushort2 Type; };
 template <> struct GlmToCuda<glm::tvec3<unsigned short>> { typedef ushort3 Type; };
 template <> struct GlmToCuda<glm::tvec4<unsigned short>> { typedef ushort4 Type; };
 
-template <> struct GlmToCuda<glm::mediump_uint> { typedef uint1 Type; };
+template <> struct GlmToCuda<glm::mediump_uint> { typedef unsigned int Type; };
+template <> struct GlmToCuda<glm::tvec1<unsigned int>> { typedef uint1 Type; };
 template <> struct GlmToCuda<glm::uvec2> { typedef uint2 Type; };
 template <> struct GlmToCuda<glm::uvec3> { typedef uint3 Type; };
 template <> struct GlmToCuda<glm::uvec4> { typedef uint4 Type; };
