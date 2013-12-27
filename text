@@ -1,0 +1,287 @@
+#pragma once
+
+#include "ogl"
+
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include FT_BITMAP_H
+
+#include "stdx"
+#include "mathx"
+
+#include <algorithm>
+#include <string>
+#include <vector>
+
+#include <unordered_map>
+
+namespace text
+{
+
+struct freetype_tag;
+typedef stdx::error<freetype_tag> ft_error;
+
+#define THROW_FREETYPE_ERROR(error, ctx) do { auto _uniqueerrorval = error; if (_uniqueerrorval != 0) throwx( ::text::ft_error(ctx) ); } while (false)
+
+template <class Pointer, FT_Error (*Deleter)(Pointer)>
+struct ft_delete
+{
+	typedef Pointer pointer;
+	void operator ()(pointer ptr) const
+	{
+		if (ptr)
+			(*Deleter)(ptr);
+	}
+
+	typedef std::unique_ptr< Pointer, ft_delete<Pointer, Deleter> > pointer_type;
+	typedef stdx::unique_handle< Pointer, ft_delete<Pointer, Deleter> > handle_type;
+};
+
+struct FreeType : ft_delete<FT_Library, FT_Done_FreeType>::handle_type
+{
+	MOVE_BASE(FreeType, unique_handle)
+
+	FreeType()
+	{
+		THROW_FREETYPE_ERROR(FT_Init_FreeType(rebind()), "FT_Init_FreeType");
+	}
+};
+
+struct Bitmap : ft_delete<FT_Bitmap, FT_Done_Bitmap>::handle_type
+{
+	MOVE_BASE(Bitmap, unique_handle)
+
+	Bitmap(nullptr_t) { }
+	Bitmap()
+	{
+		FT_Bitmap_New(rebind());
+	}
+};
+
+struct Face : ft_delete<FT_Face, FT_Done_Face>::handle_type
+{
+	MOVE_BASE(Face, unique_handle)
+
+	Face(nullptr_t) { }
+	Face(FT_Library library, char const* name, FT_UInt heightPX = 16, FT_Long faceIdx = 0)
+	{
+		THROW_FREETYPE_ERROR(FT_New_Face(library, name, faceIdx, rebind()), "FT_New_Face");
+		if (heightPX != 0)
+			size(heightPX);
+	}
+
+	void size(FT_UInt height, FT_UInt width = 0)
+	{
+		THROW_FREETYPE_ERROR(FT_Set_Pixel_Sizes(*this, height, width), "FT_Set_Pixel_Sizes");
+	}
+
+	FT_UInt glyph_idx(FT_ULong character) const
+	{
+		return FT_Get_Char_Index(*this, character);
+	}
+
+	FT_Vector kerning_delte(FT_UInt prevGlyph, FT_UInt nextGlyph) const
+	{
+		FT_Vector delta;
+		FT_Get_Kerning(*this, prevGlyph, nextGlyph, FT_KERNING_DEFAULT, &delta);
+		return delta;
+	}
+
+	FT_GlyphSlot& render_glyph(FT_UInt glyphIdx)
+	{
+		THROW_FREETYPE_ERROR(FT_Load_Glyph(*this, glyphIdx, FT_LOAD_DEFAULT), "FT_Load_Glyph");
+		auto& glyth = get()->glyph;
+		if (glyth->format != FT_GLYPH_FORMAT_BITMAP)
+			THROW_FREETYPE_ERROR(FT_Render_Glyph(glyth, FT_RENDER_MODE_NORMAL), "FT_Render_Glyph");
+		return glyth;
+	}
+};
+
+struct BitmapCache
+{
+	MOVE_GENERATE(BitmapCache, MOVE_4, MEMBER, size, MEMBER, rowHeight, MEMBER, numRows, MEMBER, pixelsInRow)
+
+	glm::uvec2 size;
+	unsigned rowHeight, numRows;
+	std::unique_ptr<unsigned[]> pixelsInRow;
+
+	BitmapCache(glm::uvec2 size, unsigned rowHeight, bool adaptRowHeight = true)
+		: size(size)
+		, rowHeight( (adaptRowHeight) ? size.y / (size.y / rowHeight) : rowHeight )
+		, numRows(size.y / rowHeight)
+		, pixelsInRow(new unsigned[numRows])
+	{
+		clear();
+	}
+
+	glm::uvec2 add(glm::uvec2 tileSize)
+	{
+		glm::uvec2 tileOffset(~0);
+
+		auto numTileRows = (tileSize.y + rowHeight - 1) / rowHeight;
+		if (numTileRows <= numRows)
+		{
+			auto pixelsInRow = this->pixelsInRow.get();
+			auto numEligibleRows = numRows - numTileRows + 1;
+
+			unsigned optRowIdx = 0;
+			unsigned optRowOffset = ~0;
+
+			for (unsigned r = 0; r < numEligibleRows; ++r)
+			{
+				unsigned rowOffset = 0;
+				for (unsigned rp = r; rp < r + numTileRows; ++rp)
+					rowOffset = std::max(rowOffset, pixelsInRow[rp]);
+
+				if (rowOffset < optRowOffset)
+				{
+					optRowOffset = rowOffset;
+					optRowIdx = r;
+				}
+			}
+
+			if (tileSize.x <= size.x - optRowOffset)
+			{
+				auto newOptRowOffset = optRowOffset + tileSize.x;
+				for (unsigned rp = optRowIdx; rp < optRowIdx + numTileRows; ++rp)
+					pixelsInRow[rp] = newOptRowOffset;
+				tileOffset.x = optRowOffset;
+				tileOffset.y = optRowIdx * rowHeight;
+			}
+		}
+
+		return tileOffset;
+	}
+
+	void clear()
+	{
+		for (unsigned r = 0; r < numRows; ++r)
+			pixelsInRow[r] = 0;
+	}
+};
+
+struct TextureBitmapCache
+{
+	MOVE_GENERATE(TextureBitmapCache, MOVE_4, MEMBER, cache, MEMBER, pixels, MEMBER, texture, MEMBER, pixelsChanged)
+
+	BitmapCache cache;
+	std::unique_ptr<unsigned char[]> pixels;
+	ogl::Texture texture;
+	bool pixelsChanged;
+
+	TextureBitmapCache(glm::uvec2 size, unsigned rowHeight)
+		: cache(size, rowHeight)
+		, pixels(new unsigned char[size.x * size.y * 4])
+		, texture(ogl::Texture::create2D(GL_TEXTURE_2D, GL_RGBA8, size.x, size.y))
+		, pixelsChanged(false)
+	{
+	}
+
+	glm::uvec2 add(glm::uvec2 tileSize, unsigned char const* srcBytes, unsigned srcPitch, bool srcBGRA)
+	{
+		glm::uvec2 tileOffset = cache.add(tileSize);
+
+		if (tileOffset.x != ~0)
+		{
+			auto destPitch = 4 * cache.size.x;
+			auto destPtr = pixels.get() + tileOffset.x + tileOffset.y * destPitch;
+
+			auto srcChannelStride = (srcBGRA) ? 1 : 0;
+			auto srcAddPixelStride = (srcBGRA) ? 0 : 1;
+
+			for (auto y = 0U; y < tileOffset.y; ++y)
+			{
+				auto destRow = destPtr + y * destPitch;
+				auto srcRow = srcBytes + y * srcPitch;
+
+				for (auto x = 0U; x < tileOffset.x; ++x)
+				{
+					for (auto c = 0U; c < 4U; ++c) {
+						*destRow++ = *srcRow;
+						srcRow += srcChannelStride;
+					}
+					srcRow += srcAddPixelStride;
+				}
+			}
+
+			pixelsChanged = true;
+		}
+
+		return tileOffset;
+	}
+
+	void flushToTexture()
+	{
+		if (pixelsChanged)
+		{
+			texture.write(GL_TEXTURE_2D, 0, pixels.get(), GL_BYTE, GL_BGRA, cache.size.x, cache.size.y); 
+			pixelsChanged = false;
+		}
+	}
+
+	void clear()
+	{
+		cache.clear();
+	}
+};
+
+struct GlyphCache
+{
+	struct CachedGlyph
+	{
+		FT_UInt glyphIdx;
+		glm::uvec2 glyphOffset;
+		glm::uvec2 glyphSize;
+	};
+
+	Bitmap auxBmp;
+	TextureBitmapCache bmpCache;
+
+	typedef std::unordered_map<FT_Long, CachedGlyph> char_map;
+	char_map cache;
+
+	GlyphCache(TextureBitmapCache&& bmpCache)
+		: bmpCache(std::move(bmpCache)) { }
+
+	CachedGlyph const& get(FT_Library lib, Face& face, FT_Long chr)
+	{
+		auto it = cache.find(chr);
+		return (it != cache.end())
+			? it->second
+			: add(lib, face, chr);
+	}
+
+	// todo: multiple cache bitmaps OR array?
+	// todo: discard on overflow
+
+	CachedGlyph const& add(FT_Library lib, Face& face, FT_Long chr)
+	{
+		auto glyphIdx = face.glyph_idx(chr);
+		auto& glyph = face.render_glyph(glyphIdx);
+		
+		// Retrieve glyph bitmap in 8 or 32 bpp
+		auto glyphBmp = &glyph->bitmap;
+		if (glyph->bitmap.pixel_mode != FT_PIXEL_MODE_BGRA && glyph->bitmap.pixel_mode != FT_PIXEL_MODE_GRAY)
+		{
+			glyphBmp = &auxBmp.get();
+			FT_Bitmap_Convert(lib, &glyph->bitmap, glyphBmp, 1);
+		}
+
+		// Copy glyph to bitmap cache
+		glm::uvec2 glyphSize(glyph->bitmap.width, glyph->bitmap.rows);
+		glm::uvec2 glyphOffset;
+		while (true) {
+			glyphOffset = bmpCache.add(glyphSize, glyphBmp->buffer, glyphBmp->pitch, glyph->bitmap.pixel_mode == FT_PIXEL_MODE_BGRA);
+			if (glyphOffset.x != ~0) break;
+			// Flush & clear on overflow
+			bmpCache.flushToTexture();
+			bmpCache.clear();
+		}
+
+		// Store cached glyph
+		CachedGlyph cached = { glyphIdx, glyphOffset, glyphSize };
+		return (cache[chr] = cached);
+	}
+};
+
+} // namespace
