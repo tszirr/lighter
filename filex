@@ -299,7 +299,7 @@ namespace stdx
 	}
 
 	template <class Resolve>
-	std::string process_includes(std::string const& src, std::string const& filename, Resolve const& resolve_include, std::string const& preamble = std::string())
+	std::string process_includes(std::string const& src, std::string const& filename, Resolve const& resolve_include, std::string const& preamble = std::string(), bool int_file_id = false)
 	{
 		using namespace detail::process_includes;
 
@@ -315,7 +315,11 @@ namespace stdx
 		{
 			auto nextIncludeCursor = string_find(src, "#include", nextSrcCursor);
 
-			result << "#line " << nextSrcLine << " \"" << filename << "\"\n";
+			result << "#line " << nextSrcLine;
+			if (!int_file_id)
+				result << " \"" << filename << "\"\n";
+			else
+				result << " " << (int) filename.c_str()[0] << "\n";
 			result.write(nextSrcCursor, nextIncludeCursor - nextSrcCursor);
 
 			nextSrcLine += std::count(nextSrcCursor, nextIncludeCursor, '\n');

@@ -13,6 +13,10 @@
 #include <vector>
 #include <functional>
 
+#ifndef OGL_COMPATIBILITY_PREPROCESSING
+	#define OGL_COMPATIBILITY_PREPROCESSING true
+#endif
+
 namespace ogl
 {
 
@@ -55,7 +59,7 @@ struct GLFW : stdx::noncopyable
 	{
 		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, major);
 		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, minor);
-		glfwWindowHint(GLFW_SRGB_CAPABLE, GL_TRUE);
+//		glfwWindowHint(GLFW_SRGB_CAPABLE, GL_TRUE);
 		if (coreProfile)
 			glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
 		if (debug)
@@ -120,9 +124,13 @@ struct GLFW : stdx::noncopyable
 	void enableDebugMessages()
 	{
 		glEnable(GL_DEBUG_OUTPUT);
+		glGetError();
 		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-		glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
-		glDebugMessageCallback(&GLFW::debugCallback, NULL);
+		glGetError();
+		if (glDebugMessageControl)
+			glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
+		if (glDebugMessageCallback)
+			glDebugMessageCallback(&GLFW::debugCallback, NULL);
 	}
 };
 
@@ -588,8 +596,61 @@ struct Shader : glew_delete_single<GLuint, glDeleteShader>::handle_type
 		default: shaderTypePreamble = "";
 		};
 
-		char const* sources[] = { shaderTypePreamble, preamble, source };
-		glShaderSource(result, arraylen(sources), sources, nullptr);
+		char const* sources[] = { nullptr, nullptr, shaderTypePreamble, preamble, source, nullptr, nullptr };
+		int sourceLens[] = { 0, 0, -1, -1, -1, 0, 0 };
+		static_assert(arraylen(sourceLens) == arraylen(sources), "strlen array dim mismatch");
+
+		// move version to the beginning
+		if (auto versionDir = strstr(source, "#version"))
+		{
+			sources[0] = versionDir;
+			auto endOfVersionDir = strchr(versionDir, '\n');
+			sourceLens[0] = (endOfVersionDir) ? int(endOfVersionDir - versionDir) : -1;
+
+			sources[1] = "\n";
+			sourceLens[1] = 1;
+
+			sources[4] = source;
+			sourceLens[4] = versionDir - source;
+
+			sources[5] = "// moved: ";
+			sourceLens[5] = -1;
+
+			sources[6] = versionDir;
+			sourceLens[6] = -1;
+		}
+
+		// Everything that follows minimizes driver incompatibilities
+		int sourceCount = 0;
+		size_t totalSourceLen = 0;
+		for (size_t i = 0; i < arraylen(sources); ++i)
+		{
+			auto src = sources[i];
+			auto srcLen = sourceLens[i];
+			if (!src) srcLen = 0;
+			if (srcLen < 0) srcLen = (int) strlen(src);
+			if (srcLen > 0)
+			{
+				sources[sourceCount] = src;
+				sourceLens[sourceCount] = srcLen;
+				++sourceCount;
+				totalSourceLen += srcLen;
+			}
+		}
+
+		// Seriously, nothing works: Concatenate manually
+		std::string testSrc;
+		testSrc.reserve(totalSourceLen);
+		for (size_t i = 0; i < sourceCount; ++i)
+			testSrc.append(sources[i], sources[i] + sourceLens[i]);
+		assert(testSrc.size() == totalSourceLen);
+		sources[0] = testSrc.c_str();
+		sourceLens[0] = totalSourceLen;
+		sourceCount = 1;
+		// fall back to most common use case
+		glShaderSource(result, 1, sources, nullptr);
+
+//		glShaderSource(result, sourceCount, sources, sourceLens);
 		THROW_OPENGL_LASTERROR("glShaderSource()");
 
 		glCompileShader(result);
@@ -724,16 +785,22 @@ struct ProgramWithTime : Program
 	char const* preamble;
 	std::string file;
 	time_t time;
+	bool compatibilityInclude;
 
 	using Program::operator =;
 
-	explicit ProgramWithTime(std::string file, char const *preamble = "")
+	explicit ProgramWithTime(std::string file, char const *preamble = "", bool compatibilityInclude = OGL_COMPATIBILITY_PREPROCESSING)
 		: Program(nullptr)
 		, preamble(preamble)
 		, file(std::move(file))
 		, time(0)
+		, compatibilityInclude(compatibilityInclude)
 	{
 		load();
+	}
+	static std::string resolveIncludesCompat(std::string const& include, bool local)
+	{
+		return stdx::process_includes(stdx::load_file(include.c_str()), include, resolveIncludesCompat, std::string(), true);
 	}
 	static std::string resolveIncludes(std::string const& include, bool local)
 	{
@@ -741,7 +808,8 @@ struct ProgramWithTime : Program
 	}
 	void load()
 	{
-		std::string src = stdx::process_includes(stdx::load_file(file.c_str()), file, resolveIncludes);
+		auto& resolveFunc = (compatibilityInclude) ? resolveIncludesCompat : resolveIncludes;
+		std::string src = resolveFunc(file, true);
 		*this = Program::fromShaders(
 		  Shader::compile(GL_VERTEX_SHADER, src.c_str(), preamble)
 		, Shader::compile(GL_FRAGMENT_SHADER, src.c_str(), preamble)
