@@ -303,9 +303,16 @@ struct TextRenderer
 {
 	struct QueuedChar
 	{
-		short x, y;
-		unsigned short atlasX, atlasY;
-		unsigned short w, h;
+		unsigned xy;
+		unsigned atlasXY;
+		unsigned wh;
+
+		template <class T>
+		static unsigned build_tuple(T x, T y)
+		{
+			return (unsigned) stdx::to_unsigned(x)
+				| ((unsigned) stdx::to_unsigned(y) << unsigned(8 * sizeof(T)));
+		}
 	};
 
 	ogl::Program* charProgram;
@@ -321,30 +328,32 @@ struct TextRenderer
 		, charBatchCnt(0)
 		, charBatchSize(charBatchSize)
 		, charMem(new QueuedChar[charBatchSize])
-		, charBuffer(ogl::Buffer::create(GL_VERTEX_ARRAY, charBatchSize * sizeof(QueuedChar), nullptr, GL_DYNAMIC_DRAW))
+		, charBuffer(ogl::Buffer::create(GL_ARRAY_BUFFER, charBatchSize * sizeof(QueuedChar), nullptr, GL_STATIC_DRAW))
 		, glyphCache(lib, TextureBitmapCache(glm::uvec2(cacheRes), charHeight))
 	{
 		charArrays.bind();
-		charBuffer.bind(GL_VERTEX_ARRAY);
-		glVertexAttribPointer(0, 3, GL_UNSIGNED_INT, GL_FALSE, 0, nullptr);
+		charBuffer.bind(GL_ARRAY_BUFFER);
+		glVertexAttribIPointer(0, 3, GL_UNSIGNED_INT, 0, nullptr);
 		glEnableVertexAttribArray(0);
-		charBuffer.unbind(GL_VERTEX_ARRAY);
+		charBuffer.unbind(GL_ARRAY_BUFFER);
 		charArrays.unbind();
 	}
 
 	template <class Char>
-	void drawText(FT_Library lib, Face& face, glm::ivec2 pos, Char const* chars)
+	void drawText(FT_Library lib, Face& face, glm::ivec2 textPos, Char const* chars)
 	{
+		glm::ivec2 charPos = textPos;
 		for (auto chr = chars; *chr; ++chr)
 		{
 			if (*chr == '\n')
 			{
-				pos.y += face->size->metrics.height >> 6;
+				charPos.y += face->size->metrics.height >> 6;
+				charPos.x = textPos.x;
 				continue;
 			}
 
-			auto const& glyph = drawChar(lib, face, pos, stdx::to_unsigned(*chr));
-			pos += glyph.advance;
+			auto const& glyph = drawChar(lib, face, charPos, stdx::to_unsigned(*chr));
+			charPos += glyph.advance;
 			// todo: kerning
 		}
 	}
@@ -355,23 +364,25 @@ struct TextRenderer
 		auto& glyph = glyphCache.get(lib, face, chr, cacheOverflow);
 		
 		if (cacheOverflow || charBatchCnt >= charBatchSize)
-			flushText();
+			flushText(cacheOverflow);
 
-		QueuedChar qc = { (short) (pos.x + glyph.offset.x), (short) (pos.y - glyph.offset.y)
-			, (unsigned short) glyph.cacheOffset.x, (unsigned short) glyph.cacheOffset.y
-			, (unsigned short) glyph.cacheSize.x, (unsigned short) glyph.cacheSize.y };
+		QueuedChar qc = { QueuedChar::build_tuple( (short) (pos.x + glyph.offset.x), (short) (pos.y - glyph.offset.y) )
+			, QueuedChar::build_tuple( (unsigned short) glyph.cacheOffset.x, (unsigned short) glyph.cacheOffset.y )
+			, QueuedChar::build_tuple( (unsigned short) glyph.cacheSize.x, (unsigned short) glyph.cacheSize.y ) };
 		charMem[charBatchCnt] = qc;
 		++charBatchCnt;
 
 		return glyph;
 	}
 
-	void flushText()
+	void flushText(bool renderOldGlyphCache = false)
 	{
 		if (charBatchCnt > 0)
 		{
-			charBuffer.write(GL_VERTEX_ARRAY, stdx::make_range_n(charMem.get(), charBatchCnt));
-			
+			charBuffer.write(GL_ARRAY_BUFFER, stdx::make_range_n(charMem.get(), charBatchCnt));
+			if (!renderOldGlyphCache)
+				glyphCache.bmpCache.flushToTexture();
+
 			glyphCache.bmpCache.texture.bind(GL_TEXTURE_2D, 0);
 			charArrays.bind();
 			charProgram->bind();
