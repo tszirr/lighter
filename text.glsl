@@ -64,14 +64,16 @@ layout(location = 0) out vec4 colorOut;
 
 void main()
 {
-	vec4 pxColor = texelFetch(fontCache, ivec2(atlasPxF), 0);
+	vec4 color = texelFetch(fontCache, ivec2(atlasPxF), 0);
 	float gray = mix(
-		  max(max(pxColor.x, pxColor.y), pxColor.z)
-		, dot(pxColor.xyz, vec3(0.3333333f))
-		, 0.8f);
-	pxColor.xyz = mix(vec3(gray), pxColor.xyz, 0.7f);
-//	pxColor.xyz = pxColor.zyx; // LCD sub-pixel flip
-	colorOut = pxColor;
+		  max(max(color.x, color.y), color.z)
+		, dot(color.xyz, vec3(0.3333333f))
+		, 0.7f);
+	vec4 mixColor = color;
+	mixColor.xyz = mix(mixColor.xyz, vec3(gray), mix(0.4f, 1.0f, color.y));
+//	mixColor.xyz *= gray / (dot(mixColor.xyz, vec3(0.299f, 0.587f, 0.114f)) + 0.0001f);
+//	mixColor.xyz = mixColor.zyx; // LCD sub-pixel flip
+	colorOut = mixColor;
 }
 
 #endif
