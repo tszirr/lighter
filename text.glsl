@@ -68,8 +68,8 @@ void main()
 	float gray = mix(
 		  max(max(pxColor.x, pxColor.y), pxColor.z)
 		, dot(pxColor.xyz, vec3(0.3333333f))
-		, 0.9f);
-	pxColor.xyz = mix(vec3(gray), pxColor.xyz, 0.6f);
+		, 0.8f);
+	pxColor.xyz = mix(vec3(gray), pxColor.xyz, 0.7f);
 //	pxColor.xyz = pxColor.zyx; // LCD sub-pixel flip
 	colorOut = pxColor;
 }
