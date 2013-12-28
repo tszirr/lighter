@@ -124,7 +124,8 @@ struct Face : ft_delete<FT_Face, FT_Done_Face>::handle_type
 
 	FT_GlyphSlot& render_glyph(FT_UInt glyphIdx, FT_Render_Mode renderMode = FT_RENDER_MODE_NORMAL)
 	{
-		THROW_FREETYPE_ERROR(FT_Load_Glyph(*this, glyphIdx, FT_LOAD_DEFAULT), "FT_Load_Glyph");
+		auto loadFlags = FT_LOAD_COLOR | (renderMode == FT_RENDER_MODE_LCD ? FT_LOAD_TARGET_LCD : 0);
+		THROW_FREETYPE_ERROR(FT_Load_Glyph(*this, glyphIdx, loadFlags), "FT_Load_Glyph");
 		auto& glyth = get()->glyph;
 		if (glyth->format != FT_GLYPH_FORMAT_BITMAP)
 			THROW_FREETYPE_ERROR(FT_Render_Glyph(glyth, renderMode), "FT_Render_Glyph");
@@ -345,7 +346,7 @@ struct GlyphCache
 		// Store cached glyph
 		CachedGlyph cached = { glyphIdx, glyphOffset, glyphSize
 			, glm::ivec2(glyph->bitmap_left, glyph->bitmap_top)
-			, glm::ivec2(glyph->advance.x, glyph->advance.y) >> 6 };
+			, glm::ivec2(glyph->advance.x + 63, glyph->advance.y + 63) >> 6 };
 //			, subPixels };
 		return (cache[chr] = cached);
 	}
