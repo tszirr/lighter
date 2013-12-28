@@ -103,7 +103,7 @@ struct Face : ft_delete<FT_Face, FT_Done_Face>::handle_type
 		THROW_FREETYPE_ERROR(FT_Load_Glyph(*this, glyphIdx, FT_LOAD_DEFAULT), "FT_Load_Glyph");
 		auto& glyth = get()->glyph;
 		if (glyth->format != FT_GLYPH_FORMAT_BITMAP)
-			THROW_FREETYPE_ERROR(FT_Render_Glyph(glyth, FT_RENDER_MODE_NORMAL), "FT_Render_Glyph");
+			THROW_FREETYPE_ERROR(FT_Render_Glyph(glyth, FT_RENDER_MODE_LCD), "FT_Render_Glyph");
 		return glyth;
 	}
 };
@@ -188,30 +188,48 @@ struct TextureBitmapCache
 	{
 	}
 
-	glm::uvec2 add(glm::uvec2 tileSize, unsigned char const* srcBytes, unsigned srcPitch, bool srcBGRA)
+	enum BitmapFormat
+	{
+		Intensity,
+		SubPixel,
+		BGRA
+	};
+
+	glm::uvec2 add(glm::uvec2 tileSize, unsigned char const* srcBytes, unsigned srcPitch, BitmapFormat srcFormat)
 	{
 		glm::uvec2 tileOffset = cache.add(tileSize);
 
 		if (tileOffset.x != ~0)
 		{
 			auto destPitch = 4 * cache.size.x;
+			auto destLine = 4 * tileSize.x;
 			auto destPtr = pixels.get() + 4 * tileOffset.x + tileOffset.y * destPitch;
-
-			auto srcChannelStride = (srcBGRA) ? 1 : 0;
-			auto srcAddPixelStride = (srcBGRA) ? 0 : 1;
 
 			for (auto y = 0U; y < tileSize.y; ++y)
 			{
 				auto destRow = destPtr + y * destPitch;
 				auto srcRow = srcBytes + y * srcPitch;
 
-				for (auto x = 0U; x < tileSize.x; ++x)
+				if (srcFormat == BGRA)
+					memcpy(destRow, srcRow, destLine);
+				else if (srcFormat == SubPixel)
 				{
-					for (auto c = 0U; c < 4U; ++c) {
-						*destRow++ = *srcRow;
-						srcRow += srcChannelStride;
+					for (auto x = 0U; x < tileSize.x; ++x)
+					{
+						destRow[2] = *srcRow++;
+						destRow[1] = *srcRow++;
+						destRow[0] = *srcRow++;
+						destRow[3] = 0xff;
+						destRow += 4;
 					}
-					srcRow += srcAddPixelStride;
+				}
+				else
+				{
+					for (auto x = 0U; x < tileSize.x; ++x)
+					{
+						destRow[0] = destRow[1] = destRow[2] = destRow[3] = *srcRow++;
+						destRow += 4;
+					}
 				}
 			}
 
@@ -245,6 +263,7 @@ struct GlyphCache
 		glm::uvec2 cacheSize;
 		glm::ivec2 offset;
 		glm::ivec2 advance;
+//		bool subPixels; not needed right now
 	};
 
 	Bitmap auxBmp;
@@ -275,20 +294,23 @@ struct GlyphCache
 
 		auto glyphIdx = face.glyph_idx(chr);
 		auto& glyph = face.render_glyph(glyphIdx);
+		bool subPixels = (glyph->bitmap.pixel_mode == FT_PIXEL_MODE_LCD);
 		
 		// Retrieve glyph bitmap in 8 or 32 bpp
 		auto glyphBmp = &glyph->bitmap;
-		if (glyph->bitmap.pixel_mode != FT_PIXEL_MODE_BGRA && glyph->bitmap.pixel_mode != FT_PIXEL_MODE_GRAY)
+		if (!subPixels && glyph->bitmap.pixel_mode != FT_PIXEL_MODE_BGRA && glyph->bitmap.pixel_mode != FT_PIXEL_MODE_GRAY)
 		{
 			glyphBmp = &auxBmp;
 			FT_Bitmap_Convert(lib, &glyph->bitmap, glyphBmp, 1);
 		}
+		TextureBitmapCache::BitmapFormat glyphFmt = (subPixels) ? TextureBitmapCache::SubPixel : TextureBitmapCache::Intensity;
+		if (glyph->bitmap.pixel_mode == FT_PIXEL_MODE_BGRA) glyphFmt = TextureBitmapCache::BGRA;
 
 		// Copy glyph to bitmap cache
-		glm::uvec2 glyphSize(glyph->bitmap.width, glyph->bitmap.rows);
+		glm::uvec2 glyphSize((subPixels) ? glyphBmp->width / 3 : glyphBmp->width, glyphBmp->rows);
 		glm::uvec2 glyphOffset;
 		while (true) {
-			glyphOffset = bmpCache.add(glyphSize, glyphBmp->buffer, glyphBmp->pitch, glyph->bitmap.pixel_mode == FT_PIXEL_MODE_BGRA);
+			glyphOffset = bmpCache.add(glyphSize, glyphBmp->buffer, glyphBmp->pitch, glyphFmt);
 			if (glyphOffset.x != ~0) break;
 			// Flush & clear on overflow
 			overflow = true;
@@ -299,7 +321,8 @@ struct GlyphCache
 		// Store cached glyph
 		CachedGlyph cached = { glyphIdx, glyphOffset, glyphSize
 			, glm::ivec2(glyph->bitmap_left, glyph->bitmap_top)
-			, glm::ivec2(glyph->advance.x, glyph->advance.y) >> 6};
+			, glm::ivec2(glyph->advance.x, glyph->advance.y) >> 6 };
+//			, subPixels };
 		return (cache[chr] = cached);
 	}
 };

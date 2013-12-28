@@ -60,16 +60,18 @@ void main()
 in vec2 atlasPxF;
 
 layout(binding = 0) uniform sampler2D fontCache;
-layout(location = 0) out vec4 ldrColorOut;
+layout(location = 0) out vec4 colorOut;
 
 void main()
 {
 	vec4 pxColor = texelFetch(fontCache, ivec2(atlasPxF), 0);
-	pxColor.xyz *= 0.0f; // font color
-	pxColor.w = 1.0f - pow(1.0f - pxColor.w, 1.5f);
-	ldrColorOut = pxColor;
-//	ldrColorOut = vec4(1.0f, 0.0f, 0.0f, 1.0f);
-//	ldrColorOut.xyz /= (1.0f + dot(ldrColorOut.xyz, vec3(0.3f, 0.5f, 0.2f)));
+	float gray = mix(
+		  max(max(pxColor.x, pxColor.y), pxColor.z)
+		, dot(pxColor.xyz, vec3(0.3333333f))
+		, 0.9f);
+	pxColor.xyz = mix(vec3(gray), pxColor.xyz, 0.6f);
+//	pxColor.xyz = pxColor.zyx; // LCD sub-pixel flip
+	colorOut = pxColor;
 }
 
 #endif
