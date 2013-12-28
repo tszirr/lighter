@@ -190,17 +190,17 @@ struct TextureBitmapCache
 		if (tileOffset.x != ~0)
 		{
 			auto destPitch = 4 * cache.size.x;
-			auto destPtr = pixels.get() + tileOffset.x + tileOffset.y * destPitch;
+			auto destPtr = pixels.get() + 4 * tileOffset.x + tileOffset.y * destPitch;
 
 			auto srcChannelStride = (srcBGRA) ? 1 : 0;
 			auto srcAddPixelStride = (srcBGRA) ? 0 : 1;
 
-			for (auto y = 0U; y < tileOffset.y; ++y)
+			for (auto y = 0U; y < tileSize.y; ++y)
 			{
 				auto destRow = destPtr + y * destPitch;
 				auto srcRow = srcBytes + y * srcPitch;
 
-				for (auto x = 0U; x < tileOffset.x; ++x)
+				for (auto x = 0U; x < tileSize.x; ++x)
 				{
 					for (auto c = 0U; c < 4U; ++c) {
 						*destRow++ = *srcRow;
@@ -220,7 +220,7 @@ struct TextureBitmapCache
 	{
 		if (pixelsChanged)
 		{
-			texture.write(GL_TEXTURE_2D, 0, pixels.get(), GL_BYTE, GL_BGRA, cache.size.x, cache.size.y); 
+			texture.write(GL_TEXTURE_2D, 0, pixels.get(), GL_UNSIGNED_BYTE, GL_BGRA, cache.size.x, cache.size.y); 
 			pixelsChanged = false;
 		}
 	}

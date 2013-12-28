@@ -64,7 +64,7 @@ layout(location = 0) out vec4 ldrColorOut;
 
 void main()
 {
-	ldrColorOut = texelFetch(fontCache, ivec2(atlasPxF), 0);
+	ldrColorOut = texelFetch(fontCache, ivec2(atlasPxF), 0) * vec4(0, 0, 0, 1);
 //	ldrColorOut = vec4(1.0f, 0.0f, 0.0f, 1.0f);
 //	ldrColorOut.xyz /= (1.0f + dot(ldrColorOut.xyz, vec3(0.3f, 0.5f, 0.2f)));
 }
