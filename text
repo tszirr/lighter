@@ -339,7 +339,7 @@ struct GlyphCache
 			// Flush & clear on overflow
 			overflow = true;
 			bmpCache.flushToTexture();
-			bmpCache.clear();
+			clear();
 		}
 
 		// Store cached glyph
@@ -348,6 +348,12 @@ struct GlyphCache
 			, glm::ivec2(glyph->advance.x, glyph->advance.y) >> 6 };
 //			, subPixels };
 		return (cache[chr] = cached);
+	}
+
+	void clear()
+	{
+		cache.clear();
+		bmpCache.clear();
 	}
 };
 
