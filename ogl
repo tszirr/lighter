@@ -59,7 +59,7 @@ struct GLFW : stdx::noncopyable
 	{
 		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, major);
 		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, minor);
-//		glfwWindowHint(GLFW_SRGB_CAPABLE, GL_TRUE);
+		glfwWindowHint(GLFW_SRGB_CAPABLE, GL_TRUE);
 		if (coreProfile)
 			glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
 		if (debug)
