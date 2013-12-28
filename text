@@ -64,26 +64,50 @@ struct Bitmap : stdx::noncopyable, FT_Bitmap
 	}
 };
 
+struct PtSize
+{
+	FT_UInt width, height;
+	FT_UInt dpiH, dpiV;
+
+	explicit PtSize(FT_UInt height, FT_UInt width = 0, FT_UInt dpiH = 96, FT_UInt dpiV = 0)
+		: width(width), height(height), dpiH(dpiH), dpiV(dpiV) { }
+};
+struct PxSize
+{
+	FT_UInt width, height;
+
+	explicit PxSize(FT_UInt height, FT_UInt width = 0)
+		: width(width), height(height) { }
+};
+
 struct Face : ft_delete<FT_Face, FT_Done_Face>::handle_type
 {
 	MOVE_BASE(Face, unique_handle)
 
 	Face(nullptr_t) { }
-	Face(FT_Library library, char const* name, FT_UInt heightPX = 16, FT_Long faceIdx = 0)
+	Face(FT_Library library, char const* name, FT_Long faceIdx = 0)
 	{
 		THROW_FREETYPE_ERROR(FT_New_Face(library, name, faceIdx, rebind()), "FT_New_Face");
-		if (heightPX != 0)
-			size(heightPX);
+	}
+	Face(FT_Library library, char const* name, PtSize size, FT_Long faceIdx = 0)
+	{
+		*this = Face(library, name, faceIdx);
+		this->size(size);
+	}
+	Face(FT_Library library, char const* name, PxSize size, FT_Long faceIdx = 0)
+	{
+		*this = Face(library, name, faceIdx);
+		this->size(size);
 	}
 
-	void size(FT_UInt height, FT_UInt width = 0)
+	void size(PxSize size)
 	{
-		THROW_FREETYPE_ERROR(FT_Set_Pixel_Sizes(*this, height, width), "FT_Set_Pixel_Sizes");
+		THROW_FREETYPE_ERROR(FT_Set_Pixel_Sizes(*this, size.width, size.height), "FT_Set_Pixel_Sizes");
 	}
 
-	void ptSize(FT_UInt height, FT_UInt width = 0, FT_UInt dpiY = 96, FT_UInt dpiX = 0)
+	void size(PtSize size)
 	{
-		THROW_FREETYPE_ERROR(FT_Set_Char_Size(*this, width * 64, height * 64, dpiX, dpiY), "FT_Set_Char_Size");
+		THROW_FREETYPE_ERROR(FT_Set_Char_Size(*this, size.width * 64, size.height * 64, size.dpiH, size.dpiV), "FT_Set_Char_Size");
 	}
 
 	FT_UInt glyph_idx(FT_ULong character) const
@@ -98,12 +122,12 @@ struct Face : ft_delete<FT_Face, FT_Done_Face>::handle_type
 		return delta;
 	}
 
-	FT_GlyphSlot& render_glyph(FT_UInt glyphIdx)
+	FT_GlyphSlot& render_glyph(FT_UInt glyphIdx, FT_Render_Mode renderMode = FT_RENDER_MODE_NORMAL)
 	{
 		THROW_FREETYPE_ERROR(FT_Load_Glyph(*this, glyphIdx, FT_LOAD_DEFAULT), "FT_Load_Glyph");
 		auto& glyth = get()->glyph;
 		if (glyth->format != FT_GLYPH_FORMAT_BITMAP)
-			THROW_FREETYPE_ERROR(FT_Render_Glyph(glyth, FT_RENDER_MODE_LCD), "FT_Render_Glyph");
+			THROW_FREETYPE_ERROR(FT_Render_Glyph(glyth, renderMode), "FT_Render_Glyph");
 		return glyth;
 	}
 };
