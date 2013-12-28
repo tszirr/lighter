@@ -81,6 +81,11 @@ struct Face : ft_delete<FT_Face, FT_Done_Face>::handle_type
 		THROW_FREETYPE_ERROR(FT_Set_Pixel_Sizes(*this, height, width), "FT_Set_Pixel_Sizes");
 	}
 
+	void ptSize(FT_UInt height, FT_UInt width = 0, FT_UInt dpiY = 96, FT_UInt dpiX = 0)
+	{
+		THROW_FREETYPE_ERROR(FT_Set_Char_Size(*this, width * 64, height * 64, dpiX, dpiY), "FT_Set_Char_Size");
+	}
+
 	FT_UInt glyph_idx(FT_ULong character) const
 	{
 		return FT_Get_Char_Index(*this, character);
