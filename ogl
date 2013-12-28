@@ -782,18 +782,27 @@ struct Program : glew_delete_single<GLuint, glDeleteProgram>::handle_type
 
 struct ProgramWithTime : Program
 {
+	enum Options
+	{
+		NoGS,
+		HasGS,
+		GSOnly
+	};
+
 	char const* preamble;
 	std::string file;
 	time_t time;
+	Options options;
 	bool compatibilityInclude;
 
 	using Program::operator =;
 
-	explicit ProgramWithTime(std::string file, char const *preamble = "", bool compatibilityInclude = OGL_COMPATIBILITY_PREPROCESSING)
+	explicit ProgramWithTime(std::string file, char const *preamble = "", Options options = NoGS, bool compatibilityInclude = OGL_COMPATIBILITY_PREPROCESSING)
 		: Program(nullptr)
 		, preamble(preamble)
 		, file(std::move(file))
 		, time(0)
+		, options(options)
 		, compatibilityInclude(compatibilityInclude)
 	{
 		load();
@@ -811,8 +820,9 @@ struct ProgramWithTime : Program
 		auto& resolveFunc = (compatibilityInclude) ? resolveIncludesCompat : resolveIncludes;
 		std::string src = resolveFunc(file, true);
 		*this = Program::fromShaders(
-		  Shader::compile(GL_VERTEX_SHADER, src.c_str(), preamble)
-		, Shader::compile(GL_FRAGMENT_SHADER, src.c_str(), preamble)
+			Shader::compile(GL_FRAGMENT_SHADER, src.c_str(), preamble)
+		, (options != GSOnly) ? Shader::compile(GL_VERTEX_SHADER, src.c_str(), preamble) : 0
+		, (options != NoGS) ? Shader::compile(GL_GEOMETRY_SHADER, src.c_str(), preamble) : 0
 		);
 		time = stdx::file_time(file.c_str());
 	}
