@@ -27,63 +27,6 @@ struct UiElement
 	};
 };
 
-// online UI: max delayed group? -> forced delay ownership!
-struct UiLayout
-{
-	void add(glm::ivec2 pos, glm::uvec2 size)
-	{
-	}
-};
-
-struct Ui
-{
-	void addButton()
-	{
-	}
-
-	void addSlider(char const* data, float value)
-	{
-	}
-};
-
-template <class T, T V> struct GlobalObjectTag { union U { T p; char c; }; static U const tag; };
-template <class T, T V> typename GlobalObjectTag<T, V>::U const GlobalObjectTag<T, V>::tag = { V };
-
-template <class T>
-struct GlobalObjectTagFromPtr {
-	template <T P> static inline GlobalObjectTag<T, P> make() { return GlobalObjectTag<T, P>(); }
-};
-template <class T> GlobalObjectTagFromPtr<T*> inline GlobalObjectTagFromVal(T*) { return GlobalObjectTagFromPtr<T*>(); }
-template <class T, class C> GlobalObjectTagFromPtr<T (C::*)> inline GlobalObjectTagFromVal(T (C::*)) { return GlobalObjectTagFromPtr<T (C::*)>(); }
-
-#define UEI(v) &(::ui::GlobalObjectTagFromVal(v).template make<v>().tag)
-
-struct UniqueElementIdentifier
-{
-	uintptr_t value;
-	UniqueElementIdentifier(void const volatile* ptr)
-		: value(reinterpret_cast<uintptr_t>(ptr)) { }
-	UniqueElementIdentifier(uintptr_t value)
-		: value(value) { }
-};
-
-struct TextUi
-{
-	TextRenderer* textRenderer;
-	glm::uvec2 insertPos;
-
-	TextUi(TextRenderer* textRenderer)
-		: textRenderer(textRenderer)
-		, insertPos()
-	{
-	}
-
-	void addText(void* id, char const* label, char const* text, bool editable)
-	{
-
-	}
-};
-
 struct UiRenderer
 {
 	struct QueuedWidget
@@ -146,6 +89,176 @@ struct UiRenderer
 			
 			widgetBatchCnt = 0;
 		}
+	}
+};
+
+// online UI: max delayed group? -> forced delay ownership!
+struct UiLayout
+{
+	void add(glm::ivec2 pos, glm::uvec2 size)
+	{
+	}
+};
+
+struct Ui
+{
+	void addButton()
+	{
+	}
+
+	void addSlider(char const* data, float value)
+	{
+	}
+};
+
+template <class T, T V> struct GlobalObjectTag { union U { T p; char c; }; static U const tag; };
+template <class T, T V> typename GlobalObjectTag<T, V>::U const GlobalObjectTag<T, V>::tag = { V };
+
+template <class T>
+struct GlobalObjectTagFromPtr {
+	template <T P> static inline GlobalObjectTag<T, P> make() { return GlobalObjectTag<T, P>(); }
+};
+template <class T> GlobalObjectTagFromPtr<T*> inline GlobalObjectTagFromVal(T*) { return GlobalObjectTagFromPtr<T*>(); }
+template <class T, class C> GlobalObjectTagFromPtr<T (C::*)> inline GlobalObjectTagFromVal(T (C::*)) { return GlobalObjectTagFromPtr<T (C::*)>(); }
+
+#define UEI(v) &(::ui::GlobalObjectTagFromVal(v).template make<v>().tag)
+
+struct UniqueElementIdentifier
+{
+	uintptr_t value;
+	UniqueElementIdentifier(void const volatile* ptr)
+		: value(reinterpret_cast<uintptr_t>(ptr)) { }
+	UniqueElementIdentifier(uintptr_t value)
+		: value(value) { }
+
+	bool operator ==(UniqueElementIdentifier const& r) const { return value == r.value; }
+};
+
+struct TextUi
+{
+	struct Options
+	{
+		unsigned indent, lineHeight;
+		int labelDelta, controlBaseline;
+
+		explicit Options(unsigned lineHeight = 24, unsigned indent = 10, int labelDelta = 16, int controlBaseline = -3) 
+			: indent(indent)
+			, lineHeight(lineHeight)
+			, labelDelta(labelDelta)
+			, controlBaseline(controlBaseline) { }
+	} options;
+
+	UiRenderer* uiRenderer;
+	TextRenderer* textRenderer;
+
+	std::vector<UniqueElementIdentifier> entryPath;
+	std::vector<UniqueElementIdentifier> focusPath;
+
+	TextUi(UiRenderer* uiRenderer, TextRenderer* textRenderer, Options options = Options())
+		: uiRenderer(uiRenderer)
+		, textRenderer(textRenderer)
+		, options(options)
+	{
+	}
+	
+	struct Renderer
+	{
+		TextUi *ui;
+	
+		std::vector<UniqueElementIdentifier> pathStack;
+
+		glm::ivec2 insertPos;
+		glm::uvec2 insertFrame;
+		unsigned pendingIndent;
+
+		Renderer(TextUi* ui)
+			: ui(ui)
+			, insertPos()
+			, pendingIndent(0)
+		{
+		}
+
+		void pushGroup(UniqueElementIdentifier id)
+		{
+			pathStack.push_back(id);
+
+			pendingIndent += ui->options.indent;
+		}
+		void popGroup(UniqueElementIdentifier id)
+		{
+			assert(!pathStack.empty() && id == pathStack.back());
+			pathStack.pop_back();
+
+			if (pendingIndent >= ui->options.indent)
+				pendingIndent -= ui->options.indent;
+			else
+				insertPos.x -= ui->options.indent;
+		}
+		void nextLine()
+		{
+			insertPos.x += pendingIndent;
+			insertPos.y += ui->options.lineHeight;
+			pendingIndent = 0;
+		}
+
+		void addText(UniqueElementIdentifier id, char const* label, char const* text, bool editable)
+		{
+			auto labelPos = insertPos;
+			labelPos.x -= ui->textRenderer->boundText(label).max.x + ui->options.labelDelta;
+			ui->textRenderer->drawText(labelPos, label);
+
+			ui->textRenderer->drawText(insertPos, text);
+
+			nextLine();
+		}
+
+		void addSlider(UniqueElementIdentifier id, char const* label, float value, float range)
+		{
+			auto labelPos = insertPos;
+			labelPos.x -= ui->textRenderer->boundText(label).max.x + ui->options.labelDelta;
+			ui->textRenderer->drawText(labelPos, label);
+
+			char num[32];
+			sprintf(num, "%f", value);
+			
+			auto valBox = ui->textRenderer->boundText(num);
+			
+			unsigned sliderPadding = 6;
+			unsigned sliderBarInset = 3;
+			glm::uvec2 sliderSize(
+				  std::max((int) insertFrame.x - insertPos.x, int(valBox.max.x + 2U * sliderPadding))
+				, (valBox.max.y - valBox.min.y) + 2U * sliderPadding
+				);
+			auto sliderPos = insertPos;
+			sliderPos.y += ui->options.controlBaseline - sliderSize.y; 
+			ui->uiRenderer->drawWidget(sliderPos, sliderSize, ui::UiElement::Frame);
+			ui->uiRenderer->drawWidget(sliderPos + glm::ivec2(sliderBarInset), sliderSize - glm::uvec2(2 * sliderBarInset), ui::UiElement::Bar);
+
+			auto valPos = insertPos;
+			ui->textRenderer->drawText(valPos, num);
+
+			nextLine();
+		}
+	};
+
+	Renderer render() { return Renderer(this); }
+};
+
+struct TextUiGroup : stdx::noncopyable
+{
+	UniqueElementIdentifier id;
+	TextUi::Renderer* ui;
+
+	TextUiGroup(nullptr_t) : id(nullptr), ui(nullptr) { }
+	TextUiGroup(TextUi::Renderer& ui, UniqueElementIdentifier id) : id(id), ui(&ui) { ui.pushGroup(id); }
+	TextUiGroup(TextUiGroup&& right) : id(right.id), ui(right.ui) { right.id = nullptr; right.ui = nullptr; }
+	~TextUiGroup() { if (ui) ui->popGroup(id); }
+
+	TextUiGroup& operator =(TextUiGroup&& right)
+	{
+		id = right.id; ui = right.ui;
+		right.id = nullptr; right.ui = nullptr;
+		return *this;
 	}
 };
 
