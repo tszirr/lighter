@@ -50,20 +50,14 @@ template <class T, T V> struct GlobalObjectTag { static T const tag; };
 template <class T, T V> T const GlobalObjectTag<T, V>::tag = V;
 
 template <class T> struct GlobalObjectTagRTP { template <T& V> struct GOT : GlobalObjectTag<T*, &V> { }; };
-template <class T> struct GlobalObjectTagRTP<T&> : GlobalObjectTagRTP<T> { };
+template <class T> struct GlobalObjectTagRTP<T&> { template <T& V> struct GOT : GlobalObjectTag<T*, &V> { }; };
+template <class T> struct GlobalObjectTagRTP<T&&> : GlobalObjectTagRTP<T> { };
 template <class T> struct GlobalObjectTagRTP<T*> { template <T* V> struct GOT : GlobalObjectTag<T*, V> { }; };
 template <class T> struct GlobalObjectTagRTP<T* const> : GlobalObjectTagRTP<T*> { };
 template <class T> struct GlobalObjectTagRTP<T* volatile> : GlobalObjectTagRTP<T*> { };
 template <class T> struct GlobalObjectTagRTP<T* const volatile> : GlobalObjectTagRTP<T*> { };
-/*
-template <class PToT> struct GlobalObjectTagRTP;
-template <class T> struct GlobalObjectTagRTP<T*> { template <T& V> struct GOT : GlobalObjectTag<T*, &V> { }; };
-template <class T> struct GlobalObjectTagRTP<T**> { template <T* V> struct GOT : GlobalObjectTag<T*, V> { }; };
-template <class T> struct GlobalObjectTagRTP<T *const *> : GlobalObjectTagRTP<T**> { };
-template <class T> struct GlobalObjectTagRTP<T *volatile *> : GlobalObjectTagRTP<T**> { };
-template <class T> struct GlobalObjectTagRTP<T *const volatile *> : GlobalObjectTagRTP<T**> { };
-*/
-#define UEI(v) &::ui::GlobalObjectTagRTP<decltype((v))>::template GOT<v>::tag
+
+#define UEI(v) &::ui::GlobalObjectTagRTP<decltype((v))>::template GOT<(v)>::tag
 
 struct UniqueElementIdentifier
 {
