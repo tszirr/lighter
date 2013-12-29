@@ -19,6 +19,17 @@ namespace glm
 	template <class Vec>
 	struct aabb { Vec min, max; };
 
+	template <class Vec>
+	inline bool in_aabb(Vec const& p, Vec const& min, Vec const& max)
+	{
+		return all(lessThanEqual(min, p) & lessThanEqual(p, max));
+	}
+	template <class Vec>
+	inline bool in_aabb(Vec const& p, aabb<Vec> const& box)
+	{
+		return in_aabb(p, box.min, box.max);
+	}
+
 	template <class Uniform, size_t N>
 	struct rand_box
 	{

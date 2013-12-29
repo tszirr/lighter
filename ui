@@ -150,7 +150,15 @@ struct TextUi
 
 	UiRenderer* uiRenderer;
 	TextRenderer* textRenderer;
+	
+	struct Mouse
+	{
+		bool primary, primaryChanged;
+		bool secondary, secondaryChanged;
+		glm::ivec2 pos;
+	} mouse;
 
+	std::vector<UniqueElementIdentifier> capturePath;
 	std::vector<UniqueElementIdentifier> entryPath;
 	std::vector<UniqueElementIdentifier> focusPath;
 
@@ -168,7 +176,7 @@ struct TextUi
 		std::vector<UniqueElementIdentifier> pathStack;
 
 		glm::ivec2 insertPos;
-		glm::uvec2 insertFrame;
+		glm::ivec2 insertEnd;
 		unsigned pendingIndent;
 
 		Renderer(TextUi* ui)
@@ -212,7 +220,15 @@ struct TextUi
 			nextLine();
 		}
 
-		void addSlider(UniqueElementIdentifier id, char const* label, float value, float range)
+		struct Slider
+		{
+			UniqueElementIdentifier id;
+			glm::aabb<glm::ivec2> rect;
+			float value;
+			float range;
+			float valueBase;
+		};
+		Slider addSlider(UniqueElementIdentifier id, char const* label, float value, float range)
 		{
 			auto labelPos = insertPos;
 			labelPos.x -= ui->textRenderer->boundText(label).max.x + ui->options.labelDelta;
@@ -225,20 +241,65 @@ struct TextUi
 			
 			unsigned sliderPadding = 6;
 			unsigned sliderBarInset = 3;
-			glm::uvec2 sliderSize(
-				  std::max((int) insertFrame.x - insertPos.x, int(valBox.max.x + 2U * sliderPadding))
-				, (valBox.max.y - valBox.min.y) + 2U * sliderPadding
-				);
+
 			auto sliderPos = insertPos;
-			sliderPos.y += ui->options.controlBaseline - sliderSize.y; 
+			sliderPos.y += valBox.min.y - sliderPadding; 
+			auto sliderSize = glm::uvec2(valBox.max - valBox.min) + glm::uvec2(2 * sliderPadding);
+			sliderSize.x = std::max((int) sliderSize.x, (int) insertEnd.x - insertPos.x);
 			ui->uiRenderer->drawWidget(sliderPos, sliderSize, ui::UiElement::Frame);
-			ui->uiRenderer->drawWidget(sliderPos + glm::ivec2(sliderBarInset), sliderSize - glm::uvec2(2 * sliderBarInset), ui::UiElement::Bar);
+			
+			auto barPos = sliderPos + glm::ivec2(sliderBarInset);
+			auto barSize = sliderSize - glm::uvec2(2 * sliderBarInset);
+			auto barEnd = barPos + glm::ivec2(barSize);
+			float relativeValue = value / range;
+			float relativeValueBase = floor(relativeValue);
+			barSize.x = unsigned((relativeValue - relativeValueBase) * (float) barSize.x);
+			ui->uiRenderer->drawWidget(barPos, barSize, ui::UiElement::Bar);
 
 			auto valPos = insertPos;
+			valPos.x += (sliderSize.x - valBox.max.x) / 2;
 			ui->textRenderer->drawText(valPos, num);
 
 			nextLine();
+
+			Slider slider = { id, { barPos, barEnd }, value, range, relativeValueBase * range };
+			return slider;
 		}
+
+		template <class T>
+		struct ValueInteraction
+		{
+			Renderer* ui;
+			T* value;
+
+			ValueInteraction& operator =(Slider const& slider)
+			{
+				auto& mouse = ui->ui->mouse;
+
+				// todo: optimize (cache incrementally in renderer)
+				bool hasCapture = (ui->ui->capturePath == ui->pathStack);
+
+				if (mouse.primary)
+				{
+					if (!hasCapture && glm::in_aabb(mouse.pos, slider.rect))
+					{
+						ui->ui->capturePath = ui->pathStack;
+						hasCapture = true;
+					}
+
+					if (hasCapture)
+						*value = slider.valueBase
+							+ float(mouse.pos.x - slider.rect.min.x) / float(slider.rect.max.x - slider.rect.min.x) * slider.range;
+				}
+				else if (hasCapture)
+					// todo: always release capture when mouse released OR control vanishes
+					ui->ui->capturePath.clear();
+				
+				return *this;
+			}
+		};
+		template <class T>
+		ValueInteraction<T> interact(T& v) { ValueInteraction<T> i = { this, &v }; return i; }
 	};
 
 	Renderer render() { return Renderer(this); }
