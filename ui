@@ -1,0 +1,159 @@
+#pragma once
+
+#include "ogl"
+
+#include "stdx"
+#include "mathx"
+
+#include <algorithm>
+#include <string>
+#include <vector>
+
+namespace ui
+{
+
+struct TextRenderer
+{
+	virtual glm::aabb<glm::ivec2> boundText(char const* text, glm::ivec2 insertPos = glm::ivec2(0)) = 0;
+	virtual glm::aabb<glm::ivec2> drawText(glm::ivec2 insertPos, char const* text) = 0;
+};
+
+struct UiElement
+{
+	enum T
+	{
+		Frame,
+		Bar
+	};
+};
+
+// online UI: max delayed group? -> forced delay ownership!
+struct UiLayout
+{
+	void add(glm::ivec2 pos, glm::uvec2 size)
+	{
+	}
+};
+
+struct Ui
+{
+	void addButton()
+	{
+	}
+
+	void addSlider(char const* data, float value)
+	{
+	}
+};
+
+template <class T, T V> struct GlobalObjectTag { static T const tag; };
+template <class T, T V> T const GlobalObjectTag<T, V>::tag = V;
+
+template <class T> struct GlobalObjectTagRTP { template <T& V> struct GOT : GlobalObjectTag<T*, &V> { }; };
+template <class T> struct GlobalObjectTagRTP<T&> : GlobalObjectTagRTP<T> { };
+template <class T> struct GlobalObjectTagRTP<T*> { template <T* V> struct GOT : GlobalObjectTag<T*, V> { }; };
+template <class T> struct GlobalObjectTagRTP<T* const> : GlobalObjectTagRTP<T*> { };
+template <class T> struct GlobalObjectTagRTP<T* volatile> : GlobalObjectTagRTP<T*> { };
+template <class T> struct GlobalObjectTagRTP<T* const volatile> : GlobalObjectTagRTP<T*> { };
+/*
+template <class PToT> struct GlobalObjectTagRTP;
+template <class T> struct GlobalObjectTagRTP<T*> { template <T& V> struct GOT : GlobalObjectTag<T*, &V> { }; };
+template <class T> struct GlobalObjectTagRTP<T**> { template <T* V> struct GOT : GlobalObjectTag<T*, V> { }; };
+template <class T> struct GlobalObjectTagRTP<T *const *> : GlobalObjectTagRTP<T**> { };
+template <class T> struct GlobalObjectTagRTP<T *volatile *> : GlobalObjectTagRTP<T**> { };
+template <class T> struct GlobalObjectTagRTP<T *const volatile *> : GlobalObjectTagRTP<T**> { };
+*/
+#define UEI(v) &::ui::GlobalObjectTagRTP<decltype((v))>::template GOT<v>::tag
+
+struct UniqueElementIdentifier
+{
+	uintptr_t value;
+	UniqueElementIdentifier(void* ptr)
+		: value(reinterpret_cast<uintptr_t>(ptr)) { }
+	UniqueElementIdentifier(uintptr_t value)
+		: value(value) { }
+};
+
+struct TextUi
+{
+	TextRenderer* textRenderer;
+	glm::uvec2 insertPos;
+
+	TextUi(TextRenderer* textRenderer)
+		: textRenderer(textRenderer)
+		, insertPos()
+	{
+	}
+
+	void addText(void* id, char const* label, char const* text, bool editable)
+	{
+
+	}
+};
+
+struct UiRenderer
+{
+	struct QueuedWidget
+	{
+		unsigned xy;
+		unsigned sizeXY;
+		unsigned clazz;
+
+		template <class T>
+		static unsigned build_tuple(T x, T y)
+		{
+			return (unsigned) stdx::to_unsigned(x)
+				| ((unsigned) stdx::to_unsigned(y) << unsigned(8 * sizeof(T)));
+		}
+	};
+
+	ogl::Program* widgetProgram;
+	ogl::VertexArrays widgetArrays;
+	unsigned widgetBatchCnt, widgetBatchSize;
+	std::unique_ptr<QueuedWidget[]> widgetMem;
+	ogl::Buffer widgetBuffer;
+
+	UiRenderer(ogl::Program* program, unsigned widgetBatchSize)
+		: widgetProgram(move(program))
+		, widgetArrays()
+		, widgetBatchCnt(0)
+		, widgetBatchSize(widgetBatchSize)
+		, widgetMem(new QueuedWidget[widgetBatchSize])
+		, widgetBuffer(ogl::Buffer::create(GL_ARRAY_BUFFER, widgetBatchSize * sizeof(QueuedWidget), nullptr, GL_STATIC_DRAW))
+	{
+		widgetArrays.bind();
+		widgetBuffer.bind(GL_ARRAY_BUFFER);
+		glVertexAttribIPointer(0, 3, GL_UNSIGNED_INT, 0, nullptr);
+		glEnableVertexAttribArray(0);
+		widgetBuffer.unbind(GL_ARRAY_BUFFER);
+		widgetArrays.unbind();
+	}
+
+	void drawWidget(glm::ivec2 pos, glm::uvec2 size, UiElement::T clazz)
+	{
+		if (widgetBatchCnt >= widgetBatchSize)
+			flushWidgets();
+
+		QueuedWidget qc = { QueuedWidget::build_tuple( (short) pos.x, (short) pos.y )
+			, QueuedWidget::build_tuple( (unsigned short) size.x, (unsigned short) size.y )
+			, clazz };
+		widgetMem[widgetBatchCnt] = qc;
+		++widgetBatchCnt;
+	}
+
+	void flushWidgets()
+	{
+		if (widgetBatchCnt > 0)
+		{
+			widgetBuffer.write(GL_ARRAY_BUFFER, stdx::make_range_n(widgetMem.get(), widgetBatchCnt));
+			
+			widgetArrays.bind();
+			widgetProgram->bind();
+			glDrawArrays(GL_POINTS, 0, widgetBatchCnt);
+			
+			widgetBatchCnt = 0;
+		}
+	}
+};
+
+} // namespace
