@@ -401,8 +401,24 @@ struct TextRenderer
 	}
 
 	template <class Char>
-	void drawText(FT_Library lib, Face& face, glm::ivec2 textPos, Char const* chars)
+	glm::aabb<glm::ivec2> boundText(FT_Library lib, Face& face, glm::ivec2 textPos, Char const* chars)
 	{
+		return drawText(lib, face, textPos, chars, false);
+	}
+	glm::aabb<glm::ivec2> boundChar(FT_Library lib, Face& face, glm::ivec2 charPos, FT_ULong chr)
+	{
+		glm::aabb<glm::ivec2> box;
+		auto const& glyph = drawChar(lib, face, charPos, chr, false);
+		box.min = charPos + glm::ivec2(glyph.offset.x, -glyph.offset.y);
+		box.max = box.min + glm::ivec2(glyph.cacheSize);
+		return box;
+	}
+
+	template <class Char>
+	glm::aabb<glm::ivec2> drawText(FT_Library lib, Face& face, glm::ivec2 textPos, Char const* chars, bool draw = true)
+	{
+		glm::aabb<glm::ivec2> box = { textPos, textPos };
+
 		glm::ivec2 charPos = textPos;
 		for (auto chr = chars; *chr; ++chr)
 		{
@@ -413,25 +429,36 @@ struct TextRenderer
 				continue;
 			}
 
-			auto const& glyph = drawChar(lib, face, charPos, stdx::to_unsigned(*chr));
+			auto const& glyph = drawChar(lib, face, charPos, stdx::to_unsigned(*chr), draw);
+			
+			auto glyphTopLeft = charPos + glm::ivec2(glyph.offset.x, -glyph.offset.y);
+			auto glyphBottomRight = glyphTopLeft + glm::ivec2(glyph.cacheSize);
+			box.min = min(box.min, glyphTopLeft);
+			box.max = max(box.max, glyphBottomRight);
+			
 			charPos += glyph.advance;
 			// todo: kerning
 		}
+
+		return box;
 	}
 
-	GlyphCache::CachedGlyph const& drawChar(FT_Library lib, Face& face, glm::ivec2 pos, FT_ULong chr)
+	GlyphCache::CachedGlyph const& drawChar(FT_Library lib, Face& face, glm::ivec2 pos, FT_ULong chr, bool draw = true)
 	{
 		bool cacheOverflow;
 		auto& glyph = glyphCache.get(lib, face, chr, cacheOverflow, renderMode);
 		
-		if (cacheOverflow || charBatchCnt >= charBatchSize)
+		if (cacheOverflow || draw && charBatchCnt >= charBatchSize)
 			flushText(cacheOverflow);
 
-		QueuedChar qc = { QueuedChar::build_tuple( (short) (pos.x + glyph.offset.x), (short) (pos.y - glyph.offset.y) )
-			, QueuedChar::build_tuple( (unsigned short) glyph.cacheOffset.x, (unsigned short) glyph.cacheOffset.y )
-			, QueuedChar::build_tuple( (unsigned short) glyph.cacheSize.x, (unsigned short) glyph.cacheSize.y ) };
-		charMem[charBatchCnt] = qc;
-		++charBatchCnt;
+		if (draw)
+		{
+			QueuedChar qc = { QueuedChar::build_tuple( (short) (pos.x + glyph.offset.x), (short) (pos.y - glyph.offset.y) )
+				, QueuedChar::build_tuple( (unsigned short) glyph.cacheOffset.x, (unsigned short) glyph.cacheOffset.y )
+				, QueuedChar::build_tuple( (unsigned short) glyph.cacheSize.x, (unsigned short) glyph.cacheSize.y ) };
+			charMem[charBatchCnt] = qc;
+			++charBatchCnt;
+		}
 
 		return glyph;
 	}

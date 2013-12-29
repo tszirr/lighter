@@ -16,6 +16,9 @@ namespace glm
 	template <class T, size_t N>
 	struct pod_vec { T c[N]; };
 
+	template <class Vec>
+	struct aabb { Vec min, max; };
+
 	template <class Uniform, size_t N>
 	struct rand_box
 	{
