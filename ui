@@ -46,23 +46,22 @@ struct Ui
 	}
 };
 
-template <class T, T V> struct GlobalObjectTag { static T const tag; };
-template <class T, T V> T const GlobalObjectTag<T, V>::tag = V;
+template <class T, T V> struct GlobalObjectTag { union U { T p; char c; }; static U const tag; };
+template <class T, T V> typename GlobalObjectTag<T, V>::U const GlobalObjectTag<T, V>::tag = { V };
 
-template <class T> struct GlobalObjectTagRTP { template <T& V> struct GOT : GlobalObjectTag<T*, &V> { }; };
-template <class T> struct GlobalObjectTagRTP<T&> { template <T& V> struct GOT : GlobalObjectTag<T*, &V> { }; };
-template <class T> struct GlobalObjectTagRTP<T&&> : GlobalObjectTagRTP<T> { };
-template <class T> struct GlobalObjectTagRTP<T*> { template <T* V> struct GOT : GlobalObjectTag<T*, V> { }; };
-template <class T> struct GlobalObjectTagRTP<T* const> : GlobalObjectTagRTP<T*> { };
-template <class T> struct GlobalObjectTagRTP<T* volatile> : GlobalObjectTagRTP<T*> { };
-template <class T> struct GlobalObjectTagRTP<T* const volatile> : GlobalObjectTagRTP<T*> { };
+template <class T>
+struct GlobalObjectTagFromPtr {
+	template <T P> static inline GlobalObjectTag<T, P> make() { return GlobalObjectTag<T, P>(); }
+};
+template <class T> GlobalObjectTagFromPtr<T*> inline GlobalObjectTagFromVal(T*) { return GlobalObjectTagFromPtr<T*>(); }
+template <class T, class C> GlobalObjectTagFromPtr<T (C::*)> inline GlobalObjectTagFromVal(T (C::*)) { return GlobalObjectTagFromPtr<T (C::*)>(); }
 
-#define UEI(v) &::ui::GlobalObjectTagRTP<decltype((v))>::template GOT<(v)>::tag
+#define UEI(v) &(::ui::GlobalObjectTagFromVal(v).template make<v>().tag)
 
 struct UniqueElementIdentifier
 {
 	uintptr_t value;
-	UniqueElementIdentifier(void* ptr)
+	UniqueElementIdentifier(void const volatile* ptr)
 		: value(reinterpret_cast<uintptr_t>(ptr)) { }
 	UniqueElementIdentifier(uintptr_t value)
 		: value(value) { }
