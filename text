@@ -401,9 +401,9 @@ struct TextRenderer
 	}
 
 	template <class Char>
-	glm::aabb<glm::ivec2> boundText(FT_Library lib, Face& face, glm::ivec2 textPos, Char const* chars)
+	glm::aabb<glm::ivec2> boundText(FT_Library lib, Face& face, glm::ivec2 textPos, Char const* chars, size_t maxChars = ~0)
 	{
-		return drawText(lib, face, textPos, chars, false);
+		return drawText(lib, face, textPos, chars, maxChars, false);
 	}
 	glm::aabb<glm::ivec2> boundChar(FT_Library lib, Face& face, glm::ivec2 charPos, FT_ULong chr)
 	{
@@ -415,12 +415,13 @@ struct TextRenderer
 	}
 
 	template <class Char>
-	glm::aabb<glm::ivec2> drawText(FT_Library lib, Face& face, glm::ivec2 textPos, Char const* chars, bool draw = true)
+	glm::aabb<glm::ivec2> drawText(FT_Library lib, Face& face, glm::ivec2 textPos, Char const* chars, size_t maxChars = ~0, bool draw = true)
 	{
 		glm::aabb<glm::ivec2> box = { textPos, textPos };
 
 		glm::ivec2 charPos = textPos;
-		for (auto chr = chars; *chr; ++chr)
+		size_t charCount = 0;
+		for (auto chr = chars; *chr && charCount < maxChars; ++chr, ++charCount)
 		{
 			if (*chr == '\n')
 			{

@@ -25,11 +25,11 @@ struct TextRenderer
 	template <class Char> struct CharTypeFromChar<Char, 2> { static CharType const value = UTF16; };
 	template <class Char> struct CharTypeFromChar<Char, 4> { static CharType const value = UTF32; };
 
-	virtual glm::aabb<glm::ivec2> boundText(char const* text, glm::ivec2 insertPos = glm::ivec2(0)) = 0;
-	virtual glm::aabb<glm::ivec2> drawText(glm::ivec2 insertPos, char const* text, CharType type) = 0;
+	virtual glm::aabb<glm::ivec2> boundText(char const* text, size_t maxChars = ~0, glm::ivec2 insertPos = glm::ivec2(0)) = 0;
+	virtual glm::aabb<glm::ivec2> drawText(glm::ivec2 insertPos, char const* text, size_t maxChars, CharType type) = 0;
 	template <class Char>
-	inline glm::aabb<glm::ivec2> drawText(glm::ivec2 insertPos, Char const* text, CharType type = CharTypeFromChar<Char>::value) {
-		return drawText(insertPos, reinterpret_cast<char const*>(text), type); }
+	inline glm::aabb<glm::ivec2> drawText(glm::ivec2 insertPos, Char const* text, size_t maxChars = ~0, CharType type = CharTypeFromChar<Char>::value) {
+		return drawText(insertPos, reinterpret_cast<char const*>(text), maxChars, type); }
 };
 
 struct UiElement
@@ -153,7 +153,14 @@ struct Mouse
 	bool primary, primaryChanged;
 	bool secondary, secondaryChanged;
 	glm::ivec2 pos;
-}; 
+};
+
+struct Cursor
+{
+	int row;
+	int column;
+	glm::ivec2 pos;
+};
 
 struct CaptureState
 {
@@ -183,6 +190,7 @@ struct TextUi
 	TextRenderer* textRenderer;
 	
 	Mouse mouse;
+	Cursor cursor;
 
 	std::vector<UniqueElementIdentifier> capturePath;
 	std::vector<UniqueElementIdentifier> entryPath;
@@ -193,12 +201,19 @@ struct TextUi
 		, textRenderer(textRenderer)
 		, options(options)
 	{
+		cursor.row = 0;
+		cursor.column = -1;
 	}
 	
 	void reset()
 	{
 		if (!mouse.primary && !mouse.secondary)
 			capturePath.clear();
+		// todo: make value-sensitive
+		if (cursor.column < -1)
+			cursor.column = -1;
+		if (cursor.row < 0)
+			cursor.row = 0;
 	}
 
 	void capture(stdx::data_range_param<UniqueElementIdentifier> path, UniqueElementIdentifier id)
@@ -231,15 +246,24 @@ struct TextUi
 	{
 		TextUi *ui;
 	
+		glm::ivec2 insertBegin;
+		glm::ivec2 insertEnd;
+
+		bool cursorVisible;
+
 		std::vector<UniqueElementIdentifier> pathStack;
 
 		glm::ivec2 insertPos;
-		glm::ivec2 insertEnd;
+		int insertLine;
 		unsigned pendingIndent;
 
-		Renderer(TextUi* ui)
+		Renderer(TextUi* ui, glm::ivec2 insertPos, glm::uvec2 insertFrame)
 			: ui(ui)
-			, insertPos()
+			, insertBegin(insertPos)
+			, insertEnd(insertPos + glm::ivec2(insertFrame))
+			, cursorVisible(true)
+			, insertPos(insertPos)
+			, insertLine(0)
 			, pendingIndent(0)
 		{
 		}
@@ -263,8 +287,32 @@ struct TextUi
 		void nextLine()
 		{
 			insertPos.x += pendingIndent;
-			insertPos.y += ui->options.lineHeight;
 			pendingIndent = 0;
+			insertPos.y += ui->options.lineHeight;
+			++insertLine;
+		}
+
+		void maybeDrawCursor(glm::ivec2 valuePos, char const* value)
+		{
+			if (insertLine == ui->cursor.row)
+				drawCursor(valuePos, value);
+		}
+		void drawCursor(glm::ivec2 valuePos, char const* value)
+		{
+			auto cursorPos = insertPos;
+			if (ui->cursor.column >= 0)
+			{
+				cursorPos = valuePos;
+				if (ui->cursor.column > 0)
+					cursorPos.x = ui->textRenderer->boundText(value, ui->cursor.column, valuePos).max.x;
+			}
+			else
+				cursorPos.x -= ui->options.labelDelta / 3;
+			
+			if (cursorVisible)
+				ui->textRenderer->drawText(cursorPos, "_");
+
+			ui->cursor.pos = cursorPos;
 		}
 
 		void addLabel(char const* label)
@@ -280,10 +328,35 @@ struct TextUi
 			ui->textRenderer->drawText(labelPos, label);
 		}
 
+		template <class Value>
+		struct Interaction
+		{
+			virtual void updateValue(Value const& value) = 0;
+		};
+		template <class Value>
+		struct ValueInteraction : Interaction<Value>
+		{
+			Value* value;
+			ValueInteraction(nullptr_t) { }
+			ValueInteraction(Value& value)
+				: value(&value) { }
+			void updateValue(Value const& value) override {
+				*this->value = value; }
+		};
+		template <class Value>
+		struct InteractionParam
+		{
+			Interaction<Value>* ptr;
+			InteractionParam(nullptr_t) : ptr() { }
+			InteractionParam(Value& value, ValueInteraction<Value>& interaction = ValueInteraction<Value>(nullptr))
+				: ptr(&interaction) { interaction = ValueInteraction<Value>(value); }
+		};
+
 		void addText(UniqueElementIdentifier id, char const* label, char const* text, bool editable)
 		{
 			addLabel(label);
 			ui->textRenderer->drawText(insertPos, text);
+			maybeDrawCursor(insertPos, text);
 			nextLine();
 		}
 
@@ -295,7 +368,7 @@ struct TextUi
 			float range;
 			float valueBase;
 		};
-		Slider addSlider(UniqueElementIdentifier id, char const* label, float value, float range)
+		Slider addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact)
 		{
 			addLabel(label);
 
@@ -324,35 +397,26 @@ struct TextUi
 			auto valPos = insertPos;
 			valPos.x += (sliderSize.x - valBox.max.x) / 2;
 			ui->textRenderer->drawText(valPos, num);
+			maybeDrawCursor(valPos, num);
 
 			nextLine();
 
 			Slider slider = { id, { barPos, barEnd }, value, range, relativeValueBase * range };
+			
+			if (interact.ptr)
+			{
+				auto& mouse = ui->mouse;
+
+				if (mouse.primary && ui->capturedOrAcquired(pathStack, slider.id, mouse.primaryChanged && glm::in_aabb(mouse.pos, slider.rect)))
+					interact.ptr->updateValue(
+						  slider.valueBase
+						+ float(mouse.pos.x - slider.rect.min.x) / float(slider.rect.max.x - slider.rect.min.x) * slider.range
+						);
+			}
+			
 			return slider;
 		}
-
-		template <class T>
-		struct ValueInteraction
-		{
-			Renderer* ui;
-			T* value;
-
-			ValueInteraction& operator =(Slider const& slider)
-			{
-				auto& mouse = ui->ui->mouse;
-
-				if (mouse.primary && ui->ui->capturedOrAcquired(ui->pathStack, slider.id, mouse.primaryChanged && glm::in_aabb(mouse.pos, slider.rect)))
-						*value = slider.valueBase
-							+ float(mouse.pos.x - slider.rect.min.x) / float(slider.rect.max.x - slider.rect.min.x) * slider.range;
-
-				return *this;
-			}
-		};
-		template <class T>
-		ValueInteraction<T> interact(T& v) { ValueInteraction<T> i = { this, &v }; return i; }
 	};
-
-	Renderer render() { return Renderer(this); }
 };
 
 struct TextUiGroup : stdx::noncopyable
