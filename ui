@@ -14,8 +14,22 @@ namespace ui
 
 struct TextRenderer
 {
+	enum CharType
+	{
+		UTF8,
+		UTF16,
+		UTF32
+	};
+	template <class Char, size_t Size = sizeof(Char)> struct CharTypeFromChar;
+	template <class Char> struct CharTypeFromChar<Char, 1> { static CharType const value = UTF8; };
+	template <class Char> struct CharTypeFromChar<Char, 2> { static CharType const value = UTF16; };
+	template <class Char> struct CharTypeFromChar<Char, 4> { static CharType const value = UTF32; };
+
 	virtual glm::aabb<glm::ivec2> boundText(char const* text, glm::ivec2 insertPos = glm::ivec2(0)) = 0;
-	virtual glm::aabb<glm::ivec2> drawText(glm::ivec2 insertPos, char const* text) = 0;
+	virtual glm::aabb<glm::ivec2> drawText(glm::ivec2 insertPos, char const* text, CharType type) = 0;
+	template <class Char>
+	inline glm::aabb<glm::ivec2> drawText(glm::ivec2 insertPos, Char const* text, CharType type = CharTypeFromChar<Char>::value) {
+		return drawText(insertPos, reinterpret_cast<char const*>(text), type); }
 };
 
 struct UiElement
