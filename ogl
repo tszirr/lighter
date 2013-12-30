@@ -181,7 +181,8 @@ struct GLFWWindow : stdx::noncopyable
 	static void textCallback(GLFWwindow *window, unsigned chr)
 	{
 		auto* self = windows()[window];
-		self->text(chr);
+		if (self && self->text)
+			self->text(chr);
 	}
 	static void mouseCallback(GLFWwindow *window, double x, double y)
 	{
@@ -650,7 +651,7 @@ struct Shader : glew_delete_single<GLuint, glDeleteShader>::handle_type
 		// Seriously, nothing works: Concatenate manually
 		std::string testSrc;
 		testSrc.reserve(totalSourceLen);
-		for (size_t i = 0; i < sourceCount; ++i)
+		for (int i = 0; i < sourceCount; ++i)
 			testSrc.append(sources[i], sources[i] + sourceLens[i]);
 		assert(testSrc.size() == totalSourceLen);
 		sources[0] = testSrc.c_str();
