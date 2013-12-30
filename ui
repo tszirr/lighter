@@ -172,7 +172,7 @@ struct TextUi
 		unsigned indent, lineHeight;
 		int labelDelta, controlBaseline;
 
-		explicit Options(unsigned lineHeight = 24, unsigned indent = 10, int labelDelta = 16, int controlBaseline = -3) 
+		explicit Options(unsigned lineHeight = 24, unsigned indent = 3, int labelDelta = 24, int controlBaseline = -3) 
 			: indent(indent)
 			, lineHeight(lineHeight)
 			, labelDelta(labelDelta)
@@ -267,14 +267,23 @@ struct TextUi
 			pendingIndent = 0;
 		}
 
-		void addText(UniqueElementIdentifier id, char const* label, char const* text, bool editable)
+		void addLabel(char const* label)
 		{
+			auto treePos = insertPos;
+			treePos.x -= ui->options.labelDelta * 3 / 4;
+
+			static unsigned short const downArrow[2] = { 0x25ff };
+			ui->textRenderer->drawText(treePos, (pendingIndent) ? "\\-" : "|-");
+			
 			auto labelPos = insertPos;
 			labelPos.x -= ui->textRenderer->boundText(label).max.x + ui->options.labelDelta;
 			ui->textRenderer->drawText(labelPos, label);
+		}
 
+		void addText(UniqueElementIdentifier id, char const* label, char const* text, bool editable)
+		{
+			addLabel(label);
 			ui->textRenderer->drawText(insertPos, text);
-
 			nextLine();
 		}
 
@@ -288,9 +297,7 @@ struct TextUi
 		};
 		Slider addSlider(UniqueElementIdentifier id, char const* label, float value, float range)
 		{
-			auto labelPos = insertPos;
-			labelPos.x -= ui->textRenderer->boundText(label).max.x + ui->options.labelDelta;
-			ui->textRenderer->drawText(labelPos, label);
+			addLabel(label);
 
 			char num[32];
 			sprintf(num, "%f", value);
