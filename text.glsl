@@ -2,7 +2,7 @@
 
 #include <renderer.glsl.h>
 
-layout(binding = 0, std140) uniform Camera
+layout(std140) uniform Camera
 {
 	CameraConstants camera;
 };
@@ -10,7 +10,7 @@ layout(binding = 0, std140) uniform Camera
 #ifdef IN_VS
 
 in uvec3 glyphDataIn;
-out flat uvec3 glyphData;
+flat out uvec3 glyphData;
 
 void main()
 {
@@ -24,7 +24,7 @@ void main()
 layout(points) in;
 layout(triangle_strip, max_vertices = 4) out;
 
-in flat uvec3 glyphData[1];
+flat in uvec3 glyphData[1];
 out vec2 atlasPxF;
 
 void main()
@@ -59,7 +59,7 @@ void main()
 
 in vec2 atlasPxF;
 
-layout(binding = 0) uniform sampler2D fontCache;
+uniform sampler2D fontCache;
 layout(location = 0) out vec4 colorOut;
 
 void main()

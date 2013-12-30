@@ -2,7 +2,7 @@
 
 #include <renderer.glsl.h>
 
-layout(binding = 0, std140) uniform Camera
+layout(std140) uniform Camera
 {
 	CameraConstants camera;
 };
@@ -10,7 +10,7 @@ layout(binding = 0, std140) uniform Camera
 #ifdef IN_VS
 
 in uvec3 widgetDataIn;
-out flat uvec3 widgetData;
+flat out uvec3 widgetData;
 
 void main()
 {
@@ -24,8 +24,8 @@ void main()
 layout(points) in;
 layout(triangle_strip, max_vertices = 4) out;
 
-in flat uvec3 widgetData[1];
-out flat uint widgetClass;
+flat in uvec3 widgetData[1];
+flat out uint widgetClass;
 out vec4 widgetPxF;
 
 void main()
@@ -58,7 +58,7 @@ void main()
 
 #ifdef IN_FS
 
-in flat uint widgetClass;
+flat in uint widgetClass;
 in vec4 widgetPxF;
 
 layout(location = 0) out vec4 colorOut;
@@ -69,7 +69,7 @@ void main()
 {
 	float borderDist = min4(widgetPxF);
 	vec4 color = vec4(1.0f);
-	if (widgetClass == 1)
+	if (widgetClass == 1U)
 		color.xyz = vec3(0.2f);
 	else
 		color.xyz = (borderDist <= 1.0f) ? vec3(0.1f) : vec3(1.0f);
