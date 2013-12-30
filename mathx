@@ -22,7 +22,7 @@ namespace glm
 	template <class Vec>
 	inline bool in_aabb(Vec const& p, Vec const& min, Vec const& max)
 	{
-		return all(lessThanEqual(min, p) & lessThanEqual(p, max));
+		return all(lessThanEqual(min, p)) && all(lessThanEqual(p, max));
 	}
 	template <class Vec>
 	inline bool in_aabb(Vec const& p, aabb<Vec> const& box)

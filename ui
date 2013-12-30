@@ -134,6 +134,23 @@ struct UniqueElementIdentifier
 	bool operator ==(UniqueElementIdentifier const& r) const { return value == r.value; }
 };
 
+struct Mouse
+{
+	bool primary, primaryChanged;
+	bool secondary, secondaryChanged;
+	glm::ivec2 pos;
+}; 
+
+struct CaptureState
+{
+	enum T
+	{
+		Available,
+		Owned,
+		Unavailable
+	};
+};
+
 struct TextUi
 {
 	struct Options
@@ -151,12 +168,7 @@ struct TextUi
 	UiRenderer* uiRenderer;
 	TextRenderer* textRenderer;
 	
-	struct Mouse
-	{
-		bool primary, primaryChanged;
-		bool secondary, secondaryChanged;
-		glm::ivec2 pos;
-	} mouse;
+	Mouse mouse;
 
 	std::vector<UniqueElementIdentifier> capturePath;
 	std::vector<UniqueElementIdentifier> entryPath;
@@ -169,6 +181,38 @@ struct TextUi
 	{
 	}
 	
+	void reset()
+	{
+		if (!mouse.primary && !mouse.secondary)
+			capturePath.clear();
+	}
+
+	void capture(stdx::data_range_param<UniqueElementIdentifier> path, UniqueElementIdentifier id)
+	{
+		capturePath.assign(path.begin(), path.end());
+		capturePath.push_back(id);
+	}
+	CaptureState::T captureState(stdx::data_range_param<UniqueElementIdentifier> path, UniqueElementIdentifier id) const
+	{
+		if (capturePath.empty())
+			return CaptureState::Available;
+		else if (capturePath.size() - 1 == path.size() && capturePath.back() == id && std::equal(path.begin(), path.end(), capturePath.data()))
+			return CaptureState::Owned;
+		else
+			return CaptureState::Unavailable;
+	}
+	bool capturedOrAcquired(stdx::data_range_param<UniqueElementIdentifier> path, UniqueElementIdentifier id, bool acquire)
+	{
+		auto state = captureState(path, id);
+		if (acquire && state == CaptureState::Available)
+		{
+			capture(path, id);
+			return true;
+		}
+		else
+			return (state == CaptureState::Owned);
+	}
+
 	struct Renderer
 	{
 		TextUi *ui;
@@ -276,25 +320,10 @@ struct TextUi
 			{
 				auto& mouse = ui->ui->mouse;
 
-				// todo: optimize (cache incrementally in renderer)
-				bool hasCapture = (ui->ui->capturePath == ui->pathStack);
-
-				if (mouse.primary)
-				{
-					if (!hasCapture && glm::in_aabb(mouse.pos, slider.rect))
-					{
-						ui->ui->capturePath = ui->pathStack;
-						hasCapture = true;
-					}
-
-					if (hasCapture)
+				if (mouse.primary && ui->ui->capturedOrAcquired(ui->pathStack, slider.id, mouse.primaryChanged && glm::in_aabb(mouse.pos, slider.rect)))
 						*value = slider.valueBase
 							+ float(mouse.pos.x - slider.rect.min.x) / float(slider.rect.max.x - slider.rect.min.x) * slider.range;
-				}
-				else if (hasCapture)
-					// todo: always release capture when mouse released OR control vanishes
-					ui->ui->capturePath.clear();
-				
+
 				return *this;
 			}
 		};
