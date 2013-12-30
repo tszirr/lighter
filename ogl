@@ -178,6 +178,11 @@ struct GLFWWindow : stdx::noncopyable
 		if (action != GLFW_REPEAT && self && self->keyboard)
 			self->keyboard(key, action == GLFW_PRESS);
 	}
+	static void textCallback(GLFWwindow *window, unsigned chr)
+	{
+		auto* self = windows()[window];
+		self->text(chr);
+	}
 	static void mouseCallback(GLFWwindow *window, double x, double y)
 	{
 		auto* self = windows()[window];
@@ -196,6 +201,7 @@ struct GLFWWindow : stdx::noncopyable
 
 	std::function<void (unsigned w, unsigned h)> resize;
 	std::function<void (int key, bool pressed)> keyboard;
+	std::function<void (unsigned)> text;
 	std::function<void (int x, int y)> mouse;
 	std::function<void (int button, bool pressed)> buttons;
 
@@ -206,6 +212,7 @@ struct GLFWWindow : stdx::noncopyable
 			throwx( ogl_error("Failed to create glfw window!") );
 		glfwSetFramebufferSizeCallback(window, resizeCallback);
 		glfwSetKeyCallback(window, keyCallback);
+		glfwSetCharCallback(window, textCallback);
 		glfwSetCursorPosCallback(window, mouseCallback);
 		glfwSetMouseButtonCallback(window, buttonsCallback);
 
@@ -223,6 +230,7 @@ struct GLFWWindow : stdx::noncopyable
 		: window(std::move(right.window))
 		, resize(std::move(right.resize))
 		, keyboard(std::move(right.keyboard))
+		, text(std::move(right.text))
 		, mouse(std::move(right.mouse))
 		, buttons(std::move(right.buttons))
 	{
@@ -233,6 +241,7 @@ struct GLFWWindow : stdx::noncopyable
 		std::swap(window, right.window);
 		std::swap(resize, right.resize);
 		std::swap(keyboard, right.keyboard);
+		std::swap(text, right.text);
 		std::swap(mouse, right.mouse);
 		std::swap(buttons, right.buttons);
 
