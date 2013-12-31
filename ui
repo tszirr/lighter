@@ -162,6 +162,21 @@ struct Cursor
 	glm::ivec2 pos;
 };
 
+struct InputKeys
+{
+	static unsigned const KeyStart		= 0x80000000;
+
+	static unsigned const ManipKeyMask	= 0x81000000;
+	static unsigned const DeleteLast	= ManipKeyMask + 0;
+	static unsigned const DeleteNext	= ManipKeyMask + 1;
+
+	static unsigned const NavKeyMask	= 0x82000000;
+	static unsigned const MoveUp		= NavKeyMask;
+	static unsigned const MoveDown		= NavKeyMask + 1;
+	static unsigned const MoveLeft		= NavKeyMask + 2;
+	static unsigned const MoveRight		= NavKeyMask + 3;
+};
+
 struct CaptureState
 {
 	enum T
@@ -250,6 +265,7 @@ struct TextUi
 		glm::ivec2 insertEnd;
 
 		bool cursorVisible;
+		std::vector<unsigned> pendingInput;
 
 		std::vector<UniqueElementIdentifier> pathStack;
 
@@ -266,6 +282,32 @@ struct TextUi
 			, insertLine(0)
 			, pendingIndent(0)
 		{
+		}
+
+		size_t addInput(stdx::data_range_param<unsigned const> queue)
+		{
+			auto& cursor = ui->cursor;
+
+			auto it = queue.begin(), itEnd = queue.end();
+			for (; it < itEnd && (*it & InputKeys::NavKeyMask) == InputKeys::NavKeyMask; ++it)
+				switch (*it)
+				{
+				case InputKeys::MoveDown: ++cursor.row; break;
+				case InputKeys::MoveUp: --cursor.row; break;
+				case InputKeys::MoveLeft: --cursor.column; break;
+				case InputKeys::MoveRight: ++cursor.column; break;
+				}
+
+			// todo: make value-sensitive during draw/interact
+			if (cursor.column < -1)
+				cursor.column = -1;
+			if (cursor.row < 0)
+				cursor.row = 0;
+
+			for (; it < itEnd && (*it & InputKeys::NavKeyMask) != InputKeys::NavKeyMask; ++it)
+				pendingInput.push_back(*it);
+
+			return it - queue.begin();
 		}
 
 		void pushGroup(UniqueElementIdentifier id)
@@ -352,6 +394,50 @@ struct TextUi
 				: ptr(&interaction) { interaction = ValueInteraction<Value>(value); }
 		};
 
+		std::vector<char> editText(UniqueElementIdentifier id, char const* text, unsigned& textCursor) const
+		{
+			auto textLen = strlen(text);
+			textCursor = std::min(textCursor, (unsigned) textLen);
+			
+			std::vector<char> newText(textLen + pendingInput.size() + 1);
+			std::copy_n(text, textCursor, newText.data());
+
+			auto headCursor = textCursor;
+			auto tailCursor = textCursor;
+
+			for (auto chr : pendingInput)
+			{
+				if (chr < InputKeys::KeyStart)
+					newText[headCursor++] = (char) chr; // todo: utf-8
+				else if (chr == InputKeys::DeleteLast && textCursor > 0)
+					--headCursor;
+				else if (chr == InputKeys::DeleteNext)
+					++tailCursor;
+			}
+
+			size_t newTextLen = headCursor + (tailCursor < textLen ? textLen - tailCursor : 0);
+			std::copy_n(text + tailCursor, newTextLen - headCursor, newText.data() + headCursor);
+			newText[newTextLen] = 0;
+			newText.resize(newTextLen);
+
+			textCursor = headCursor;
+			return newText;
+		}
+		template <class Func>
+		void maybeEditText(UniqueElementIdentifier id, char const* text, Func&& func)
+		{
+			auto& cursor = ui->cursor;
+			if (!pendingInput.empty() && cursor.row == insertLine && cursor.column >= 0)
+			{
+				unsigned newCursor = cursor.column;
+				
+				auto newText = editText(id, text, newCursor);
+				func(newText.data());
+				
+				cursor.column = (int) newCursor;
+			}
+		}
+
 		void addText(UniqueElementIdentifier id, char const* label, char const* text, bool editable)
 		{
 			addLabel(label);
@@ -372,8 +458,9 @@ struct TextUi
 		{
 			addLabel(label);
 
-			char num[32];
-			sprintf(num, "%f", value);
+			char numBuf[32];
+			sprintf(numBuf, "%f", value);
+			auto* num = (numBuf[0] == '0') ? &numBuf[1] : numBuf;
 			
 			auto valBox = ui->textRenderer->boundText(num);
 			
@@ -398,6 +485,14 @@ struct TextUi
 			valPos.x += (sliderSize.x - valBox.max.x) / 2;
 			ui->textRenderer->drawText(valPos, num);
 			maybeDrawCursor(valPos, num);
+
+			if (interact.ptr)
+				maybeEditText(id, num, [&](char const* newText)
+				{
+					float newVal = value;
+					if (sscanf(newText, "%f", &newVal) == 1)
+						interact.ptr->updateValue(newVal);
+				});
 
 			nextLine();
 
