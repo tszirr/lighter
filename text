@@ -399,28 +399,17 @@ struct TextRenderer
 		charBuffer.unbind(GL_ARRAY_BUFFER);
 		charArrays.unbind();
 	}
-
-	template <class Char>
-	glm::aabb<glm::ivec2> boundText(FT_Library lib, Face& face, glm::ivec2 textPos, Char const* chars, size_t maxChars = ~0)
-	{
-		return drawText(lib, face, textPos, chars, maxChars, false);
-	}
-	glm::aabb<glm::ivec2> boundChar(FT_Library lib, Face& face, glm::ivec2 charPos, FT_ULong chr)
-	{
-		glm::aabb<glm::ivec2> box;
-		auto const& glyph = drawChar(lib, face, charPos, chr, false);
-		box.min = charPos + glm::ivec2(glyph.offset.x, -glyph.offset.y);
-		box.max = box.min + glm::ivec2(glyph.cacheSize);
-		return box;
-	}
-
-	template <class Char>
-	glm::aabb<glm::ivec2> drawText(FT_Library lib, Face& face, glm::ivec2 textPos, Char const* chars, size_t maxChars = ~0, bool draw = true)
+	
+	template <class Char, class CharOp, class GlyphOp>
+	glm::aabb<glm::ivec2> layoutText(FT_Library lib, Face& face, glm::ivec2 textPos
+		, CharOp&& charToGlyphOp, GlyphOp&& glyphOp
+		, Char const* chars, size_t maxChars = ~0)
 	{
 		glm::aabb<glm::ivec2> box = { textPos, textPos };
 
 		glm::ivec2 charPos = textPos;
 		size_t charCount = 0;
+
 		for (auto chr = chars; *chr && charCount < maxChars; ++chr, ++charCount)
 		{
 			if (*chr == '\n')
@@ -430,13 +419,18 @@ struct TextRenderer
 				continue;
 			}
 
-			auto const& glyph = drawChar(lib, face, charPos, stdx::to_unsigned(*chr), draw);
+			auto uchr = stdx::to_unsigned(*chr);
+			auto const& glyph = charToGlyphOp(lib, face, charPos, uchr);
 			
 			auto glyphTopLeft = charPos + glm::ivec2(glyph.offset.x, -glyph.offset.y);
 			auto glyphBottomRight = glyphTopLeft + glm::ivec2(glyph.cacheSize);
+			
+			glm::aabb<glm::ivec2> glyphBox = { glyphTopLeft, glyphBottomRight };
+			glyphOp(lib, face, charPos, uchr, glyphBox, glyph, charCount);
+
 			box.min = min(box.min, glyphTopLeft);
 			box.max = max(box.max, glyphBottomRight);
-			
+
 			charPos += glyph.advance;
 			// todo: kerning
 		}
@@ -444,22 +438,88 @@ struct TextRenderer
 		return box;
 	}
 
-	GlyphCache::CachedGlyph const& drawChar(FT_Library lib, Face& face, glm::ivec2 pos, FT_ULong chr, bool draw = true)
+	template <class Char>
+	glm::aabb<glm::ivec2> boundText(FT_Library lib, Face& face, glm::ivec2 textPos, Char const* chars, size_t maxChars = ~0)
+	{
+		using namespace std::placeholders;
+		return layoutText(lib, face, textPos, std::bind(&TextRenderer::getGlyph, this, _1, _2, _3, _4), stdx::noop(), chars, maxChars);
+	}
+
+	template <class Char>
+	glm::aabb<glm::ivec2> drawText(FT_Library lib, Face& face, glm::ivec2 textPos, Char const* chars, size_t maxChars = ~0, bool draw = true)
+	{
+		using namespace std::placeholders;
+		return layoutText(lib, face, textPos, std::bind(&TextRenderer::drawChar, this, _1, _2, _3, _4), stdx::noop(), chars, maxChars);
+	}
+	
+	template <class Char>
+	glm::aabb<glm::ivec2> selectChar(FT_Library lib, Face& face
+		, glm::ivec2 cursorPos, size_t& charIdx
+		, glm::ivec2 textPos, Char const* chars, size_t maxChars = ~0)
+	{
+		glm::aabb<glm::ivec2> charBox = { textPos, textPos };
+		size_t chrIdx = ~0;
+		size_t textLen = 0;
+
+		auto charSelect = [&](FT_Library lib, Face& face, glm::ivec2 pos, FT_ULong chr
+			, glm::aabb<glm::ivec2> const& glyphBox, GlyphCache::CachedGlyph const& glyph
+			, size_t textOffset)
+		{
+			if (in_aabb(cursorPos, glyphBox))
+			{
+				chrIdx = textOffset;
+				charBox = glyphBox;
+			}
+			textLen = textOffset + 1;
+		};
+		using namespace std::placeholders;
+		auto textBox = layoutText(lib, face, textPos, std::bind(&TextRenderer::getGlyph, this, _1, _2, _3, _4), charSelect, chars, maxChars);
+
+		if (chrIdx == ~0 && textBox.min.y <= cursorPos.y && cursorPos.y <= textBox.max.y)
+		{
+			if (cursorPos.x < textBox.max.x)
+				chrIdx = 0;
+			else
+				chrIdx = textLen;
+		}
+
+		charIdx = chrIdx;
+		return charBox;
+	}
+
+	glm::aabb<glm::ivec2> boundChar(FT_Library lib, Face& face, glm::ivec2 charPos, FT_ULong chr)
+	{
+		glm::aabb<glm::ivec2> box;
+		auto const& glyph = getGlyph(lib, face, charPos, chr);
+		box.min = charPos + glm::ivec2(glyph.offset.x, -glyph.offset.y);
+		box.max = box.min + glm::ivec2(glyph.cacheSize);
+		return box;
+	}
+
+	GlyphCache::CachedGlyph const& getGlyph(FT_Library lib, Face& face, glm::ivec2 pos, FT_ULong chr)
 	{
 		bool cacheOverflow;
 		auto& glyph = glyphCache.get(lib, face, chr, cacheOverflow, renderMode);
 		
-		if (cacheOverflow || draw && charBatchCnt >= charBatchSize)
+		if (cacheOverflow)
 			flushText(cacheOverflow);
 
-		if (draw)
-		{
-			QueuedChar qc = { QueuedChar::build_tuple( (short) (pos.x + glyph.offset.x), (short) (pos.y - glyph.offset.y) )
-				, QueuedChar::build_tuple( (unsigned short) glyph.cacheOffset.x, (unsigned short) glyph.cacheOffset.y )
-				, QueuedChar::build_tuple( (unsigned short) glyph.cacheSize.x, (unsigned short) glyph.cacheSize.y ) };
-			charMem[charBatchCnt] = qc;
-			++charBatchCnt;
-		}
+		return glyph;
+	}
+
+	GlyphCache::CachedGlyph const& drawChar(FT_Library lib, Face& face, glm::ivec2 pos, FT_ULong chr)
+	{
+		bool cacheOverflow;
+		auto& glyph = glyphCache.get(lib, face, chr, cacheOverflow, renderMode);
+		
+		if (cacheOverflow || charBatchCnt >= charBatchSize)
+			flushText(cacheOverflow);
+
+		QueuedChar qc = { QueuedChar::build_tuple( (short) (pos.x + glyph.offset.x), (short) (pos.y - glyph.offset.y) )
+			, QueuedChar::build_tuple( (unsigned short) glyph.cacheOffset.x, (unsigned short) glyph.cacheOffset.y )
+			, QueuedChar::build_tuple( (unsigned short) glyph.cacheSize.x, (unsigned short) glyph.cacheSize.y ) };
+		charMem[charBatchCnt] = qc;
+		++charBatchCnt;
 
 		return glyph;
 	}

@@ -25,7 +25,14 @@ struct TextRenderer
 	template <class Char> struct CharTypeFromChar<Char, 2> { static CharType const value = UTF16; };
 	template <class Char> struct CharTypeFromChar<Char, 4> { static CharType const value = UTF32; };
 
-	virtual glm::aabb<glm::ivec2> boundText(char const* text, size_t maxChars = ~0, glm::ivec2 insertPos = glm::ivec2(0)) = 0;
+	virtual glm::aabb<glm::ivec2> selectChar(glm::ivec2 cursorPos, size_t& charIdx, glm::ivec2 insertPos, char const* text, size_t maxChars, CharType type) = 0;
+	template <class Char>
+	inline glm::aabb<glm::ivec2> selectChar(glm::ivec2 cursorPos, size_t& charIdx, glm::ivec2 insertPos, Char const* text, size_t maxChars = ~0, CharType type = CharTypeFromChar<Char>::value) {
+		return selectChar(cursorPos, charIdx, insertPos, reinterpret_cast<char const*>(text), maxChars, type); }
+	virtual glm::aabb<glm::ivec2> boundText(char const* text, size_t maxChars, glm::ivec2 insertPos, CharType type) = 0;
+	template <class Char>
+	inline glm::aabb<glm::ivec2> boundText(Char const* text, size_t maxChars = ~0, glm::ivec2 insertPos = glm::ivec2(0), CharType type = CharTypeFromChar<Char>::value) {
+		return boundText(reinterpret_cast<char const*>(text), maxChars, insertPos, type); }
 	virtual glm::aabb<glm::ivec2> drawText(glm::ivec2 insertPos, char const* text, size_t maxChars, CharType type) = 0;
 	template <class Char>
 	inline glm::aabb<glm::ivec2> drawText(glm::ivec2 insertPos, Char const* text, size_t maxChars = ~0, CharType type = CharTypeFromChar<Char>::value) {
@@ -483,8 +490,21 @@ struct TextUi
 
 			auto valPos = insertPos;
 			valPos.x += (sliderSize.x - valBox.max.x) / 2;
-			ui->textRenderer->drawText(valPos, num);
+			valBox = ui->textRenderer->drawText(valPos, num);
 			maybeDrawCursor(valPos, num);
+			
+			auto& mouse = ui->mouse;
+			if ((mouse.primary || mouse.secondary) && in_aabb(mouse.pos, valBox))
+			{
+				size_t newCol;
+				ui->textRenderer->selectChar(mouse.pos, newCol, valPos, num);
+				if (newCol != ~0)
+				{
+					// todo: delay, might double input otherwise
+					ui->cursor.row = insertLine;
+					ui->cursor.column = (int) newCol;
+				}
+			}
 
 			if (interact.ptr)
 				maybeEditText(id, num, [&](char const* newText)
@@ -500,8 +520,6 @@ struct TextUi
 			
 			if (interact.ptr)
 			{
-				auto& mouse = ui->mouse;
-
 				if (mouse.primary && ui->capturedOrAcquired(pathStack, slider.id, mouse.primaryChanged && glm::in_aabb(mouse.pos, slider.rect)))
 					interact.ptr->updateValue(
 						  slider.valueBase

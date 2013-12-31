@@ -146,6 +146,11 @@ namespace stdx
 
 	extern bool const is_debugger_present;
 
+	struct noop
+	{
+		void operator ()(...) const { }
+	};
+
 	template <class Exception>
 	class error : public std::runtime_error
 	{
