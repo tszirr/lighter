@@ -621,7 +621,7 @@ struct Shader : glew_delete_single<GLuint, glDeleteShader>::handle_type
 			sourceLens[1] = 1;
 
 			sources[4] = source;
-			sourceLens[4] = versionDir - source;
+			sourceLens[4] = int(versionDir - source);
 
 			sources[5] = "// moved: ";
 			sourceLens[5] = -1;
@@ -655,7 +655,7 @@ struct Shader : glew_delete_single<GLuint, glDeleteShader>::handle_type
 			testSrc.append(sources[i], sources[i] + sourceLens[i]);
 		assert(testSrc.size() == totalSourceLen);
 		sources[0] = testSrc.c_str();
-		sourceLens[0] = totalSourceLen;
+		sourceLens[0] = (int) totalSourceLen;
 		sourceCount = 1;
 		// fall back to most common use case
 		glShaderSource(result, 1, sources, nullptr);
