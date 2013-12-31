@@ -175,8 +175,8 @@ struct GLFWWindow : stdx::noncopyable
 	static void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
 	{
 		auto* self = windows()[window];
-		if (action != GLFW_REPEAT && self && self->keyboard)
-			self->keyboard(key, action == GLFW_PRESS);
+		if (self && self->keyboard)
+			self->keyboard(key, action != GLFW_RELEASE, action == GLFW_REPEAT);
 	}
 	static void textCallback(GLFWwindow *window, unsigned chr)
 	{
@@ -201,7 +201,7 @@ struct GLFWWindow : stdx::noncopyable
 	TRANSPARENT_MEMBER(GLFWWindow, window)
 
 	std::function<void (unsigned w, unsigned h)> resize;
-	std::function<void (int key, bool pressed)> keyboard;
+	std::function<void (int key, bool pressed, bool repeat)> keyboard;
 	std::function<void (unsigned)> text;
 	std::function<void (int x, int y)> mouse;
 	std::function<void (int button, bool pressed)> buttons;
