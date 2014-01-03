@@ -62,25 +62,25 @@ inline __host__ __device__ typename CudaToGlm<T>::Type toGlm(T const& cuda)
 
 template <class T> struct GlmToCuda;
 template <> struct GlmToCuda<glm::mediump_float> { typedef float Type; };
-template <> struct GlmToCuda<glm::tvec1<glm::mediump_float>> { typedef float1 Type; };
+template <> struct GlmToCuda<glm::tvec1<glm::mediump_float>> { typedef float Type; };
 template <> struct GlmToCuda<glm::vec2> { typedef float2 Type; };
 template <> struct GlmToCuda<glm::vec3> { typedef float3 Type; };
 template <> struct GlmToCuda<glm::vec4> { typedef float4 Type; };
 
 template <> struct GlmToCuda<glm::mediump_int> { typedef int Type; };
-template <> struct GlmToCuda<glm::tvec1<glm::mediump_int>> { typedef int1 Type; };
+template <> struct GlmToCuda<glm::tvec1<glm::mediump_int>> { typedef int Type; };
 template <> struct GlmToCuda<glm::ivec2> { typedef int2 Type; };
 template <> struct GlmToCuda<glm::ivec3> { typedef int3 Type; };
 template <> struct GlmToCuda<glm::ivec4> { typedef int4 Type; };
 
 template <> struct GlmToCuda<unsigned short> { typedef unsigned short Type; };
-template <> struct GlmToCuda<glm::tvec1<unsigned short>> { typedef ushort1 Type; };
+template <> struct GlmToCuda<glm::tvec1<unsigned short>> { typedef unsigned short Type; };
 template <> struct GlmToCuda<glm::tvec2<unsigned short>> { typedef ushort2 Type; };
 template <> struct GlmToCuda<glm::tvec3<unsigned short>> { typedef ushort3 Type; };
 template <> struct GlmToCuda<glm::tvec4<unsigned short>> { typedef ushort4 Type; };
 
 template <> struct GlmToCuda<glm::mediump_uint> { typedef unsigned int Type; };
-template <> struct GlmToCuda<glm::tvec1<unsigned int>> { typedef uint1 Type; };
+template <> struct GlmToCuda<glm::tvec1<unsigned int>> { typedef unsigned int Type; };
 template <> struct GlmToCuda<glm::uvec2> { typedef uint2 Type; };
 template <> struct GlmToCuda<glm::uvec3> { typedef uint3 Type; };
 template <> struct GlmToCuda<glm::uvec4> { typedef uint4 Type; };
@@ -89,6 +89,13 @@ template <class T>
 inline __host__ __device__ typename GlmToCuda<T>::Type toCuda(T const& glm)
 {
 	return reinterpret_cast<typename GlmToCuda<T>::Type const&>(glm);
+}
+
+template <class T, class U>
+inline __host__ __device__ T toGlmExplicit(U const& cuda
+										 , typename std::enable_if<std::is_same<typename CudaToGlm<U>::Type, typename CudaToGlm<typename GlmToCuda<T>::Type>::Type>::value>::type* enable_if_connected = nullptr)
+{
+	return reinterpret_cast<T const&>(cuda);
 }
 
 #ifdef __CUDA_ARCH__ 
@@ -103,7 +110,7 @@ __device__ inline Type surf2Dread(SurfaceType surf, int2 coord, cudaSurfaceBound
 template <class Type, class SurfaceType>
 __device__ inline Type surf2Dread(SurfaceType surf, glm::ivec2 coord, cudaSurfaceBoundaryMode boundaryMode = cudaBoundaryModeTrap)
 {
-	return toGlm( surf2Dread<typename GlmToCuda<Type>::Type>(surf, toCuda(coord), boundaryMode) );
+	return toGlmExplicit<Type>( surf2Dread<typename GlmToCuda<Type>::Type>(surf, toCuda(coord), boundaryMode) );
 }
 
 template <class Type, class SurfaceType>
@@ -127,7 +134,7 @@ __device__ inline Type surf3Dread(SurfaceType surf, int3 coord, cudaSurfaceBound
 template <class Type, class SurfaceType>
 __device__ inline Type surf3Dread(SurfaceType surf, glm::ivec3 coord, cudaSurfaceBoundaryMode boundaryMode = cudaBoundaryModeTrap)
 {
-	return toGlm( surf3Dread<typename GlmToCuda<Type>::Type>(surf, toCuda(coord), boundaryMode) );
+	return toGlmExplicit<Type>( surf3Dread<typename GlmToCuda<Type>::Type>(surf, toCuda(coord), boundaryMode) );
 }
 
 template <class Type, class SurfaceType>
@@ -154,7 +161,7 @@ __device__ inline Type tex2D(SurfaceType surf, Vec coord, typename CudaToGlm<Vec
 template <class Type, class SurfaceType, class Vec>
 __device__ inline Type tex2D(SurfaceType surf, Vec coord, typename GlmToCuda<Vec>::Type* enable_if_glm_vec = nullptr)
 {
-	return toGlm( tex2D<typename GlmToCuda<Type>::Type>(surf, toCuda(coord)) );
+	return toGlmExplicit<Type>( tex2D<typename GlmToCuda<Type>::Type>(surf, toCuda(coord)) );
 }
 
 template <class Type, class Vec>
@@ -170,7 +177,7 @@ __device__ inline Type tex3D(SurfaceType surf, Vec coord, typename CudaToGlm<Vec
 template <class Type, class SurfaceType, class Vec>
 __device__ inline Type tex3D(SurfaceType surf, Vec coord, typename GlmToCuda<Vec>::Type* enable_if_glm_vec = nullptr)
 {
-	return toGlm( tex3D<typename GlmToCuda<Type>::Type>(surf, toCuda(coord)) );
+	return toGlmExplicit<Type>( tex3D<typename GlmToCuda<Type>::Type>(surf, toCuda(coord)) );
 }
 
 __device__ inline hbvec3 toHalf(glm::vec3 const& v)
