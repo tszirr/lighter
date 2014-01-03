@@ -368,9 +368,11 @@ struct TextUi
 		{
 			auto treePos = insertPos;
 			treePos.x -= ui->options.labelDelta * 3 / 4;
+//			treePos.y -= ui->options.lineHeight / 4;
 
-			static unsigned short const downArrow[2] = { 0x25ff };
-			ui->textRenderer->drawText(treePos, (pendingIndent) ? "\\-" : "|-");
+			static unsigned short const arrow[3] = { '\\', '-' };
+			static unsigned short const entry[3] = { '|', '-' };
+			ui->textRenderer->drawText(treePos, (pendingIndent) ? arrow : entry);
 			
 			auto labelPos = insertPos;
 			labelPos.x -= ui->textRenderer->boundText(label).max.x + ui->options.labelDelta;
@@ -448,8 +450,23 @@ struct TextUi
 		void addText(UniqueElementIdentifier id, char const* label, char const* text, bool editable)
 		{
 			addLabel(label);
-			ui->textRenderer->drawText(insertPos, text);
+
+			auto valBox = ui->textRenderer->drawText(insertPos, text);
 			maybeDrawCursor(insertPos, text);
+
+			auto& mouse = ui->mouse;
+			if ((mouse.primary || mouse.secondary) && in_aabb(mouse.pos, valBox))
+			{
+				size_t newCol;
+				ui->textRenderer->selectChar(mouse.pos, newCol, insertPos, text);
+				if (newCol != ~0)
+				{
+					// todo: delay, might double input otherwise
+					ui->cursor.row = insertLine;
+					ui->cursor.column = (int) newCol;
+				}
+			}
+
 			nextLine();
 		}
 
