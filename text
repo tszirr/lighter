@@ -161,7 +161,7 @@ struct BitmapCache
 			auto numEligibleRows = numRows - numTileRows + 1;
 
 			unsigned optRowIdx = 0;
-			unsigned optRowOffset = ~0;
+			unsigned optRowOffset = ~0U;
 
 			for (unsigned r = 0; r < numEligibleRows; ++r)
 			{
@@ -458,14 +458,23 @@ struct TextRenderer
 		, glm::ivec2 textPos, Char const* chars, size_t maxChars = ~0)
 	{
 		glm::aabb<glm::ivec2> charBox = { textPos, textPos };
-		size_t chrIdx = ~0;
+		size_t chrIdx = ~size_t(0);
 		size_t textLen = 0;
+
+		int ascender = (face->size->metrics.ascender >> 6);
+		int descender = (face->size->metrics.descender >> 6);
+		int height = face->size->metrics.height >> 6;
+		if (ascender - descender < height) {
+			int deltaHeight = height - (ascender - descender);
+			ascender += deltaHeight / 2;
+			descender -= deltaHeight / 2;
+		}
 
 		auto charSelect = [&](FT_Library lib, Face& face, glm::ivec2 pos, FT_ULong chr
 			, glm::aabb<glm::ivec2> const& glyphBox, GlyphCache::CachedGlyph const& glyph
 			, size_t textOffset)
 		{
-			if (in_aabb(cursorPos, glyphBox))
+			if (in_aabb(cursorPos, glm::ivec2(glyphBox.min.x, pos.y - ascender), glm::ivec2(glyphBox.max.x, pos.y - descender)))
 			{
 				chrIdx = textOffset;
 				charBox = glyphBox;
