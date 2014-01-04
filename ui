@@ -384,12 +384,12 @@ struct TextUi
 		{
 			virtual void updateValue(Value const& value) = 0;
 		};
-		template <class Value>
+		template <class Value, class ModifiedValue = Value>
 		struct ValueInteraction : Interaction<Value>
 		{
-			Value* value;
+			ModifiedValue* value;
 			ValueInteraction(nullptr_t) { }
-			ValueInteraction(Value& value)
+			ValueInteraction(ModifiedValue& value)
 				: value(&value) { }
 			void updateValue(Value const& value) override {
 				*this->value = value; }
@@ -401,6 +401,9 @@ struct TextUi
 			InteractionParam(nullptr_t) : ptr() { }
 			InteractionParam(Value& value, ValueInteraction<Value>& interaction = ValueInteraction<Value>(nullptr))
 				: ptr(&interaction) { interaction = ValueInteraction<Value>(value); }
+			template <class ModifiedValue>
+			InteractionParam(ModifiedValue& value, ValueInteraction<Value, ModifiedValue>& interaction = ValueInteraction<Value, ModifiedValue>(nullptr))
+				: ptr(&interaction) { interaction = ValueInteraction<Value, ModifiedValue>(value); }
 		};
 
 		std::vector<char> editText(UniqueElementIdentifier id, char const* text, unsigned& textCursor) const
@@ -447,7 +450,7 @@ struct TextUi
 			}
 		}
 
-		void addText(UniqueElementIdentifier id, char const* label, char const* text, bool editable)
+		void addText(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact)
 		{
 			addLabel(label);
 
@@ -466,6 +469,13 @@ struct TextUi
 					ui->cursor.column = (int) newCol;
 				}
 			}
+
+			if (interact.ptr)
+				maybeEditText(id, text, [&](char const* newText)
+				{
+					interact.ptr->updateValue(newText);
+				});
+			// warning: text may be invalid from here on
 
 			nextLine();
 		}
