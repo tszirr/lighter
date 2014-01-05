@@ -188,10 +188,10 @@ namespace stdx
 		unique_handle() { }
 		unique_handle(nullptr_t) { }
 		explicit unique_handle(pointer value)
-			: typename unique_handle::unique_ptr(std::move(value)) { }
+			: unique_handle::unique_ptr(std::move(value)) { }
 			
 		unique_handle(unique_handle &&right)
-			: typename unique_handle::unique_ptr(std::move(right)) { }
+			: unique_handle::unique_ptr(std::move(right)) { }
 		unique_handle& operator =(unique_handle &&right)
 		{
 			this->unique_ptr::swap(right);

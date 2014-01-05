@@ -22,7 +22,8 @@ namespace stdx
 		return buf.st_mtime;
 	}
 
-	inline void enable_stream_exceptions(std::ios_base &t)
+	template <class E, class T>
+	inline void enable_stream_exceptions(std::basic_ios<E, T> &t)
 	{
 		t.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 	}
@@ -107,8 +108,10 @@ namespace stdx
 	class basic_charbuf : public std::basic_streambuf<Elem, Traits>
 	{
 	protected:
+#ifdef _MSC_VER
 		virtual void __CLR_OR_THIS_CALL _Lock() { }
 		virtual void __CLR_OR_THIS_CALL _Unlock() { }
+#endif
 
 	public:
 		typedef typename Traits::char_type char_type;
