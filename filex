@@ -264,7 +264,7 @@ namespace stdx
 	}
 	
 	template <class Char>
-	basic_charstream<Char> get_ini_stream(std::map< std::basic_string<Char>, std::basic_string<Char> > const &contents, typename std::identity<std::basic_string<Char>>::type const &name)
+	basic_charstream<Char> get_ini_stream(std::map< std::basic_string<Char>, std::basic_string<Char> > const &contents, typename identity<std::basic_string<Char>>::type const &name)
 	{
 		auto it = contents.find(name);
 		if (it == contents.end()) throwx(parse_error(name));
@@ -275,7 +275,7 @@ namespace stdx
 	}
 
 	template <class Value, class Char>
-	Value get_ini_value(std::map< std::basic_string<Char>, std::basic_string<Char> > const &contents, typename std::identity<std::basic_string<Char>>::type const &name)
+	Value get_ini_value(std::map< std::basic_string<Char>, std::basic_string<Char> > const &contents, typename identity<std::basic_string<Char>>::type const &name)
 	{
 		Value result;
 		get_ini_stream(contents, name) >> result;
@@ -283,7 +283,7 @@ namespace stdx
 	}
 
 	template <class Char>
-	std::basic_string<Char> const& get_ini_value(std::map< std::basic_string<Char>, std::basic_string<Char> > const &contents, typename std::identity<std::basic_string<Char>>::type const &name)
+	std::basic_string<Char> const& get_ini_value(std::map< std::basic_string<Char>, std::basic_string<Char> > const &contents, typename identity<std::basic_string<Char>>::type const &name)
 	{
 		auto it = contents.find(name);
 		if (it == contents.end()) throwx(parse_error(name));	

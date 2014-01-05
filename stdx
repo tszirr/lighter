@@ -48,6 +48,8 @@ namespace stdx
 	template <class T, size_t Size>
 	inline T* strend(T (&a)[Size]) { assert(!a[Size - 1]); return &a[Size - 1]; }
 
+	template <class T> struct identity { typedef T type; };
+
 	// MSVC' extra invitation in decltype
 	template <class T>
 	inline typename std::make_unsigned<T>::type to_unsigned(T sgn) { return sgn; }
