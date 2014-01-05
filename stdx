@@ -61,7 +61,11 @@ namespace stdx
 	inline auto maybe_deref_iterator(I it, typename I::iterator_category* = nullptr) -> decltype(*it) { return *it; }
 	template <class I>
 	inline auto maybe_deref_iterator(I* it) -> decltype(*it) { return *it; }
+	#ifdef _MSC_VER
 	inline void maybe_deref_iterator(...) { }
+	#else
+	template <class... Args> inline void maybe_deref_iterator(Args&&...) { }
+	#endif
 
 	/// Range type.
 	template <class Iterator>
@@ -150,7 +154,11 @@ namespace stdx
 
 	struct noop
 	{
+		#ifdef _MSC_VER
 		void operator ()(...) const { }
+		#else
+		template <class... Args> void operator ()(Args&&...) const { }
+		#endif
 	};
 
 	template <class Exception>
@@ -169,7 +177,11 @@ namespace stdx
 
 	template <class Exception>
 	inline bool break_on_error(error<Exception> const&) { return error<Exception>::break_on_error; }
+	#ifdef _MSC_VER
 	inline bool break_on_error(...) { return false; }
+	#else
+	template <class... Args> inline bool break_on_error(Args&&...) { return false; }
+	#endif
 	
 	template <class Pointer>
 	struct no_delete
