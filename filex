@@ -166,15 +166,17 @@ namespace stdx
 	template < class Elem, class Traits = std::char_traits<Elem> >
 	class basic_charstream : private impl::charbuf_holder<Elem, Traits>, public std::basic_iostream<Elem, Traits>
 	{
+	public:
+		typedef Traits traits_type;
+		typedef typename traits_type::char_type char_type;
+		/// Stream buffer type.
+		typedef typename holder_base_type::stream_buffer stream_buffer;
+
 	private:
 		typedef impl::charbuf_holder<char_type, traits_type> holder_base_type;
 		typedef std::basic_iostream<char_type, traits_type> stream_base_type;
 
 	public:
-		typedef typename Traits::char_type char_type;
-		/// Stream buffer type.
-		typedef typename holder_base_type::stream_buffer stream_buffer;
-
 		/// Constructs a character stream from the given character range.
 		basic_charstream(basic_charstream const &right)
 				: holder_base_type(right.begin(), right.end()),
