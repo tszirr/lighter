@@ -126,19 +126,18 @@ namespace stdx
 		/// Resets the character stream buffer.
 		void reset()
 		{
-			setp(pbase(), epptr());
-			setg(eback(), eback(), egptr());
+			this->setp(this->pbase(), this->epptr());
+			this->setg(this->eback(), this->eback(), this->egptr());
 		}
 
 		/// Gets the beginning of the underlying buffer.
-		char_type* begin() const { return pbase(); }
+		char_type* begin() const { return this->pbase(); }
 		/// Gets the end of the underlying buffer.
-		char_type* end() const { return epptr(); }
+		char_type* end() const { return this->epptr(); }
 		/// Gets the current write position in the underlying buffer.
-		char_type* write_end() const { return pptr(); }
+		char_type* write_end() const { return this->pptr(); }
 		/// Gets the current read position in the underlying buffer.
-		char_type* read_end() const { return gptr(); }
-
+		char_type* read_end() const { return this->gptr(); }
 	};
 
 	namespace impl
