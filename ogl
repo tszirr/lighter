@@ -55,13 +55,12 @@ struct GLFW : stdx::noncopyable
 		instance() = nullptr;
 	}
 	
-	void configureGl(int major, int minor, bool debug = true, bool coreProfile = true)
+	void configureGl(int major, int minor, bool coreProfile = false, bool debug = true)
 	{
 		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, major);
 		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, minor);
 		glfwWindowHint(GLFW_SRGB_CAPABLE, GL_TRUE);
-		if (coreProfile)
-			glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
+		glfwWindowHint(GLFW_OPENGL_PROFILE, (coreProfile) ? GLFW_OPENGL_CORE_PROFILE : GLFW_OPENGL_COMPAT_PROFILE);
 		if (debug)
 			glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
 	}
