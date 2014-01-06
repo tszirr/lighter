@@ -219,9 +219,9 @@ struct TextUi
 	std::vector<UniqueElementIdentifier> focusPath;
 
 	TextUi(UiRenderer* uiRenderer, TextRenderer* textRenderer, Options options = Options())
-		: uiRenderer(uiRenderer)
+		: options(options)
+		, uiRenderer(uiRenderer)
 		, textRenderer(textRenderer)
-		, options(options)
 	{
 		cursor.row = 0;
 		cursor.column = -1;

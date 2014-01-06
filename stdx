@@ -273,10 +273,17 @@ namespace stdx
 } // namespace
 
 #define arraylen(x) sizeof(::stdx::detail::arraylen_helper(x))
+
+#ifdef _MSC_VER
+#define debugbreak() __debugbreak()
+#else
+#define debugbreak() __builtin_trap()
+#endif
+
 #if defined(NDEBUG) && !defined(DEBUG_EXCEPTIONS)
 	#define throwx(x) throw x
 #else
-	#define throwx(x) do { using ::stdx::break_on_error;  auto&& exc = x; if (break_on_error(exc) && ::stdx::is_debugger_present) __debugbreak(); throw exc; } while (false)
+	#define throwx(x) do { using ::stdx::break_on_error;  auto&& exc = x; if (break_on_error(exc) && ::stdx::is_debugger_present) debugbreak(); throw exc; } while (false)
 #endif
 
 #define TOKEN_TO_STRING(x) #x

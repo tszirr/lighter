@@ -158,9 +158,11 @@ namespace stdx
 		};
 	}
 
+	#ifdef _MSC_VER
 	// Obscure MS iostream warning
 	#pragma warning(push)
 	#pragma warning(disable : 4250)
+	#endif
 
 	/// Character stream class that allows for allocation-free usage of STL streaming facilities.
 	template < class Elem, class Traits = std::char_traits<Elem> >
@@ -212,7 +214,9 @@ namespace stdx
 
 	};
 
+	#ifdef _MSC_VER
 	#pragma warning(pop)
+	#endif
 
 	/// Character stream class.
 	typedef basic_charstream<char> charstream;
