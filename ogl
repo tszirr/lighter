@@ -336,7 +336,7 @@ struct Buffer : glew_delete<GLuint, glDeleteBuffers>::handle_type
 	void read(GLenum bufferType, Range const& range, size_t srcOffset = 0)
 	{
 		bind(bufferType);
-		glGetBufferSubData(target, sizeof(*range.data()) * srcOffset, sizeof(*range.data()) * range.size(), range.data());
+		glGetBufferSubData(bufferType, sizeof(*range.data()) * srcOffset, sizeof(*range.data()) * range.size(), range.data());
 		THROW_OPENGL_LASTERROR("glGetBufferSubData()");
 	}
 };
