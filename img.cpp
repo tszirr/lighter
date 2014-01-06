@@ -35,9 +35,10 @@ struct copy_channel_identity
 	template <class T>
 	T operator ()(T val) const { return val; }
 
-	template <class T> struct is_identity { static bool const value = false; };
-	template <> struct is_identity<copy_channel_identity> { static bool const value = true; };
+	template <class T> struct is_identity;
 };
+template <class T> struct copy_channel_identity::is_identity { static bool const value = false; };
+template <> struct copy_channel_identity::is_identity<copy_channel_identity> { static bool const value = true; };
 
 template <class D, class S, class Transform>
 inline void copy_channels(D* destBytes, unsigned destChannels, S const* srcBytes, unsigned srcChannels, unsigned srcPitch, glm::uvec2 dim, D zero, D one, Transform&& transform)

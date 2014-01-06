@@ -399,10 +399,10 @@ struct TextUi
 		{
 			Interaction<Value>* ptr;
 			InteractionParam(nullptr_t) : ptr() { }
-			InteractionParam(Value& value, ValueInteraction<Value>& interaction = ValueInteraction<Value>(nullptr))
+			InteractionParam(Value& value, ValueInteraction<Value>&& interaction = (ValueInteraction<Value>)(nullptr))
 				: ptr(&interaction) { interaction = ValueInteraction<Value>(value); }
 			template <class ModifiedValue>
-			InteractionParam(ModifiedValue& value, ValueInteraction<Value, ModifiedValue>& interaction = ValueInteraction<Value, ModifiedValue>(nullptr))
+			InteractionParam(ModifiedValue& value, ValueInteraction<Value, ModifiedValue>&& interaction = (ValueInteraction<Value, ModifiedValue>)(nullptr))
 				: ptr(&interaction) { interaction = ValueInteraction<Value, ModifiedValue>(value); }
 		};
 
