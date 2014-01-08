@@ -15,12 +15,10 @@ set(LIGHTER_SRC
   text.glsl
   ui
   ui.glsl
-  PARENT_SCOPE
 )
 if (LIGHTER_USE_FREEIMAGE)
   set(LIGHTER_SRC
     ${LIGHTER_SRC}
 	img.cpp
-	PARENT_SCOPE
   )
 endif()

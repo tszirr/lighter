@@ -1,0 +1,9 @@
+include("CMakeSrc.txt")
+
+if(LIGHTER_IMPORT_SRC)
+  set(LIGHTER_SRC ${LIGHTER_SRC} PARENT_SCOPE)
+endif()
+
+if(LIGHTER_TARGET_FACTORY)
+  include("${LIGHTER_TARGET_FACTORY}")
+endif()
