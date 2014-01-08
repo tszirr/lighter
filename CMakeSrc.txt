@@ -1,0 +1,26 @@
+set(LIGHTER_SRC
+  stdx
+  filex
+  mathx
+  appx
+  oglbase
+  ogl
+  oclbase
+  ocl
+  cudabase
+  cuda
+  cudax
+  img
+  text
+  text.glsl
+  ui
+  ui.glsl
+  PARENT_SCOPE
+)
+if (LIGHTER_USE_FREEIMAGE)
+  set(LIGHTER_SRC
+    ${LIGHTER_SRC}
+	img.cpp
+	PARENT_SCOPE
+  )
+endif()
