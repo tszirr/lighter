@@ -57,6 +57,11 @@ namespace glm
 	template <class T> inline glm::detail::tvec4<T> to_vec(pod_vec<T, 4> const& v) { return (glm::detail::tvec4<T> const&) v; }
 
 	template <class T> inline T mipCount(T res) { T count(1); for (auto m = res; m > T(1); m /= T(2)) ++count; return count; }
+
+	template <class T> inline T nextPO2(T res) { T po2(1); while (po2 < res) po2 *= T(2); return po2; }
+	template <class T> inline glm::tvec2<T> nextPO2(glm::tvec2<T> res) { return glm::tvec2<T>(nextPO2(res.x), nextPO2(res.y)); }
+	template <class T> inline glm::tvec3<T> nextPO2(glm::tvec3<T> res) { return glm::tvec3<T>(nextPO2(res.x), nextPO2(res.y), nextPO2(res.z)); }
+	template <class T> inline glm::tvec4<T> nextPO2(glm::tvec4<T> res) { return glm::tvec4<T>(nextPO2(res.x), nextPO2(res.y), nextPO2(res.z), nextPO2(res.w)); }
 	
 	template <class T>
 	inline T ceil_div(T x, T d)
