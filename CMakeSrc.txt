@@ -1,3 +1,10 @@
+set(LIGHTER_SHADER_SRC
+  text.glsl
+  ui.glsl
+)
+set(LIGHTER_DATA_FILES
+  ${LIGHTER_SHADER_SRC}
+)
 set(LIGHTER_SRC
   stdx
   filex
