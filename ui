@@ -394,6 +394,16 @@ struct TextUi
 			void updateValue(Value const& value) override {
 				*this->value = value; }
 		};
+		template <class Value, class Function>
+		struct FunctionInteraction : Interaction<Value>
+		{
+			Function* fun;
+			FunctionInteraction(nullptr_t) { }
+			FunctionInteraction(Function& fun)
+				: fun(&fun) { }
+			void updateValue(Value const& value) override {
+				(*this->fun)(value); }
+		};
 		template <class Value>
 		struct InteractionParam
 		{
@@ -402,8 +412,13 @@ struct TextUi
 			InteractionParam(Value& value, ValueInteraction<Value>&& interaction = (ValueInteraction<Value>)(nullptr))
 				: ptr(&interaction) { interaction = ValueInteraction<Value>(value); }
 			template <class ModifiedValue>
-			InteractionParam(ModifiedValue& value, ValueInteraction<Value, ModifiedValue>&& interaction = (ValueInteraction<Value, ModifiedValue>)(nullptr))
+			InteractionParam(ModifiedValue& value, ValueInteraction<Value, ModifiedValue>&& interaction = (ValueInteraction<Value, ModifiedValue>)(nullptr)
+				, typename std::enable_if<std::is_assignable<ModifiedValue, Value>::value>::type* enable_if_var = nullptr)
 				: ptr(&interaction) { interaction = ValueInteraction<Value, ModifiedValue>(value); }
+			template <class Function>
+			InteractionParam(Function&& fun, FunctionInteraction<Value, Function>&& interaction = (FunctionInteraction<Value, typename std::remove_reference<Function>::type>)(nullptr)
+				, typename std::enable_if<!std::is_assignable<Function, Value>::value>::type* enable_if_not_var = nullptr)
+				: ptr(&interaction) { interaction = FunctionInteraction<Value, typename std::remove_reference<Function>::type>(fun); }
 		};
 
 		std::vector<char> editText(UniqueElementIdentifier id, char const* text, unsigned& textCursor) const
