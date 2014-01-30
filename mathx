@@ -20,6 +20,9 @@ namespace glm
 	struct aabb { Vec min, max; };
 
 	template <class Vec>
+	struct ray { Vec o, d; };
+
+	template <class Vec>
 	inline bool in_aabb(Vec const& p, Vec const& min, Vec const& max)
 	{
 		return all(lessThanEqual(min, p)) && all(lessThanEqual(p, max));
@@ -28,6 +31,32 @@ namespace glm
 	inline bool in_aabb(Vec const& p, aabb<Vec> const& box)
 	{
 		return in_aabb(p, box.min, box.max);
+	}
+
+	inline vec4 transformdiv(mat4 const& matrix, vec4 const& vector)
+	{
+		auto r = matrix * vector;
+		r /= r.w;
+		return r;
+	}
+
+	inline vec2 viewportCoords(ivec2 screenPos, ivec2 screenDim)
+	{
+		return (vec2(screenPos) + 0.5f) / vec2(screenDim) * 2.0f - 1.0f;
+	}
+	inline ray<vec3> rayFromVPI(vec2 viewportCoords, mat4 const& viewProjInverse)
+	{
+		ray<vec3> ray;
+		auto rayBase = vec3( transformdiv( viewProjInverse, vec4(viewportCoords, -1.25f, 1.0f) ) );
+		ray.o = vec3( transformdiv( viewProjInverse, vec4(viewportCoords, -1.0f, 1.0f) ) );
+		ray.d = normalize(ray.o - rayBase);
+		return ray;
+	}
+	inline ray<vec3> rayFromVPInrmZ(vec2 viewportCoords, mat4 const& viewProjInverse, vec3 const& viewDir)
+	{
+		auto ray = rayFromVPI(viewportCoords, viewProjInverse);
+		ray.d /= dot(ray.d, viewDir);
+		return ray;
 	}
 
 	template <class Uniform, size_t N>
