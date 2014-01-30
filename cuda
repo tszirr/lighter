@@ -5,7 +5,7 @@
 #include <cudaGL.h>
 
 #include "stdx"
-#include "filex"
+#include "file"
 
 #include <algorithm>
 #include <iostream>

@@ -4,7 +4,7 @@
 #include <glfw/glfw3.h>
 
 #include "stdx"
-#include "filex"
+#include "file"
 
 #include <algorithm>
 #include <iostream>
@@ -816,18 +816,18 @@ struct ProgramWithTime : Program
 	{
 		load();
 	}
-	static std::string resolveIncludesCompat(std::string const& include, bool local)
+	static std::string resolveIncludesCompat(char const* include, bool local)
 	{
-		return stdx::process_includes(stdx::load_file(include.c_str()), include, resolveIncludesCompat, std::string(), true);
+		return stdx::process_includes(stdx::load_file(include), include, resolveIncludesCompat, std::string(), true);
 	}
-	static std::string resolveIncludes(std::string const& include, bool local)
+	static std::string resolveIncludes(char const* include, bool local)
 	{
-		return stdx::process_includes(stdx::load_file(include.c_str()), include, resolveIncludes);
+		return stdx::process_includes(stdx::load_file(include), include, resolveIncludes);
 	}
 	void load()
 	{
 		auto& resolveFunc = (compatibilityInclude) ? resolveIncludesCompat : resolveIncludes;
-		std::string src = resolveFunc(file, true);
+		std::string src = resolveFunc(file.c_str(), true);
 		*this = Program::fromShaders(
 			Shader::compile(GL_FRAGMENT_SHADER, src.c_str(), preamble)
 		, (options != GSOnly) ? (GLuint) Shader::compile(GL_VERTEX_SHADER, src.c_str(), preamble) : 0
