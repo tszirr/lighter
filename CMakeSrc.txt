@@ -14,6 +14,7 @@ set(LIGHTER_SRC
   appx
   oglbase
   ogl
+  ogl.cpp
   oclbase
   ocl
   cudabase
