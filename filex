@@ -1,27 +1,13 @@
 #pragma once
 
-#include "stdx"
+#include "file"
 #include <fstream>
 #include <sstream>
 #include <string>
 #include <map>
-#include <vector>
-
-#include <sys/types.h>
-#include <sys/stat.h>
 
 namespace stdx
 {
-	struct file_tag;
-	typedef stdx::error<file_tag> file_error;
-
-	inline time_t file_time(char const* name)
-	{
-		struct stat buf;
-		stat(name, &buf);
-		return buf.st_mtime;
-	}
-
 	template <class E, class T>
 	inline void enable_stream_exceptions(std::basic_ios<E, T> &t)
 	{
@@ -56,33 +42,6 @@ namespace stdx
 		return write_file(name, om | std::ios_base::binary);
 	}
 
-	inline std::string load_file(char const* name)
-	{
-		std::string str;
-
-		auto t = read_file(name);
-		t.seekg(0, std::ios::end);   
-		str.reserve((size_t) t.tellg());
-		t.seekg(0, std::ios::beg);
-
-		str.assign(std::istreambuf_iterator<char>(t), std::istreambuf_iterator<char>());
-		return str;
-	}
-	
-	inline std::vector<char> load_binary_file(char const* name, bool nullterminated = false)
-	{
-		std::vector<char> data;
-
-		auto t = read_binary_file(name);
-		t.seekg(0, std::ios::end);
-		size_t fileSize = (size_t) t.tellg();
-		data.resize(fileSize + (size_t) nullterminated);
-		t.seekg(0, std::ios::beg);
-
-		t.read(data.data(), fileSize);
-		return data;
-	}
-	
 	template <class T>
 	inline void serialize_binary(std::ostream& stream, T const& val) {
 		stream.write(&reinterpret_cast<char const&>(val), sizeof(val)); }
@@ -292,80 +251,6 @@ namespace stdx
 		auto it = contents.find(name);
 		if (it == contents.end()) throwx(parse_error(name));	
 		return it->second;
-	}
-
-	namespace detail
-	{
-		namespace process_includes
-		{
-			template <class T>
-			auto string_find(std::string const& str, T const& val, char const* cursor) -> char const*
-			{
-				size_t pos = str.find(val, cursor - str.data());
-				return (pos != std::string::npos) ? str.data() + pos : str.data() + str.size();
-			};
-		}
-	}
-
-	template <class Resolve>
-	std::string process_includes(std::string const& src, std::string const& filename, Resolve const& resolve_include, std::string const& preamble = std::string(), bool int_file_id = false)
-	{
-		using namespace detail::process_includes;
-
-		std::stringstream result;
-		if (!preamble.empty())
-			result << preamble << std::endl;
-
-		char const *srcBegin = src.data(), *srcEnd = srcBegin + src.size();
-		auto nextSrcCursor = srcBegin;
-		size_t nextSrcLine = 1;
-
-		while (nextSrcCursor < srcEnd)
-		{
-			auto nextIncludeCursor = string_find(src, "#include", nextSrcCursor);
-
-			result << "#line " << nextSrcLine;
-			if (!int_file_id)
-				result << " \"" << filename << "\"\n";
-			else
-				result << " " << (int) filename.c_str()[0] << "\n";
-			result.write(nextSrcCursor, nextIncludeCursor - nextSrcCursor);
-
-			nextSrcLine += std::count(nextSrcCursor, nextIncludeCursor, '\n');
-			nextSrcCursor = nextIncludeCursor;
-
-			if (nextIncludeCursor < srcEnd)
-			{
-				auto nextIncludeEnd = string_find(src, '\n', nextIncludeCursor);
-
-				auto localInclueStart = string_find(src, '"', nextIncludeCursor);
-				auto systemInclueStart = string_find(src, '<', nextIncludeCursor);
-
-				bool localInclude = true;
-				std::string includeName;
-
-				if (localInclueStart < nextIncludeEnd)
-				{
-					includeName.assign(localInclueStart + 1, string_find(src, '"', localInclueStart + 1));
-					localInclude = true;
-				}
-				else if (systemInclueStart < nextIncludeEnd)
-				{
-					includeName.assign(systemInclueStart + 1, string_find(src, '>', systemInclueStart + 1));
-					localInclude = false;
-				}
-
-				result << resolve_include(includeName, localInclude) << '\n';
-
-				// Skip #include directive
-				nextSrcCursor = nextIncludeEnd;
-				if (nextSrcCursor < srcEnd)
-					++nextSrcCursor;
-				++nextSrcLine;
-			}
-		}
-
-		return result.str();
 	}
 
 } // namespace

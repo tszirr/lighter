@@ -1,0 +1,41 @@
+#pragma once
+
+#include "stdx"
+#include <string>
+#include <vector>
+
+namespace stdx
+{
+	struct file_tag;
+	typedef stdx::error<file_tag> file_error;
+
+	long long file_time(char const* name);
+
+	std::string load_file(char const* name);
+	
+	std::vector<char> load_binary_file(char const* name, bool nullterminated = false);
+	
+	struct include_resolver
+	{
+		virtual std::string resolve(char const* filename, bool localInclude) const = 0; 
+	};
+
+	std::string process_includes_(stdx::data_range_param<char const> src, char const* filename
+		, include_resolver const& resolve_include, stdx::data_range_param<char const> preamble = stdx::data_range_param<char const>()
+		, bool int_file_id = false);
+
+	template <class Resolve>
+	inline std::string process_includes(stdx::data_range_param<char const> src, char const* filename
+		, Resolve&& resolve_include, stdx::data_range_param<char const> preamble = stdx::data_range_param<char const>()
+		, bool int_file_id = false)
+	{
+		struct resolver_wrapper : include_resolver
+		{
+			Resolve& resolver;
+			resolver_wrapper(Resolve& resolver) : resolver(resolver) { }
+			std::string resolve(char const* filename, bool localInclude) const override { return resolver(filename, localInclude); } 
+		} resolver_wrapper(resolve_include);
+		return process_includes_(src, filename, resolver_wrapper, preamble, int_file_id);
+	}
+
+} // namespace

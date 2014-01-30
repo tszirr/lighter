@@ -7,7 +7,9 @@ set(LIGHTER_DATA_FILES
 )
 set(LIGHTER_SRC
   stdx
+  file
   filex
+  file.cpp
   mathx
   appx
   oglbase
