@@ -1,5 +1,4 @@
 #include "img"
-#define FREEIMAGE_LIB
 #include "FreeImage.h"
 
 namespace img
