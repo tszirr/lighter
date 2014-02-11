@@ -25,6 +25,20 @@ inline __host__ __device__ CUdeviceptr asDriverPtr(T* ptr)
 	return static_cast<CUdeviceptr>( reinterpret_cast<uintptr_t>(ptr) );
 }
 
+template <class T, class X>
+inline __host__ __device__ T const& as_(X const& x)
+{
+	static_assert(sizeof(T) == sizeof(X), "size mismatch");
+	union U { X x; T t; char c[sizeof(T)]; };
+	return reinterpret_cast<U const&>(x).t;
+}
+
+template <class T, size_t S>
+inline __device__ __host__ char (&arraylen_helper(T const volatile (&a)[S]))[S];
+#ifndef arraylen
+	#define arraylen(x) sizeof(::cudax::arraylen_helper(x))
+#endif
+
 typedef glm::tvec2<unsigned short> hbvec2;
 typedef glm::tvec3<unsigned short> hbvec3;
 typedef glm::tvec4<unsigned short> hbvec4;
