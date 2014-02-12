@@ -214,14 +214,14 @@ __device__ inline glm::vec4 fromHalf(hbvec4 const& v)
 	return glm::vec4( __half2float(v.x), __half2float(v.y), __half2float(v.z), __half2float(v.w) );
 }
 
-__device__ inline float fast_sqrtf(float x)
+__device__ inline float fast_sqrt(float x)
 {
 	float r;
 	asm("sqrt.approx.f32 %0, %1;" : "=f"(r) : "f"(x));
 	return r;
 }
 
-__device__ inline float fast_rsqrtf(float x)
+__device__ inline float fast_rsqrt(float x)
 {
 	float r;
 	asm("rsqrt.approx.f32 %0, %1;" : "=f"(r) : "f"(x));
