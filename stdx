@@ -41,6 +41,14 @@ namespace stdx
 		template <class T, size_t Size>
 		char (&arraylen_helper(T (&)[Size]))[Size];
 	}
+	
+	template <class T, class X>
+	inline T const& as_(X const& x)
+	{
+		static_assert(sizeof(T) == sizeof(X), "size mismatch");
+		union U { X x; T t; char c[sizeof(T)]; };
+		return reinterpret_cast<U const&>(x).t;
+	}
 
 	template <class T, size_t Size>
 	inline T* arrayend(T (&a)[Size]) { return &a[0] + Size; }
