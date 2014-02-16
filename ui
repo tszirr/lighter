@@ -44,7 +44,8 @@ struct UiElement
 	enum T
 	{
 		Frame,
-		Bar
+		Bar,
+		Ticks,
 	};
 };
 
@@ -55,6 +56,7 @@ struct UiRenderer
 		unsigned xy;
 		unsigned sizeXY;
 		unsigned clazz;
+		unsigned ex;
 
 		template <class T>
 		static unsigned build_tuple(T x, T y)
@@ -80,20 +82,21 @@ struct UiRenderer
 	{
 		widgetArrays.bind();
 		widgetBuffer.bind(GL_ARRAY_BUFFER);
-		glVertexAttribIPointer(0, 3, GL_UNSIGNED_INT, 0, nullptr);
+		glVertexAttribIPointer(0, 4, GL_UNSIGNED_INT, 0, nullptr);
 		glEnableVertexAttribArray(0);
 		widgetBuffer.unbind(GL_ARRAY_BUFFER);
 		widgetArrays.unbind();
 	}
 
-	void drawWidget(glm::ivec2 pos, glm::uvec2 size, UiElement::T clazz)
+	void drawWidget(glm::ivec2 pos, glm::uvec2 size, UiElement::T clazz, unsigned ex = 0)
 	{
 		if (widgetBatchCnt >= widgetBatchSize)
 			flushWidgets();
 
 		QueuedWidget qc = { QueuedWidget::build_tuple( (short) pos.x, (short) pos.y )
 			, QueuedWidget::build_tuple( (unsigned short) size.x, (unsigned short) size.y )
-			, clazz };
+			, clazz
+		  , ex };
 		widgetMem[widgetBatchCnt] = qc;
 		++widgetBatchCnt;
 	}
@@ -503,7 +506,7 @@ struct TextUi
 			float range;
 			float valueBase;
 		};
-		Slider addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact)
+		Slider addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks = 0.0f)
 		{
 			addLabel(label);
 
@@ -515,6 +518,7 @@ struct TextUi
 			
 			unsigned sliderPadding = 6;
 			unsigned sliderBarInset = 3;
+			unsigned sliderTickLength = 2;
 
 			auto sliderPos = insertPos;
 			sliderPos.y += valBox.min.y - sliderPadding; 
@@ -523,12 +527,22 @@ struct TextUi
 			ui->uiRenderer->drawWidget(sliderPos, sliderSize, ui::UiElement::Frame);
 			
 			auto barPos = sliderPos + glm::ivec2(sliderBarInset);
-			auto barSize = sliderSize - glm::uvec2(2 * sliderBarInset);
-			auto barEnd = barPos + glm::ivec2(barSize);
+			auto fullBarSize = sliderSize - glm::uvec2(2 * sliderBarInset);
+			auto barEnd = barPos + glm::ivec2(fullBarSize);
 			float relativeValue = value / range;
 			float relativeValueBase = floor(relativeValue);
+			auto barSize = fullBarSize;
 			barSize.x = unsigned((relativeValue - relativeValueBase) * (float) barSize.x);
 			ui->uiRenderer->drawWidget(barPos, barSize, ui::UiElement::Bar);
+
+			if (ticks > 0.0f)
+			{
+				auto tickPos = glm::ivec2(barPos.x, barEnd.y - sliderTickLength / 2);
+				auto tickSize = glm::uvec2(fullBarSize.x, sliderTickLength);
+
+				float tickDelta = ticks / range * (float) fullBarSize.x;
+				ui->uiRenderer->drawWidget(tickPos, tickSize, ui::UiElement::Ticks, stdx::as_<unsigned>(tickDelta));
+			}
 
 			auto valPos = insertPos;
 			valPos.x += (sliderSize.x - valBox.max.x) / 2;

@@ -9,8 +9,8 @@ layout(std140) uniform Camera
 
 #ifdef IN_VS
 
-in uvec3 widgetDataIn;
-flat out uvec3 widgetData;
+in uvec4 widgetDataIn;
+flat out uvec4 widgetData;
 
 void main()
 {
@@ -24,8 +24,8 @@ void main()
 layout(points) in;
 layout(triangle_strip, max_vertices = 4) out;
 
-flat in uvec3 widgetData[1];
-flat out uint widgetClass;
+flat in uvec4 widgetData[1];
+flat out uvec2 widgetClassEx;
 out vec4 widgetPxF;
 
 void main()
@@ -37,7 +37,7 @@ void main()
 	vec2 leftTop = vec2(leftTopPx) * camera.PixelWidth * vec2(2.0f, -2.0f) - vec2(1.0f, -1.0f);
 	vec2 bottomRight = vec2(bottomRightPx) * camera.PixelWidth * vec2(2.0f, -2.0f) - vec2(1.0f, -1.0f);
 
-	widgetClass = widgetData[0].z;
+	widgetClassEx = widgetData[0].zw;
 	
 	gl_Position = vec4(leftTop, 0.0, 1.0);
 	widgetPxF = vec4(0.0f, 0.0f, vec2(sizePx));
@@ -58,7 +58,7 @@ void main()
 
 #ifdef IN_FS
 
-flat in uint widgetClass;
+flat in uvec2 widgetClassEx;
 in vec4 widgetPxF;
 
 layout(location = 0) out vec4 colorOut;
@@ -68,9 +68,19 @@ float min4(vec4 v) { return min(min(v.x, v.y), min(v.z, v.w)); }
 void main()
 {
 	float borderDist = min4(widgetPxF);
-	vec4 color = vec4(1.0f);
-	if (widgetClass == 1U)
+	vec4 color = vec4(1.0f, 0.0f, 1.0f, 1.0f);
+	// Bar
+	if (widgetClassEx.x == 1U)
 		color.xyz = vec3(0.2f);
+	// Ticks
+	else if (widgetClassEx.x == 2U)
+	{
+		color.xyz = vec3(0.0f);
+		float tickDelta = uintBitsToFloat(widgetClassEx.y);
+		float tickDist = abs(mod(widgetPxF.x + 0.5f * tickDelta, tickDelta) - 0.5f * tickDelta);
+		color.w = (tickDist <= 0.5f) ? 0.9f : 0.0f; //  || widgetPxF.w <= 1.0f && 2.5f <= tickDist && tickDist < 3.5f
+	}
+	// Frames
 	else
 		color.xyz = (borderDist <= 1.0f) ? vec3(0.1f) : vec3(1.0f);
 	colorOut = color;
