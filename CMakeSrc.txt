@@ -27,6 +27,7 @@ set(LIGHTER_SRC
   uii
   ui
   uix
+  ui.cpp
   ui.glsl
 )
 if (LIGHTER_USE_FREEIMAGE)

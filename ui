@@ -3,6 +3,20 @@
 #include "uii"
 #include "mathx"
 
+#include <vector>
+
+namespace ogl
+{
+	struct Program;
+}
+
+namespace text
+{
+	struct FreeType;
+	struct Face;
+	struct TextRenderer;
+}
+
 namespace ui
 {
 
@@ -31,6 +45,23 @@ struct TextRenderer
 	template <class Char>
 	inline glm::aabb<glm::ivec2> drawText(glm::ivec2 insertPos, Char const* text, size_t maxChars = ~0, CharType type = CharTypeFromChar<Char>::value) {
 		return drawText(insertPos, reinterpret_cast<char const*>(text), maxChars, type); }
+};
+
+struct UiTextRenderer : TextRenderer
+{
+	text::FreeType& lib;
+	text::Face& font;
+	text::TextRenderer& renderer;
+
+	UiTextRenderer(text::FreeType& lib, text::Face& font, text::TextRenderer& renderer)
+		: lib(lib), font(font), renderer(renderer) { }
+
+	glm::aabb<glm::ivec2> selectChar(glm::ivec2 cursorPos, size_t& charIdx, glm::ivec2 insertPos, char const* text, size_t maxChars, CharType type) override;
+	using TextRenderer::selectChar;
+	glm::aabb<glm::ivec2> boundText(char const* text, size_t maxChars, glm::ivec2 insertPos, CharType type) override;
+	using TextRenderer::boundText;
+	glm::aabb<glm::ivec2> drawText(glm::ivec2 insertPos, char const* text, size_t maxChars, CharType type) override;
+	using TextRenderer::drawText;
 };
 
 struct Mouse
@@ -149,6 +180,13 @@ struct UserInterface
 		else
 			return (state == CaptureState::Owned);
 	}
+
+	static std::unique_ptr<UserInterface> create(text::FreeType* freeTypeLib, text::Face* font, ogl::Program* textProgram
+		, ogl::Program* widgetProgram);
+
+	// todo: replace by proper render methods
+	virtual void flushWidgets() = 0;
+	virtual void flushText() = 0;
 };
 
 } // namespace
