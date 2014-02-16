@@ -111,7 +111,7 @@ struct TextUi : UserInterface, UniversalInterface
 	}
 	
 	// prepare internal state for next cycle
-	UniversalInterface* reset() override
+	UniversalInterface& reset() override
 	{
 		if (!state.mouse.primary && !state.mouse.secondary)
 			state.capturePath.clear();
@@ -156,9 +156,9 @@ struct TextUi : UserInterface, UniversalInterface
 			state.input.erase(state.input.begin(), pendingEnd);
 		}
 
-		return this;
+		return *this;
 	}
-	UniversalInterface* reset(Mouse const& mouse, stdx::data_range_param<unsigned const> input) override
+	UniversalInterface& reset(Mouse const& mouse, stdx::data_range_param<unsigned const> input) override
 	{
 		state.mouse = mouse;
 		state.input.insert(state.input.end(), input.begin(), input.end());

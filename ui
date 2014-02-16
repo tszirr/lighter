@@ -130,8 +130,8 @@ struct UserInterface
 	virtual ~UserInterface() { }
 
 	// prepare internal state for next cycle
-	virtual UniversalInterface* reset() = 0;
-	virtual UniversalInterface* reset(Mouse const& mouse, stdx::data_range_param<unsigned const> input) = 0;
+	virtual UniversalInterface& reset() = 0;
+	virtual UniversalInterface& reset(Mouse const& mouse, stdx::data_range_param<unsigned const> input) = 0;
 
 	// override input capture
 	virtual void capture(stdx::data_range_param<UniqueElementIdentifier> path, UniqueElementIdentifier id) = 0;
