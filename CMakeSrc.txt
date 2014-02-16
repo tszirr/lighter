@@ -24,7 +24,9 @@ set(LIGHTER_SRC
   text
   textx
   text.glsl
+  uii
   ui
+  uix
   ui.glsl
 )
 if (LIGHTER_USE_FREEIMAGE)

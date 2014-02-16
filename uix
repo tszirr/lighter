@@ -1,0 +1,401 @@
+#pragma once
+
+#include "ui"
+#include "ogl"
+
+#include <algorithm>
+#include <string>
+#include <vector>
+
+namespace ui
+{
+
+struct UiElement
+{
+	enum T
+	{
+		Frame,
+		Bar,
+		Ticks,
+	};
+};
+
+struct UiRenderer
+{
+	struct QueuedWidget
+	{
+		unsigned xy;
+		unsigned sizeXY;
+		unsigned clazz;
+		unsigned ex;
+
+		template <class T>
+		static unsigned build_tuple(T x, T y)
+		{
+			return (unsigned) stdx::to_unsigned(x)
+				| ((unsigned) stdx::to_unsigned(y) << unsigned(8 * sizeof(T)));
+		}
+	};
+
+	ogl::Program* widgetProgram;
+	ogl::VertexArrays widgetArrays;
+	unsigned widgetBatchCnt, widgetBatchSize;
+	std::unique_ptr<QueuedWidget[]> widgetMem;
+	ogl::Buffer widgetBuffer;
+
+	UiRenderer(ogl::Program* program, unsigned widgetBatchSize)
+		: widgetProgram(move(program))
+		, widgetArrays()
+		, widgetBatchCnt(0)
+		, widgetBatchSize(widgetBatchSize)
+		, widgetMem(new QueuedWidget[widgetBatchSize])
+		, widgetBuffer(ogl::Buffer::create(GL_ARRAY_BUFFER, widgetBatchSize * sizeof(QueuedWidget), nullptr, GL_STATIC_DRAW))
+	{
+		widgetArrays.bind();
+		widgetBuffer.bind(GL_ARRAY_BUFFER);
+		glVertexAttribIPointer(0, 4, GL_UNSIGNED_INT, 0, nullptr);
+		glEnableVertexAttribArray(0);
+		widgetBuffer.unbind(GL_ARRAY_BUFFER);
+		widgetArrays.unbind();
+	}
+
+	void drawWidget(glm::ivec2 pos, glm::uvec2 size, UiElement::T clazz, unsigned ex = 0)
+	{
+		if (widgetBatchCnt >= widgetBatchSize)
+			flushWidgets();
+
+		QueuedWidget qc = { QueuedWidget::build_tuple( (short) pos.x, (short) pos.y )
+			, QueuedWidget::build_tuple( (unsigned short) size.x, (unsigned short) size.y )
+			, clazz
+		  , ex };
+		widgetMem[widgetBatchCnt] = qc;
+		++widgetBatchCnt;
+	}
+
+	void flushWidgets()
+	{
+		if (widgetBatchCnt > 0)
+		{
+			widgetBuffer.write(GL_ARRAY_BUFFER, stdx::make_range_n(widgetMem.get(), widgetBatchCnt));
+			
+			widgetArrays.bind();
+			widgetProgram->bind();
+			glDrawArrays(GL_POINTS, 0, widgetBatchCnt);
+			
+			widgetBatchCnt = 0;
+		}
+	}
+};
+
+struct TextUi : UserInterface, UniversalInterface
+{
+	UiRenderer* uiRenderer;
+	TextRenderer* textRenderer;
+	
+	struct HiddenContext
+	{
+		int insertLine;
+		unsigned pendingIndent;
+	} hiddenCtx;
+
+	TextUi(UiRenderer* uiRenderer, TextRenderer* textRenderer, Options options = Options())
+		: uiRenderer(uiRenderer)
+		, textRenderer(textRenderer)
+	{
+		setup.options = options;
+
+		state.cursor.row = 0;
+		state.cursor.column = -1;
+
+		state.cursorVisible = true;
+	}
+	
+	// prepare internal state for next cycle
+	UniversalInterface* reset() override
+	{
+		if (!state.mouse.primary && !state.mouse.secondary)
+			state.capturePath.clear();
+
+		context.parentPath.clear();
+		context.pendingInput.clear();
+		context.insertPos = setup.rect.min;
+
+		hiddenCtx.insertLine = 0;
+		hiddenCtx.pendingIndent = 0;
+
+		// get next input
+		{
+			auto& cursor = state.cursor;
+
+			auto it = state.input.begin(), itEnd = state.input.end();
+
+			// process keyboard navigation
+			for (; it < itEnd && (*it & InputKeys::NavKeyMask) == InputKeys::NavKeyMask; ++it)
+				switch (*it)
+				{
+				case InputKeys::MoveDown: ++cursor.row; break;
+				case InputKeys::MoveUp: --cursor.row; break;
+				case InputKeys::MoveLeft: --cursor.column; break;
+				case InputKeys::MoveRight: ++cursor.column; break;
+				}
+
+			// todo: make value-sensitive during draw/interact
+			if (cursor.column < -1)
+				cursor.column = -1;
+			if (cursor.row < 0)
+				cursor.row = 0;
+
+			// isolate next batch of value input
+			auto pendingBegin = it;
+			for (; it < itEnd && (*it & InputKeys::NavKeyMask) != InputKeys::NavKeyMask; ++it)
+				state.input.push_back(*it);
+			auto pendingEnd = it;
+
+			// move next input batch from state to context
+			context.pendingInput.assign(pendingBegin, pendingEnd);
+			state.input.erase(state.input.begin(), pendingEnd);
+		}
+
+		return this;
+	}
+	UniversalInterface* reset(Mouse const& mouse, stdx::data_range_param<unsigned const> input) override
+	{
+		state.mouse = mouse;
+		state.input.insert(state.input.end(), input.begin(), input.end());
+		return TextUi::reset();
+	}
+
+	void capture(stdx::data_range_param<UniqueElementIdentifier> path, UniqueElementIdentifier id) override
+	{
+		state.capturePath.assign(path.begin(), path.end());
+		state.capturePath.push_back(id);
+	}
+	CaptureState::T captureState(stdx::data_range_param<UniqueElementIdentifier> path, UniqueElementIdentifier id) const override
+	{
+		if (state.capturePath.empty())
+			return CaptureState::Available;
+		else if (state.capturePath.size() - 1 == path.size()
+				&& state.capturePath.back() == id
+				&& std::equal(path.begin(), path.end(), state.capturePath.data()))
+			return CaptureState::Owned;
+		else
+			return CaptureState::Unavailable;
+	}
+
+	void pushGroup(UniqueElementIdentifier id) override
+	{
+		context.parentPath.push_back(id);
+
+		hiddenCtx.pendingIndent += setup.options.indent;
+	}
+	void popGroup(UniqueElementIdentifier id) override
+	{
+		assert(!context.parentPath.empty() && id == context.parentPath.back());
+		context.parentPath.pop_back();
+
+		if (hiddenCtx.pendingIndent >= setup.options.indent)
+			hiddenCtx.pendingIndent -= setup.options.indent;
+		else
+			context.insertPos.x -= setup.options.indent;
+	}
+	void nextLine()
+	{
+		context.insertPos.x += hiddenCtx.pendingIndent;
+		hiddenCtx.pendingIndent = 0;
+		context.insertPos.y += setup.options.lineHeight;
+		++hiddenCtx.insertLine;
+	}
+
+	void maybeDrawCursor(glm::ivec2 valuePos, char const* value)
+	{
+		if (hiddenCtx.insertLine == state.cursor.row)
+			drawCursor(valuePos, value);
+	}
+	void drawCursor(glm::ivec2 valuePos, char const* value)
+	{
+		auto cursorPos = context.insertPos;
+		if (state.cursor.column >= 0)
+		{
+			cursorPos = valuePos;
+			if (state.cursor.column > 0)
+				cursorPos.x = textRenderer->boundText(value, state.cursor.column, valuePos).max.x;
+		}
+		else
+			cursorPos.x -= setup.options.labelDelta / 3;
+		
+		if (state.cursorVisible)
+			textRenderer->drawText(cursorPos, "_");
+
+		state.cursor.pos = cursorPos;
+	}
+
+	void addLabel(char const* label)
+	{
+		auto treePos = context.insertPos;
+		treePos.x -= setup.options.labelDelta * 3 / 4;
+//		treePos.y -= setup.options.lineHeight / 4;
+
+		static unsigned short const arrow[3] = { '\\', '-' };
+		static unsigned short const entry[3] = { '|', '-' };
+		textRenderer->drawText(treePos, (hiddenCtx.pendingIndent) ? arrow : entry);
+		
+		auto labelPos = context.insertPos;
+		labelPos.x -= textRenderer->boundText(label).max.x + setup.options.labelDelta;
+		textRenderer->drawText(labelPos, label);
+	}
+	std::vector<char> editText(UniqueElementIdentifier id, char const* text, unsigned& textCursor) const
+	{
+		auto textLen = strlen(text);
+		textCursor = std::min(textCursor, (unsigned) textLen);
+		
+		std::vector<char> newText(textLen + context.pendingInput.size() + 1);
+		std::copy_n(text, textCursor, newText.data());
+
+		auto headCursor = textCursor;
+		auto tailCursor = textCursor;
+
+		for (auto chr : context.pendingInput)
+		{
+			if (chr < InputKeys::KeyStart)
+				newText[headCursor++] = (char) chr; // todo: utf-8
+			else if (chr == InputKeys::DeleteLast && textCursor > 0)
+				--headCursor;
+			else if (chr == InputKeys::DeleteNext)
+				++tailCursor;
+		}
+
+		size_t newTextLen = headCursor + (tailCursor < textLen ? textLen - tailCursor : 0);
+		std::copy_n(text + tailCursor, newTextLen - headCursor, newText.data() + headCursor);
+		newText[newTextLen] = 0;
+		newText.resize(newTextLen);
+
+		textCursor = headCursor;
+		return newText;
+	}
+	template <class Func>
+	void maybeEditText(UniqueElementIdentifier id, char const* text, Func&& func)
+	{
+		auto& cursor = state.cursor;
+		if (!context.pendingInput.empty() && cursor.row == hiddenCtx.insertLine && cursor.column >= 0)
+		{
+			unsigned newCursor = cursor.column;
+			
+			auto newText = editText(id, text, newCursor);
+			func(newText.data());
+			
+			cursor.column = (int) newCursor;
+		}
+	}
+
+	void addText(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact) override
+	{
+		addLabel(label);
+
+		auto valBox = textRenderer->drawText(context.insertPos, text);
+		maybeDrawCursor(context.insertPos, text);
+
+		auto& mouse = state.mouse;
+		if ((mouse.primary || mouse.secondary) && in_aabb(mouse.pos, valBox))
+		{
+			size_t newCol;
+			textRenderer->selectChar(mouse.pos, newCol, context.insertPos, text);
+			if (newCol != ~0)
+			{
+				// todo: delay, might double input otherwise
+				state.cursor.row = hiddenCtx.insertLine;
+				state.cursor.column = (int) newCol;
+			}
+		}
+
+		if (interact.ptr)
+			maybeEditText(id, text, [&](char const* newText)
+			{
+				interact.ptr->updateValue(newText);
+			});
+		// warning: text may be invalid from here on
+
+		nextLine();
+	}
+
+	Slider addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks = 0.0f)
+	{
+		addLabel(label);
+
+		char numBuf[32];
+		sprintf(numBuf, "%f", value);
+		auto* num = (numBuf[0] == '0') ? &numBuf[1] : numBuf;
+		
+		auto valBox = textRenderer->boundText(num);
+		
+		unsigned sliderPadding = 6;
+		unsigned sliderBarInset = 3;
+		unsigned sliderTickLength = 2;
+
+		auto sliderPos = context.insertPos;
+		sliderPos.y += valBox.min.y - sliderPadding; 
+		auto sliderSize = glm::uvec2(valBox.max - valBox.min) + glm::uvec2(2 * sliderPadding);
+		sliderSize.x = std::max((int) sliderSize.x, (int) setup.rect.max.x - context.insertPos.x);
+		uiRenderer->drawWidget(sliderPos, sliderSize, ui::UiElement::Frame);
+		
+		auto barPos = sliderPos + glm::ivec2(sliderBarInset);
+		auto fullBarSize = sliderSize - glm::uvec2(2 * sliderBarInset);
+		auto barEnd = barPos + glm::ivec2(fullBarSize);
+		float relativeValue = value / range;
+		float relativeValueBase = floor(relativeValue);
+		auto barSize = fullBarSize;
+		barSize.x = unsigned((relativeValue - relativeValueBase) * (float) barSize.x);
+		uiRenderer->drawWidget(barPos, barSize, ui::UiElement::Bar);
+
+		if (ticks > 0.0f)
+		{
+			auto tickPos = glm::ivec2(barPos.x, barEnd.y - sliderTickLength / 2);
+			auto tickSize = glm::uvec2(fullBarSize.x, sliderTickLength);
+
+			float tickDelta = ticks / range * (float) fullBarSize.x;
+			uiRenderer->drawWidget(tickPos, tickSize, ui::UiElement::Ticks, stdx::as_<unsigned>(tickDelta));
+		}
+
+		auto valPos = context.insertPos;
+		valPos.x += (sliderSize.x - valBox.max.x) / 2;
+		valBox = textRenderer->drawText(valPos, num);
+		maybeDrawCursor(valPos, num);
+		
+		auto& mouse = state.mouse;
+		if ((mouse.primary || mouse.secondary) && in_aabb(mouse.pos, valBox))
+		{
+			size_t newCol;
+			textRenderer->selectChar(mouse.pos, newCol, valPos, num);
+			if (newCol != ~0)
+			{
+				// todo: delay, might double input otherwise
+				state.cursor.row = hiddenCtx.insertLine;
+				state.cursor.column = (int) newCol;
+			}
+		}
+
+		if (interact.ptr)
+			maybeEditText(id, num, [&](char const* newText)
+			{
+				float newVal = value;
+				if (sscanf(newText, "%f", &newVal) == 1)
+					interact.ptr->updateValue(newVal);
+			});
+
+		nextLine();
+
+		Slider slider = { id, { barPos, barEnd }, value, range, relativeValueBase * range };
+		
+		if (interact.ptr)
+		{
+			if (mouse.primary && capturedOrAcquired(context.parentPath, slider.id, mouse.primaryChanged && glm::in_aabb(mouse.pos, slider.rect)))
+				interact.ptr->updateValue(
+					  slider.valueBase
+					+ float(mouse.pos.x - slider.rect.min.x) / float(slider.rect.max.x - slider.rect.min.x) * slider.range
+					);
+		}
+		
+		return slider;
+	}
+};
+
+} // namespace

@@ -1,0 +1,109 @@
+#pragma once
+
+#include "stdx"
+
+namespace ui
+{
+
+namespace detail
+{
+	namespace unique_element_identifier
+	{
+		template <class T, T V> struct GlobalTagObject { union U { T p; char c; }; static U const tag; };
+		template <class T, T V> typename GlobalTagObject<T, V>::U const GlobalTagObject<T, V>::tag = { V };
+
+		template <class T>
+		struct GlobalTagObjectFromPtr {
+			template <T P> static inline GlobalTagObject<T, P> make() { return GlobalTagObject<T, P>(); }
+		};
+		template <class T> GlobalTagObjectFromPtr<T*> inline globalTagObjectFromPtr(T*) { return GlobalTagObjectFromPtr<T*>(); }
+		template <class T, class C> GlobalTagObjectFromPtr<T (C::*)> inline globalTagObjectFromPtr(T (C::*)) { return GlobalTagObjectFromPtr<T (C::*)>(); }
+	}
+}
+
+// generates a unique element identification pointer from the given pointer _literal_
+#define UEI(v) &(::ui::detail::unique_element_identifier::globalTagObjectFromPtr(v).template make<v>().tag)
+
+struct UniqueElementIdentifier
+{
+	uintptr_t value;
+	UniqueElementIdentifier(void const volatile* ptr)
+		: value(reinterpret_cast<uintptr_t>(ptr)) { }
+	UniqueElementIdentifier(uintptr_t value)
+		: value(value) { }
+
+	bool operator ==(UniqueElementIdentifier const& r) const { return value == r.value; }
+};
+
+struct UniversalInterface
+{
+	virtual void pushGroup(UniqueElementIdentifier id) = 0;
+	virtual void popGroup(UniqueElementIdentifier id) = 0;
+	virtual void addLabel(char const* label) = 0;
+
+	template <class Value>
+	struct Interaction
+	{
+		virtual void updateValue(Value const& value) = 0;
+	};
+	template <class Value, class ModifiedValue = Value>
+	struct ValueInteraction : Interaction<Value>
+	{
+		ModifiedValue* value;
+		ValueInteraction(nullptr_t) { }
+		ValueInteraction(ModifiedValue& value)
+			: value(&value) { }
+		void updateValue(Value const& value) override {
+			*this->value = value; }
+	};
+	template <class Value, class Function>
+	struct FunctionInteraction : Interaction<Value>
+	{
+		Function* fun;
+		FunctionInteraction(nullptr_t) { }
+		FunctionInteraction(Function& fun)
+			: fun(&fun) { }
+		void updateValue(Value const& value) override {
+			(*this->fun)(value); }
+	};
+	template <class Value>
+	struct InteractionParam
+	{
+		Interaction<Value>* ptr;
+		InteractionParam(nullptr_t) : ptr() { }
+		InteractionParam(Value& value, ValueInteraction<Value>&& interaction = (ValueInteraction<Value>)(nullptr))
+			: ptr(&interaction) { interaction = ValueInteraction<Value>(value); }
+		template <class ModifiedValue>
+		InteractionParam(ModifiedValue& value, ValueInteraction<Value, ModifiedValue>&& interaction = (ValueInteraction<Value, ModifiedValue>)(nullptr)
+			, typename std::enable_if<std::is_assignable<ModifiedValue, Value>::value>::type* enable_if_var = nullptr)
+			: ptr(&interaction) { interaction = ValueInteraction<Value, ModifiedValue>(value); }
+		template <class Function>
+		InteractionParam(Function&& fun, FunctionInteraction<Value, Function>&& interaction = (FunctionInteraction<Value, typename std::remove_reference<Function>::type>)(nullptr)
+			, typename std::enable_if<!std::is_assignable<Function, Value>::value>::type* enable_if_not_var = nullptr)
+			: ptr(&interaction) { interaction = FunctionInteraction<Value, typename std::remove_reference<Function>::type>(fun); }
+	};
+
+	virtual void addText(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact) = 0;
+	struct Slider;
+	virtual Slider addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks = 0.0f) = 0;
+};
+
+struct Group : stdx::noncopyable
+{
+	UniqueElementIdentifier id;
+	UniversalInterface* ui;
+
+	Group(nullptr_t) : id(nullptr), ui(nullptr) { }
+	Group(UniversalInterface& ui, UniqueElementIdentifier id) : id(id), ui(&ui) { ui.pushGroup(id); }
+	Group(Group&& right) : id(right.id), ui(right.ui) { right.id = nullptr; right.ui = nullptr; }
+	~Group() { if (ui) ui->popGroup(id); }
+
+	Group& operator =(Group&& right)
+	{
+		id = right.id; ui = right.ui;
+		right.id = nullptr; right.ui = nullptr;
+		return *this;
+	}
+};
+
+} // namespace
