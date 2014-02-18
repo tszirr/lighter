@@ -146,8 +146,7 @@ struct TextUi : UserInterface, UniversalInterface
 
 			// isolate next batch of value input
 			auto pendingBegin = it;
-			for (; it < itEnd && (*it & InputKeys::NavKeyMask) != InputKeys::NavKeyMask; ++it)
-				state.input.push_back(*it);
+			for (; it < itEnd && (*it & InputKeys::NavKeyMask) != InputKeys::NavKeyMask; ++it);
 			auto pendingEnd = it;
 
 			// move next input batch from state to context
