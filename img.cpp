@@ -1,5 +1,6 @@
 #include "img"
 #include "FreeImage.h"
+#include <algorithm>
 
 namespace img
 {
