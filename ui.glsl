@@ -9,7 +9,7 @@ layout(std140) uniform Camera
 
 #ifdef IN_VS
 
-in uvec4 widgetDataIn;
+layout(location = 0) in uvec4 widgetDataIn;
 flat out uvec4 widgetData;
 
 void main()

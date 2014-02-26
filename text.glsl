@@ -9,7 +9,7 @@ layout(std140) uniform Camera
 
 #ifdef IN_VS
 
-in uvec3 glyphDataIn;
+layout(location = 0) in uvec3 glyphDataIn;
 flat out uvec3 glyphData;
 
 void main()
