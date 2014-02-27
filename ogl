@@ -473,6 +473,19 @@ struct Framebuffer : glew_delete<GLuint, glDeleteFramebuffers>::handle_type
 		return result;
 	}
 
+	static Framebuffer createEmpty(size_t width, size_t height, size_t samples = 1)
+	{
+		Framebuffer result;
+		result.bind();
+
+		glFramebufferParameteri(GL_FRAMEBUFFER, GL_FRAMEBUFFER_DEFAULT_WIDTH, GLint(width));
+		glFramebufferParameteri(GL_FRAMEBUFFER, GL_FRAMEBUFFER_DEFAULT_HEIGHT, GLint(height));
+		glFramebufferParameteri(GL_FRAMEBUFFER, GL_FRAMEBUFFER_DEFAULT_SAMPLES, GLint(samples));
+		glFramebufferParameteri(GL_FRAMEBUFFER, GL_FRAMEBUFFER_DEFAULT_LAYERS, 0);
+		
+		return result;
+	}
+
 	static GLuint getAttachement(GLenum attachment, GLenum target = GL_FRAMEBUFFER)
 	{
 		GLint object;
