@@ -222,11 +222,17 @@ struct Event : cuda_delete<CUevent, cuEventDestroy>::handle_type
 	}
 };
 
-inline double diffMS(CUevent startEvent, CUevent endEvent)
+inline double diffMS(CUevent startEvent, CUevent endEvent, bool failQuiet = false)
 {
 	float elapsedMs = 0.0f;
 	cuEventSynchronize(endEvent);
-	THROW_CUDA_ERROR(cuEventElapsedTime(&elapsedMs, startEvent, endEvent), "cuEventElapsedTime");
+	CUresult result;
+	do
+	{
+		result = cuEventElapsedTime(&elapsedMs, startEvent, endEvent);
+	} while (result == CUDA_ERROR_NOT_READY);
+	if (!failQuiet)
+		THROW_CUDA_ERROR(result, "cuEventElapsedTime");
 	return (double) elapsedMs;
 }
 
@@ -639,6 +645,7 @@ struct BindGuard
 
 	MOVE_GENERATE(BindGuard, MOVE_2, MEMBER, stream, MEMBER, bound)
 
+	BindGuard(nullptr_t) { }
 	BindGuard(CUstream stream, T &bound)
 		: stream(stream),
 		bound(&bound)
