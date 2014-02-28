@@ -680,14 +680,15 @@ struct Program : glew_delete_single<GLuint, glDeleteProgram>::handle_type
 		return (status == GL_TRUE);
 	}
 
-	static Program fromShaders(GLuint s1, GLuint s2 = 0, GLuint s3 = 0, GLuint s4 = 0, GLuint s5 = 0)
+	static Program fromShaders(GLuint s1, GLuint s2 = 0, GLuint s3 = 0, GLuint s4 = 0, GLuint s5 = 0, GLuint s6 = 0)
 	{
 		Program result;
-		result.attach(s1);
+		if (s1) result.attach(s1);
 		if (s2) result.attach(s2);
 		if (s3) result.attach(s3);
 		if (s4) result.attach(s4);
 		if (s5) result.attach(s5);
+		if (s6) result.attach(s6);
 		result.link();
 		return result;
 	}
@@ -697,9 +698,13 @@ struct ProgramWithTime : Program
 {
 	enum Options
 	{
-		NoGS,
-		HasGS,
-		GSOnly
+		Default = 0x00, // default is FS and VS, nothing else
+		NoFS  = 0x01, // Fragment shader off, default ON
+		NoVS  = 0x02, // Vertex shader off..
+		HasGS = 0x04,
+		HasHS = 0x08,
+		HasDS = 0x10,
+		HasCS = 0x20
 	};
 
 	char const* preamble;
@@ -710,7 +715,7 @@ struct ProgramWithTime : Program
 
 	using Program::operator =;
 
-	explicit ProgramWithTime(std::string file, char const *preamble = "", Options options = NoGS, bool compatibilityInclude = OGL_COMPATIBILITY_PREPROCESSING)
+	explicit ProgramWithTime(std::string file, char const *preamble = "", Options options = Options::Default, bool compatibilityInclude = OGL_COMPATIBILITY_PREPROCESSING)
 		: Program(nullptr)
 		, preamble(preamble)
 		, file(std::move(file))
@@ -732,11 +737,22 @@ struct ProgramWithTime : Program
 	{
 		auto& resolveFunc = (compatibilityInclude) ? resolveIncludesCompat : resolveIncludes;
 		std::string src = resolveFunc(file.c_str(), true);
+
+		*this = Program::fromShaders(
+			!(options & Options::NoFS) ? (GLuint)Shader::compile(GL_FRAGMENT_SHADER, src.c_str(), preamble) : 0,
+			!(options & Options::NoVS) ? (GLuint)Shader::compile(GL_VERTEX_SHADER, src.c_str(), preamble) : 0,
+			(options & Options::HasGS) ? (GLuint)Shader::compile(GL_GEOMETRY_SHADER, src.c_str(), preamble) : 0,
+			(options & Options::HasHS) ? (GLuint)Shader::compile(GL_TESS_CONTROL_SHADER, src.c_str(), preamble) : 0,
+			(options & Options::HasDS) ? (GLuint)Shader::compile(GL_TESS_EVALUATION_SHADER, src.c_str(), preamble) : 0,
+			(options & Options::HasCS) ? (GLuint)Shader::compile(GL_COMPUTE_SHADER, src.c_str(), preamble) : 0);
+
+		/*
 		*this = Program::fromShaders(
 			Shader::compile(GL_FRAGMENT_SHADER, src.c_str(), preamble)
 		, (options != GSOnly) ? (GLuint) Shader::compile(GL_VERTEX_SHADER, src.c_str(), preamble) : 0
 		, (options != NoGS) ? (GLuint) Shader::compile(GL_GEOMETRY_SHADER, src.c_str(), preamble) : 0
 		);
+		*/
 		time = stdx::file_time(file.c_str());
 	}
 	int maybeReload()
