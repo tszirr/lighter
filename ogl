@@ -711,24 +711,24 @@ struct ProgramWithTime : Program
 {
 	enum Options
 	{
-		Default = 0x00, // default is FS and VS, nothing else
-		NoFS  = 0x01, // Fragment shader off, default ON
-		NoVS  = 0x02, // Vertex shader off..
-		HasGS = 0x04,
-		HasHS = 0x08,
-		HasDS = 0x10,
-		HasCS = 0x20
+		Default = 0x00, // Default is FS and VS, nothing else
+		NoFS    = 0x01, // Fragment shader off, default ON
+		NoVS    = 0x02, // Vertex shader off ...
+		HasGS   = 0x04, // Geometry shader on, default OFF
+		HasHS   = 0x08, // ...
+		HasDS   = 0x10,
+		HasCS   = 0x20
 	};
 
 	char const* preamble;
 	std::string file;
 	time_t time;
-	Options options;
+	unsigned options;
 	bool compatibilityInclude;
 
 	using Program::operator =;
 
-	explicit ProgramWithTime(std::string file, char const *preamble = "", Options options = Options::Default, bool compatibilityInclude = OGL_COMPATIBILITY_PREPROCESSING)
+	explicit ProgramWithTime(std::string file, char const *preamble = "", unsigned options = Options::Default, bool compatibilityInclude = OGL_COMPATIBILITY_PREPROCESSING)
 		: Program(nullptr)
 		, preamble(preamble)
 		, file(std::move(file))
@@ -752,20 +752,13 @@ struct ProgramWithTime : Program
 		std::string src = resolveFunc(file.c_str(), true);
 
 		*this = Program::fromShaders(
-			!(options & Options::NoFS) ? (GLuint)Shader::compile(GL_FRAGMENT_SHADER, src.c_str(), preamble) : 0,
-			!(options & Options::NoVS) ? (GLuint)Shader::compile(GL_VERTEX_SHADER, src.c_str(), preamble) : 0,
-			(options & Options::HasGS) ? (GLuint)Shader::compile(GL_GEOMETRY_SHADER, src.c_str(), preamble) : 0,
-			(options & Options::HasHS) ? (GLuint)Shader::compile(GL_TESS_CONTROL_SHADER, src.c_str(), preamble) : 0,
-			(options & Options::HasDS) ? (GLuint)Shader::compile(GL_TESS_EVALUATION_SHADER, src.c_str(), preamble) : 0,
-			(options & Options::HasCS) ? (GLuint)Shader::compile(GL_COMPUTE_SHADER, src.c_str(), preamble) : 0);
+			!(options & Options::NoFS) ? (GLuint) Shader::compile(GL_FRAGMENT_SHADER, src.c_str(), preamble) : 0,
+			!(options & Options::NoVS) ? (GLuint) Shader::compile(GL_VERTEX_SHADER, src.c_str(), preamble) : 0,
+			(options & Options::HasGS) ? (GLuint) Shader::compile(GL_GEOMETRY_SHADER, src.c_str(), preamble) : 0,
+			(options & Options::HasHS) ? (GLuint) Shader::compile(GL_TESS_CONTROL_SHADER, src.c_str(), preamble) : 0,
+			(options & Options::HasDS) ? (GLuint) Shader::compile(GL_TESS_EVALUATION_SHADER, src.c_str(), preamble) : 0,
+			(options & Options::HasCS) ? (GLuint) Shader::compile(GL_COMPUTE_SHADER, src.c_str(), preamble) : 0);
 
-		/*
-		*this = Program::fromShaders(
-			Shader::compile(GL_FRAGMENT_SHADER, src.c_str(), preamble)
-		, (options != GSOnly) ? (GLuint) Shader::compile(GL_VERTEX_SHADER, src.c_str(), preamble) : 0
-		, (options != NoGS) ? (GLuint) Shader::compile(GL_GEOMETRY_SHADER, src.c_str(), preamble) : 0
-		);
-		*/
 		time = stdx::file_time(file.c_str());
 	}
 	int maybeReload()
