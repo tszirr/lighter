@@ -772,4 +772,37 @@ struct ProgramWithTime : Program
 	}
 };
 
+struct Event : glew_delete<GLuint, glDeleteQueries>::handle_type
+{
+	MOVE_BASE(Event, unique_handle)
+
+	Event(nullptr_t) { }
+	explicit Event(GLuint event)
+		: unique_handle(event) { }
+	explicit Event()
+	{
+		glGenQueries(1, rebind());
+		THROW_OPENGL_LASTERROR("Failed to create OGL event");
+	}
+
+	void record()
+	{
+		glQueryCounter(*this, GL_TIMESTAMP);
+		THROW_OPENGL_LASTERROR("Failed to record OGL event");
+	}
+};
+
+inline double diffMS(GLuint startEvent, GLuint endEvent, bool failQuiet = false)
+{
+	// synchronize
+	for (GLint stopTimerAvailable = 0; !stopTimerAvailable; )
+		glGetQueryObjectiv(endEvent, GL_QUERY_RESULT_AVAILABLE, &stopTimerAvailable);
+
+	GLuint64 startTime, stopTime;
+	glGetQueryObjectui64v(startEvent, GL_QUERY_RESULT, &startTime);
+	glGetQueryObjectui64v(endEvent, GL_QUERY_RESULT, &stopTime);
+
+	return double(stopTime - startTime) / 1000000.0;
+}
+
 } // namespace
