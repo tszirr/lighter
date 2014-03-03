@@ -28,15 +28,21 @@ struct Context : cuda_delete<CUcontext, cuCtxDestroy>::handle_type
 
 	CUdevice device;
 
-	explicit Context(unsigned int flags = 0)
+	explicit Context(CUdevice device, unsigned int flags = 0)
+		: device(device)
 	{
-		THROW_CUDA_ERROR(cuDeviceGet(&device, 0), "cuDeviceGet");
-
 		char deviceName[2048];
 		THROW_CUDA_ERROR( cuDeviceGetName(deviceName, arraylen(deviceName), device), "Unable to query device name.");
 		std::cout << "CUDA Device: " << deviceName << std::endl;
 
 		THROW_CUDA_ERROR(cuCtxCreate(rebind(), flags, device), "cuDeviceGet");
+	}
+
+	static Context default(unsigned int flags = 0)
+	{
+		CUdevice device;
+		THROW_CUDA_ERROR(cuDeviceGet(&device, 0), "cuDeviceGet");
+		return Context(device, flags);
 	}
 };
 
