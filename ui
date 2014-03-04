@@ -103,6 +103,13 @@ struct InputKeys
   static unsigned const MoveRight		 = NavKeyMask + 3;
 };
 
+struct UniversalInterface::Button
+{
+	UniqueElementIdentifier id;
+	glm::aabb<glm::ivec2> rect;
+	bool pressed;
+};
+
 struct UniversalInterface::Slider
 {
 	UniqueElementIdentifier id;
@@ -139,6 +146,7 @@ struct UserInterface
 		std::vector<UniqueElementIdentifier> entryPath;
 		std::vector<UniqueElementIdentifier> focusPath;
 		std::vector<UniqueElementIdentifier> capturePath;
+		std::vector<UniqueElementIdentifier> captureReleasedPath;
 		
 		Cursor cursor;
 		bool cursorVisible;
@@ -168,6 +176,7 @@ struct UserInterface
 	virtual void capture(stdx::data_range_param<UniqueElementIdentifier> path, UniqueElementIdentifier id) = 0;
 	
 	virtual CaptureState::T captureState(stdx::data_range_param<UniqueElementIdentifier> path, UniqueElementIdentifier id) const = 0;
+	virtual bool wasCaptureReleased(stdx::data_range_param<UniqueElementIdentifier> path, UniqueElementIdentifier id) const = 0;
 	
 	bool capturedOrAcquired(stdx::data_range_param<UniqueElementIdentifier> path, UniqueElementIdentifier id, bool acquire)
 	{

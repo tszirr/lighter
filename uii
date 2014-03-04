@@ -52,10 +52,18 @@ struct UniversalInterface
 	virtual void popGroup(UniqueElementIdentifier id) = 0;
 	virtual void addLabel(char const* label) = 0;
 
+	virtual void beginUnion() = 0;
+	virtual void endUnion() = 0;
+	
 	template <class Value>
 	struct Interaction
 	{
 		virtual void updateValue(Value const& value) = 0;
+	};
+	template <>
+	struct Interaction<void>
+	{
+		virtual void trigger() = 0;
 	};
 	template <class Value, class ModifiedValue = Value>
 	struct ValueInteraction : Interaction<Value>
@@ -77,23 +85,45 @@ struct UniversalInterface
 		void updateValue(Value const& value) override {
 			(*this->fun)(value); }
 	};
+	template <class Function>
+	struct FunctionInteraction<void, Function> : Interaction<void>
+	{
+		Function* fun;
+		FunctionInteraction(nullptr_t) { }
+		FunctionInteraction(Function& fun)
+			: fun(&fun) { }
+		void trigger() override {
+			(*this->fun)(); }
+	};
 	template <class Value>
 	struct InteractionParam
 	{
 		Interaction<Value>* ptr;
 		InteractionParam(nullptr_t) : ptr() { }
-		InteractionParam(Value& value, ValueInteraction<Value>&& interaction = (ValueInteraction<Value>)(nullptr))
+		InteractionParam(Value& value, ValueInteraction<Value>&& interaction = nullptr)
 			: ptr(&interaction) { interaction = ValueInteraction<Value>(value); }
 		template <class ModifiedValue>
-		InteractionParam(ModifiedValue& value, ValueInteraction<Value, ModifiedValue>&& interaction = (ValueInteraction<Value, ModifiedValue>)(nullptr)
+		InteractionParam(ModifiedValue& value, ValueInteraction<Value, ModifiedValue>&& interaction  =nullptr
 			, typename std::enable_if<std::is_assignable<ModifiedValue, Value>::value>::type* enable_if_var = nullptr)
 			: ptr(&interaction) { interaction = ValueInteraction<Value, ModifiedValue>(value); }
 		template <class Function>
-		InteractionParam(Function&& fun, FunctionInteraction<Value, Function>&& interaction = (FunctionInteraction<Value, typename std::remove_reference<Function>::type>)(nullptr)
+		InteractionParam(Function&& fun, FunctionInteraction<Value, typename std::remove_reference<Function>::type>&& interaction = nullptr
 			, typename std::enable_if<!std::is_assignable<Function, Value>::value>::type* enable_if_not_var = nullptr)
 			: ptr(&interaction) { interaction = FunctionInteraction<Value, typename std::remove_reference<Function>::type>(fun); }
 	};
+	template <>
+	struct InteractionParam<void>
+	{
+		Interaction<void>* ptr;
+		InteractionParam(nullptr_t) : ptr() { }
+		template <class Function>
+		InteractionParam(Function&& fun, FunctionInteraction<void, typename std::remove_reference<Function>::type>&& interaction = nullptr)
+			: ptr(&interaction) { interaction = FunctionInteraction<Value, typename std::remove_reference<Function>::type>(fun); }
+	};
 
+	struct Button;
+	virtual Button addButton(UniqueElementIdentifier id, char const* text, InteractionParam<void> interact) = 0;
+	virtual Button addButton(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<bool> interact) = 0;
 	virtual void addText(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact) = 0;
 	struct Slider;
 	virtual Slider addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks = 0.0f) = 0;
@@ -115,6 +145,27 @@ struct Group : stdx::noncopyable
 		right.id = nullptr; right.ui = nullptr;
 		return *this;
 	}
+
+	operator bool() const { return true; }
+};
+
+struct Union : stdx::noncopyable
+{
+	UniversalInterface* ui;
+
+	Union(nullptr_t) : ui(nullptr) { }
+	Union(UniversalInterface& ui) : ui(&ui) { ui.beginUnion(); }
+	Union(Union&& right) : ui(right.ui) { right.ui = nullptr; }
+	~Union() { if (ui) ui->endUnion(); }
+
+	Union& operator =(Union&& right)
+	{
+		ui = right.ui;
+		right.ui = nullptr;
+		return *this;
+	}
+
+	operator bool() const { return true; }
 };
 
 } // namespace

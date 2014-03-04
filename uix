@@ -112,6 +112,7 @@ struct TextUi : UserInterface, UniversalInterface
 	{
 		int insertLine;
 		unsigned pendingIndent;
+		bool horizontalGroup;
 
 		typedef std::pair< std::vector<UniqueElementIdentifier>, std::unique_ptr<AbstractContext> > edit_ctx_mapping;
 		std::vector<edit_ctx_mapping> editContext;
@@ -134,7 +135,10 @@ struct TextUi : UserInterface, UniversalInterface
 	UniversalInterface& reset() override
 	{
 		if (!state.mouse.primary && !state.mouse.secondary)
+		{
+			state.captureReleasedPath = state.capturePath;
 			state.capturePath.clear();
+		}
 
 		context.parentPath.clear();
 		context.pendingInput.clear();
@@ -148,6 +152,7 @@ struct TextUi : UserInterface, UniversalInterface
 
 		hiddenCtx.insertLine = 0;
 		hiddenCtx.pendingIndent = 0;
+		hiddenCtx.horizontalGroup = false;
 
 		// get next input
 		{
@@ -205,6 +210,12 @@ struct TextUi : UserInterface, UniversalInterface
 		else
 			return CaptureState::Unavailable;
 	}
+	bool wasCaptureReleased(stdx::data_range_param<UniqueElementIdentifier> path, UniqueElementIdentifier id) const override
+	{
+		return state.captureReleasedPath.size() - 1 == path.size()
+				&& state.captureReleasedPath.back() == id
+				&& std::equal(path.begin(), path.end(), state.captureReleasedPath.data());
+	}
 
 	void pushGroup(UniqueElementIdentifier id) override
 	{
@@ -224,10 +235,24 @@ struct TextUi : UserInterface, UniversalInterface
 	}
 	void nextLine()
 	{
+		if (hiddenCtx.horizontalGroup)
+			return;
+
 		context.insertPos.x += hiddenCtx.pendingIndent;
 		hiddenCtx.pendingIndent = 0;
 		context.insertPos.y += setup.options.lineHeight;
 		++hiddenCtx.insertLine;
+	}
+
+	void beginUnion() override
+	{
+		hiddenCtx.horizontalGroup = true;
+	}
+
+	void endUnion() override
+	{
+		hiddenCtx.horizontalGroup = false;
+		nextLine();
 	}
 
 	template <class Context, class ContextFactory>
@@ -395,7 +420,54 @@ struct TextUi : UserInterface, UniversalInterface
 		nextLine();
 	}
 
-	Slider addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks = 0.0f)
+	Button addButton(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<bool> interact) override
+	{
+		auto valBox = textRenderer->boundText(text);
+		
+		unsigned buttonPadding = 6;
+		unsigned buttonInset = 3;
+
+		auto buttonPos = context.insertPos;
+		buttonPos.y += valBox.min.y - buttonPadding; 
+		auto buttonSize = glm::uvec2(valBox.max - valBox.min) + glm::uvec2(2 * buttonPadding);
+		uiRenderer->drawWidget(buttonPos, buttonSize, ui::UiElement::Frame);
+		
+		Button button = { id, { buttonPos, buttonPos + glm::ivec2(buttonSize) }, false };
+
+		auto& mouse = state.mouse;
+		if (mouse.primary && glm::in_aabb(mouse.pos, button.rect) && capturedOrAcquired(context.parentPath, button.id, mouse.primaryChanged))
+		{
+			button.pressed = true;
+
+			if (mouse.primaryChanged && interact.ptr)
+				interact.ptr->updateValue(true);
+		}
+
+		if (mouse.primaryChanged && interact.ptr && glm::in_aabb(mouse.pos, button.rect) && wasCaptureReleased(context.parentPath, button.id))
+			interact.ptr->updateValue(false);
+
+		if (button.pressed != value)
+		{
+			auto barPos = buttonPos + glm::ivec2(buttonInset);
+			auto barSize = buttonSize - glm::uvec2(2 * buttonInset);
+			uiRenderer->drawWidget(barPos, barSize, ui::UiElement::Bar);
+		}
+
+		auto valPos = context.insertPos;
+		valPos.x += (buttonSize.x - valBox.max.x) / 2;
+		textRenderer->drawText(valPos, text);
+		
+		nextLine();
+
+		return button;
+	}
+
+	Button addButton(UniqueElementIdentifier id, char const* text, InteractionParam<void> interact) override
+	{
+		return addButton(id, text, false, [&interact](bool pressed) { if (!pressed && interact.ptr) interact.ptr->trigger(); });
+	}
+
+	Slider addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks = 0.0f) override
 	{
 		addLabel(label);
 
