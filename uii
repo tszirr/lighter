@@ -69,7 +69,7 @@ struct UniversalInterface
 	struct ValueInteraction : Interaction<Value>
 	{
 		ModifiedValue* value;
-		ValueInteraction(nullptr_t) { }
+		ValueInteraction(std::nullptr_t) { }
 		ValueInteraction(ModifiedValue& value)
 			: value(&value) { }
 		void updateValue(Value const& value) override {
@@ -79,7 +79,7 @@ struct UniversalInterface
 	struct FunctionInteraction : Interaction<Value>
 	{
 		Function* fun;
-		FunctionInteraction(nullptr_t) { }
+		FunctionInteraction(std::nullptr_t) { }
 		FunctionInteraction(Function& fun)
 			: fun(&fun) { }
 		void updateValue(Value const& value) override {
@@ -89,7 +89,7 @@ struct UniversalInterface
 	struct FunctionInteraction<void, Function> : Interaction<void>
 	{
 		Function* fun;
-		FunctionInteraction(nullptr_t) { }
+		FunctionInteraction(std::nullptr_t) { }
 		FunctionInteraction(Function& fun)
 			: fun(&fun) { }
 		void trigger() override {
@@ -99,7 +99,7 @@ struct UniversalInterface
 	struct InteractionParam
 	{
 		Interaction<Value>* ptr;
-		InteractionParam(nullptr_t) : ptr() { }
+		InteractionParam(std::nullptr_t) : ptr() { }
 		InteractionParam(Value& value, ValueInteraction<Value>&& interaction = nullptr)
 			: ptr(&interaction) { interaction = ValueInteraction<Value>(value); }
 		template <class ModifiedValue>
@@ -115,7 +115,7 @@ struct UniversalInterface
 	struct InteractionParam<void>
 	{
 		Interaction<void>* ptr;
-		InteractionParam(nullptr_t) : ptr() { }
+		InteractionParam(std::nullptr_t) : ptr() { }
 		template <class Function>
 		InteractionParam(Function&& fun, FunctionInteraction<void, typename std::remove_reference<Function>::type>&& interaction = nullptr)
 			: ptr(&interaction) { interaction = FunctionInteraction<Value, typename std::remove_reference<Function>::type>(fun); }
@@ -134,7 +134,7 @@ struct Group : stdx::noncopyable
 	UniqueElementIdentifier id;
 	UniversalInterface* ui;
 
-	Group(nullptr_t) : id(nullptr), ui(nullptr) { }
+	Group(std::nullptr_t) : id(nullptr), ui(nullptr) { }
 	Group(UniversalInterface& ui, UniqueElementIdentifier id) : id(id), ui(&ui) { ui.pushGroup(id); }
 	Group(Group&& right) : id(right.id), ui(right.ui) { right.id = nullptr; right.ui = nullptr; }
 	~Group() { if (ui) ui->popGroup(id); }
@@ -153,7 +153,7 @@ struct Union : stdx::noncopyable
 {
 	UniversalInterface* ui;
 
-	Union(nullptr_t) : ui(nullptr) { }
+	Union(std::nullptr_t) : ui(nullptr) { }
 	Union(UniversalInterface& ui) : ui(&ui) { ui.beginUnion(); }
 	Union(Union&& right) : ui(right.ui) { right.ui = nullptr; }
 	~Union() { if (ui) ui->endUnion(); }

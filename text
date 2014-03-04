@@ -44,7 +44,7 @@ struct Bitmap : stdx::noncopyable, FT_Bitmap
 	MOVE_GENERATE(Bitmap, MOVE_2, BASE, FT_Bitmap, MEMBER, lib)
 	FT_Library lib;
 
-	Bitmap(nullptr_t) { }
+	Bitmap(std::nullptr_t) { }
 	Bitmap(FT_Library lib)
 		: lib(lib)
 	{
@@ -76,7 +76,7 @@ struct Face : ft_delete<FT_Face, FT_Done_Face>::handle_type
 {
 	MOVE_BASE(Face, unique_handle)
 
-	Face(nullptr_t) { }
+	Face(std::nullptr_t) { }
 	Face(FT_Library library, char const* name, FT_Long faceIdx = 0)
 	{
 		THROW_FREETYPE_ERROR(FT_New_Face(library, name, faceIdx, rebind()), "FT_New_Face");

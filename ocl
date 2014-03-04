@@ -129,7 +129,7 @@ struct Program : cl_delete<cl_program, clReleaseProgram>::handle_type
 {
 	MOVE_BASE(Program, unique_handle)
 
-	Program(nullptr_t) { }
+	Program(std::nullptr_t) { }
 	Program(cl_context_with_device context, char const* source, char const* preamble = "")
 	{
 		char const* sources[] = { preamble, source };
@@ -172,7 +172,7 @@ struct Kernel : cl_delete<cl_kernel, clReleaseKernel>::handle_type
 {
 	MOVE_BASE(Kernel, unique_handle)
 
-	Kernel(nullptr_t) { }
+	Kernel(std::nullptr_t) { }
 	Kernel(cl_program program, char const* name)
 	{
 		cl_int error;
@@ -275,7 +275,7 @@ struct Event : cl_delete<cl_event, clReleaseEvent>::handle_type
 {
 	MOVE_BASE(Event, unique_handle)
 
-	Event(nullptr_t) { }
+	Event(std::nullptr_t) { }
 	explicit Event(cl_event event)
 		: unique_handle(event) { }
 	explicit Event(cl_command_queue stream)
@@ -316,7 +316,7 @@ struct Buffer : cl_delete<cl_mem, clReleaseMemObject>::handle_type
 {
 	MOVE_BASE(Buffer, unique_handle)
 
-	Buffer(nullptr_t) { }
+	Buffer(std::nullptr_t) { }
 	Buffer(cl_context context, void const* data, size_t size, cl_mem_flags flags = CL_MEM_READ_WRITE)
 	{
 		cl_int error;
@@ -362,7 +362,7 @@ struct Image : cl_delete<cl_mem, clReleaseMemObject>::handle_type
 {
 	MOVE_BASE(Image, unique_handle)
 
-	Image(nullptr_t) { }
+	Image(std::nullptr_t) { }
 	Image(cl_context context, cl_channel_order channelOrder, cl_channel_type channelType, size_t w, size_t h, void const* data, cl_mem_flags flags)
 	{
 		cl_int error;
@@ -422,7 +422,7 @@ struct BufferedVolume
 
 	MOVE_GENERATE(BufferedVolume, MOVE_2, MEMBER, volume, MEMBER, buffer)
 
-	BufferedVolume(nullptr_t)
+	BufferedVolume(std::nullptr_t)
 		: volume(nullptr)
 		, buffer(nullptr) { }
 	BufferedVolume(cl_context context, cl_channel_order channelOrder, cl_channel_type channelType, size_t w, size_t h, size_t d, void const* data, cl_mem_flags flags = 0)
@@ -438,7 +438,7 @@ struct GlBuffer : cl_delete<cl_mem, clReleaseMemObject>::handle_type
 {
 	MOVE_BASE(GlBuffer, unique_handle)
 
-	GlBuffer(nullptr_t) { }
+	GlBuffer(std::nullptr_t) { }
 	GlBuffer(cl_context context, GLuint glBuffer, cl_mem_flags flags = CL_MEM_READ_WRITE)
 	{
 		cl_int error;
@@ -461,7 +461,7 @@ struct GlTexture : cl_delete<cl_mem, clReleaseMemObject>::handle_type
 {
 	MOVE_BASE(GlTexture, unique_handle)
 
-	GlTexture(nullptr_t) { }
+	GlTexture(std::nullptr_t) { }
 	GlTexture(cl_context context, GLenum glTextureType, GLuint glTexture, cl_mem_flags flags = CL_MEM_READ_WRITE, size_t mipLevel = 0)
 	{
 		cl_int error;

@@ -185,7 +185,7 @@ struct Buffer : glew_delete<GLuint, glDeleteBuffers>::handle_type
 {
 	MOVE_BASE(Buffer, unique_handle)
 
-	Buffer(nullptr_t) { }
+	Buffer(std::nullptr_t) { }
 	Buffer()
 	{
 		glGenBuffers(1, rebind());
@@ -248,7 +248,7 @@ struct Texture : gl_delete<GLuint, glDeleteTextures>::handle_type
 {
 	MOVE_BASE(Texture, unique_handle)
 
-	Texture(nullptr_t) { }
+	Texture(std::nullptr_t) { }
 	Texture()
 	{
 		glGenTextures(1, rebind());
@@ -335,7 +335,7 @@ struct RenderBuffer : glew_delete<GLuint, glDeleteRenderbuffers>::handle_type
 {
 	MOVE_BASE(RenderBuffer, unique_handle)
 
-	RenderBuffer(nullptr_t) { }
+	RenderBuffer(std::nullptr_t) { }
 	RenderBuffer()
 	{
 		glGenRenderbuffers(1, rebind());
@@ -408,7 +408,7 @@ struct VertexArrays : glew_delete<GLuint, glDeleteVertexArrays>::handle_type
 {
 	MOVE_BASE(VertexArrays, unique_handle)
 
-	VertexArrays(nullptr_t) { }
+	VertexArrays(std::nullptr_t) { }
 	VertexArrays()
 	{
 		glGenVertexArrays(1, rebind());
@@ -430,7 +430,7 @@ struct Framebuffer : glew_delete<GLuint, glDeleteFramebuffers>::handle_type
 {
 	MOVE_BASE(Framebuffer, unique_handle)
 
-	Framebuffer(nullptr_t) { }
+	Framebuffer(std::nullptr_t) { }
 	Framebuffer()
 	{
 		glGenFramebuffers(1, rebind());
@@ -499,7 +499,7 @@ struct Shader : glew_delete_single<GLuint, glDeleteShader>::handle_type
 {
 	MOVE_BASE(Shader, unique_handle)
 
-	Shader(nullptr_t) { }
+	Shader(std::nullptr_t) { }
 	explicit Shader(GLenum shaderType)
 	{
 		reset( glCreateShader(shaderType) );
@@ -621,7 +621,7 @@ struct Program : glew_delete_single<GLuint, glDeleteProgram>::handle_type
 {
 	MOVE_BASE(Program, unique_handle)
 
-	Program(nullptr_t) { }
+	Program(std::nullptr_t) { }
 	Program()
 	{
 		reset( glCreateProgram() );
@@ -776,7 +776,7 @@ struct Event : glew_delete<GLuint, glDeleteQueries>::handle_type
 {
 	MOVE_BASE(Event, unique_handle)
 
-	Event(nullptr_t) { }
+	Event(std::nullptr_t) { }
 	explicit Event(GLuint event)
 		: unique_handle(event) { }
 	explicit Event()

@@ -208,7 +208,7 @@ namespace stdx
 
 		// Inherit constructors
 		unique_handle() { }
-		unique_handle(nullptr_t) { }
+		unique_handle(std::nullptr_t) { }
 		explicit unique_handle(pointer value)
 			: unique_handle::unique_ptr(std::move(value)) { }
 			

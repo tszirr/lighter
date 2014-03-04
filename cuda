@@ -51,7 +51,7 @@ struct CommandStream : cuda_delete<CUstream, cuStreamDestroy>::handle_type
 	MOVE_BASE(CommandStream, unique_handle)
 
 	// Default stream
-	CommandStream(nullptr_t) { }
+	CommandStream(std::nullptr_t) { }
 	// New stream
 	explicit CommandStream(CUcontext ctx, unsigned int flags = CU_STREAM_DEFAULT)
 	{
@@ -63,7 +63,7 @@ struct Program : cuda_delete<CUmodule, cuModuleUnload>::handle_type
 {
 	MOVE_BASE(Program, unique_handle)
 
-	Program(nullptr_t) { }
+	Program(std::nullptr_t) { }
 	Program(CUcontext context, char const* binary)
 	{
 		CUjit_option opt[] = { CU_JIT_TARGET_FROM_CUCONTEXT };
@@ -81,7 +81,7 @@ struct Kernel : cuda_no_delete<CUfunction>::handle_type
 {
 	MOVE_BASE(Kernel, unique_handle)
 
-	Kernel(nullptr_t) { }
+	Kernel(std::nullptr_t) { }
 	Kernel(CUmodule module, char const* name)
 	{
 		THROW_CUDA_ERROR(cuModuleGetFunction(rebind(), module, name), "cuModuleGetFunction");
@@ -161,7 +161,7 @@ struct Variable : cuda_no_delete<CUdeviceptr>::handle_type
 {
 	MOVE_BASE(Variable, unique_handle)
 
-	Variable(nullptr_t) { }
+	Variable(std::nullptr_t) { }
 	explicit Variable(CUdeviceptr event)
 		: unique_handle(event) { }
 	explicit Variable(CUmodule module, char const *name)
@@ -174,7 +174,7 @@ struct TextureVariable : cuda_no_delete<CUtexref>::handle_type
 {
 	MOVE_BASE(TextureVariable, unique_handle)
 
-	TextureVariable(nullptr_t) { }
+	TextureVariable(std::nullptr_t) { }
 	explicit TextureVariable(CUtexref event)
 		: unique_handle(event) { }
 	explicit TextureVariable(CUmodule module, char const *name)
@@ -187,7 +187,7 @@ struct SurfaceVariable : cuda_no_delete<CUsurfref>::handle_type
 {
 	MOVE_BASE(SurfaceVariable, unique_handle)
 
-	SurfaceVariable(nullptr_t) { }
+	SurfaceVariable(std::nullptr_t) { }
 	explicit SurfaceVariable(CUsurfref event)
 		: unique_handle(event) { }
 	explicit SurfaceVariable(CUmodule module, char const *name)
@@ -214,7 +214,7 @@ struct Event : cuda_delete<CUevent, cuEventDestroy>::handle_type
 {
 	MOVE_BASE(Event, unique_handle)
 
-	Event(nullptr_t) { }
+	Event(std::nullptr_t) { }
 	explicit Event(CUevent event)
 		: unique_handle(event) { }
 	explicit Event(CUstream stream, unsigned int flags = CU_EVENT_DEFAULT)
@@ -246,7 +246,7 @@ struct Buffer : cuda_delete<CUdeviceptr, cuMemFree>::handle_type
 {
 	MOVE_BASE(Buffer, unique_handle)
 
-	Buffer(nullptr_t) { }
+	Buffer(std::nullptr_t) { }
 	Buffer(CUcontext context, size_t size)
 	{
 		THROW_CUDA_ERROR( cuMemAlloc(rebind(), size), "cuMemAlloc" );
@@ -329,7 +329,7 @@ struct Image : cuda_delete<CUarray, cuArrayDestroy>::handle_type
 {
 	MOVE_BASE(Image, unique_handle)
 
-	Image(nullptr_t) { }
+	Image(std::nullptr_t) { }
 	Image(CUcontext context, unsigned numChannels, CUarray_format format, size_t w, size_t h, size_t d, void const* data, unsigned flags)
 	{
 		CUDA_ARRAY3D_DESCRIPTOR desc = { 0 };
@@ -359,7 +359,7 @@ struct MippedImage : cuda_delete<CUmipmappedArray, cuMipmappedArrayDestroy>::han
 {
 	MOVE_BASE(MippedImage, unique_handle)
 
-	MippedImage(nullptr_t) { }
+	MippedImage(std::nullptr_t) { }
 	MippedImage(CUcontext context, unsigned numChannels, CUarray_format format, size_t w, size_t h, size_t d, size_t levels, void const* data, unsigned flags)
 	{
 		CUDA_ARRAY3D_DESCRIPTOR desc = { 0 };
@@ -452,7 +452,7 @@ struct Texture : cuda_delete<CUtexObject, cuTexObjectDestroy>::handle_type
 {
 	MOVE_BASE(Texture, unique_handle)
 
-	Texture(nullptr_t) { }
+	Texture(std::nullptr_t) { }
 	Texture(CUcontext context, CUDA_RESOURCE_DESC const& resDesc, CUDA_TEXTURE_DESC const& texDesc, CUDA_RESOURCE_VIEW_DESC const* pRVDesc = nullptr)
 	{
 		THROW_CUDA_ERROR(cuTexObjectCreate(rebind(), &resDesc, &texDesc, pRVDesc), "cuTexObjectCreate");
@@ -514,7 +514,7 @@ struct Surface : cuda_delete<CUsurfObject, cuSurfObjectDestroy>::handle_type
 {
 	MOVE_BASE(Surface, unique_handle)
 
-	Surface(nullptr_t) { }
+	Surface(std::nullptr_t) { }
 	Surface(CUcontext context, CUDA_RESOURCE_DESC const& resDesc)
 	{
 		THROW_CUDA_ERROR(cuSurfObjectCreate(rebind(), &resDesc), "cuTexObjectCreate");
@@ -578,7 +578,7 @@ struct GlBuffer : cuda_no_delete<CUgraphicsResource>::handle_type
 {
 	MOVE_BASE(GlBuffer, unique_handle)
 
-	GlBuffer(nullptr_t) { }
+	GlBuffer(std::nullptr_t) { }
 	GlBuffer(CUcontext context, GLuint glBuffer, unsigned int flags = CU_GRAPHICS_REGISTER_FLAGS_NONE)
 	{
 		THROW_CUDA_ERROR( cuGraphicsGLRegisterBuffer(rebind(), glBuffer, flags), "cuGraphicsGLRegisterBuffer" );
@@ -605,7 +605,7 @@ struct GlTexture : cuda_no_delete<CUgraphicsResource>::handle_type
 {
 	MOVE_BASE(GlTexture, unique_handle)
 
-	GlTexture(nullptr_t) { }
+	GlTexture(std::nullptr_t) { }
 	GlTexture(CUcontext context, GLenum glTextureType, GLuint glTexture, unsigned int flags = CU_GRAPHICS_REGISTER_FLAGS_NONE)
 	{
 		THROW_CUDA_ERROR( cuGraphicsGLRegisterImage(rebind(), glTexture, glTextureType, flags), "cuGraphicsGLRegisterImage" );
@@ -651,7 +651,7 @@ struct BindGuard
 
 	MOVE_GENERATE(BindGuard, MOVE_2, MEMBER, stream, MEMBER, bound)
 
-	BindGuard(nullptr_t) { }
+	BindGuard(std::nullptr_t) { }
 	BindGuard(CUstream stream, T &bound)
 		: stream(stream),
 		bound(&bound)
