@@ -49,68 +49,61 @@ namespace stdx
 #ifdef WIN32
 	namespace detail
 	{
-		namespace mapped_file
+		namespace generic_file
 		{
-			/// Converts the given access flags into valid windows access flags.
 			inline DWORD get_windows_access_flags(unsigned access)
 			{
-					DWORD winAccess = 0;
-                
-					if (access & file_flags::read)
-							winAccess |= GENERIC_READ;
-					if (access & file_flags::write)
-							winAccess |= GENERIC_WRITE;
+				DWORD winAccess = 0;
 
-					// Always require some kind of access
-					if (!winAccess)
-							winAccess = GENERIC_READ;
+				if (access & file_flags::read) winAccess |= GENERIC_READ;
+				if (access & file_flags::write) winAccess |= GENERIC_WRITE;
 
-					return winAccess;
+				// Always require some kind of access
+				if (!winAccess) winAccess = GENERIC_READ;
+
+				return winAccess;
 			}
 
-			/// Converts the given sharing flags into valid windows sharing flags.
 			inline DWORD get_windows_sharing_flags(unsigned share, unsigned access)
 			{
-					DWORD winShare = 0;
-                
-					if ((share & file_flags::read) || (share & file_flags::share_default))
-							winShare |= FILE_SHARE_READ;
-					// Share for writing, if default & access read-only
-					if (share & file_flags::write /*|| (share & file::share_default) && !(access & file::write)*/)
-							winShare |= FILE_SHARE_WRITE;
-
-					return winShare;
+				DWORD winShare = 0;
+				if (share & file_flags::read) winShare |= FILE_SHARE_READ;
+				if (share & file_flags::write) winShare |= FILE_SHARE_WRITE;
+				return winShare;
 			}
 
-			/// Converts the given open mode into the corresponding windows open mode.
 			inline DWORD get_windows_open_mode(file_flags::open_mode mode, unsigned access)
 			{
-					if (access & file_flags::write)
-							switch (mode)
-							{
-							case file_flags::append:
-									return OPEN_EXISTING;
-							case file_flags::create:
-									return CREATE_NEW;
-							case file_flags::overwrite:
-									return CREATE_ALWAYS;
-							case file_flags::open:
-							default:
-									return OPEN_ALWAYS;
-							}
-					else
-							return OPEN_EXISTING;
+				if (access & file_flags::write)
+					switch (mode)
+					{
+						case file_flags::nonexisting: return CREATE_NEW;
+						case file_flags::existing: return OPEN_EXISTING;
+						case file_flags::new_overwrite: return CREATE_ALWAYS;
+						default: case file_flags::open_or_new: return OPEN_ALWAYS;
+					}
+				else
+					return OPEN_EXISTING;
 			}
 
-			/// Converts the given optimization hints into the corresponding windows flags.
 			inline DWORD get_windows_optimization_flags(unsigned hints)
 			{
-					if (hints & file_flags::sequential)
-							return FILE_FLAG_SEQUENTIAL_SCAN;
-					else if (hints & file_flags::random)
-							return FILE_FLAG_RANDOM_ACCESS;
-					else
-							return 0;
+				if (hints & file_flags::sequential) return FILE_FLAG_SEQUENTIAL_SCAN;
+				else if (hints & file_flags::random) return FILE_FLAG_RANDOM_ACCESS;
+				else return 0;
+			}
+
+			typedef BOOL (WINAPI* PrefetchVirtualMemoryPtr)(HANDLE hProcess, ULONG_PTR NumberOfEntries, PWIN32_MEMORY_RANGE_ENTRY VirtualAddresses, ULONG Flags);
+			inline PrefetchVirtualMemoryPtr get_prefetch_function()
+			{
+				DWORD dwVersion = GetVersion();
+				DWORD dwMajor = LOBYTE(LOWORD(dwVersion));
+				DWORD dwMinor = HIBYTE(LOWORD(dwVersion));
+
+				// supported from Win 8 onwards
+				return (dwMajor >= 6 && dwMinor >= 2)
+					? (PrefetchVirtualMemoryPtr) GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "PrefetchVirtualMemory")
+					: nullptr;
 			}
 
 			template <class Pointer, BOOL (WINAPI* Deleter)(Pointer)>
@@ -130,17 +123,17 @@ namespace stdx
 	}
 
 	mapped_file::mapped_file(char const* name, size_t size, unsigned access, open_mode mode,
-			unsigned hints, unsigned share)
+	                         unsigned share, unsigned hints)
 	{
-		typedef detail::mapped_file::win_delete<HANDLE, CloseHandle>::handle_type winhandle;
+		typedef detail::generic_file::win_delete<HANDLE, CloseHandle>::handle_type winhandle;
 
 		winhandle file( ::CreateFileA(
 			  name // todo: from utf8?
-			, detail::mapped_file::get_windows_access_flags(access)
-			, detail::mapped_file::get_windows_sharing_flags(share, access)
+			, detail::generic_file::get_windows_access_flags(access)
+			, detail::generic_file::get_windows_sharing_flags(share, access)
 			, nullptr
-			, detail::mapped_file::get_windows_open_mode(mode, access)
-			, detail::mapped_file::get_windows_optimization_flags(hints)
+			, detail::generic_file::get_windows_open_mode(mode, access)
+			, detail::generic_file::get_windows_optimization_flags(hints)
 			, NULL
 			) );
 		if (file.get() == INVALID_HANDLE_VALUE)
@@ -192,9 +185,13 @@ namespace stdx
 
 	void mapped_file::prefetchAll()
 	{
-		static HANDLE process = GetCurrentProcess();
-		WIN32_MEMORY_RANGE_ENTRY prefetchRange = { data, size };
-		::PrefetchVirtualMemory(process, 1, &prefetchRange, 0);
+		static auto PrefetchVirtualMemory = detail::generic_file::get_prefetch_function();
+		if (PrefetchVirtualMemory)
+		{
+			static HANDLE process = GetCurrentProcess();
+			WIN32_MEMORY_RANGE_ENTRY prefetchRange = { data, size };
+			(*PrefetchVirtualMemory)(process, 1, &prefetchRange, 0);
+		}
 	}
 
 #endif

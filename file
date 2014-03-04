@@ -17,33 +17,25 @@ namespace stdx
 	
 	struct file_flags
 	{
-		/// Access modes.
-		enum access_modes
-		{
-			read = 0x1,                  ///< Read mode.
-			write = 0x2,                 ///< Write mode.
-			readwrite = read | write     ///< Read-write mode.
-		};
-		/// Additional sharing modes (enhancing access modes which may also be used as sharing modes).
-		enum share_modes
-		{
-			dont_share = 0x0,               ///< Exclusive access mode.
-			share_default = 0x4,            ///< Default sharing mode (read-write on read-only access, read otherwise).
-		};
-		/// Open modes.
 		enum open_mode
 		{
-			create,                 ///< Create file, if not existent (write access only).
-			append,                 ///< Open file, if existent (enforced on read-only access).
-			open,                   ///< Open file, if existent, otherwise create new file (write access only).
-			overwrite               ///< Overwrite file, if existent, otherwise create new file (write access only).
+			nonexisting,
+			new_overwrite,
+			open_or_new,
+			existing
 		};
-		/// Optimization hints.
-		enum hints
+		enum access_flags
 		{
-			none = 0x0,                     ///< Make no assumptions on future file access.
-			sequential = 0x1,       ///< The file is about to be read strictly front-to-back.
-			random = 0x2            ///< The file is about to be accessed randomly.
+			dont_share = 0x0,
+			read = 0x1,
+			write = 0x2,
+			readwrite = read | write
+		};
+		enum access_hints
+		{
+			nohints = 0x0,
+			sequential = 0x1,
+			random = 0x2
 		};
 	};
 
@@ -52,8 +44,8 @@ namespace stdx
 		char* data;
 		size_t size;
 
-		mapped_file(char const* name, size_t size, unsigned access = file_flags::read, open_mode mode = file_flags::open,
-			unsigned hints = file_flags::none, unsigned share = file_flags::share_default);
+		mapped_file(char const* name, size_t size, unsigned access = file_flags::read, file_flags::open_mode mode = file_flags::new_overwrite,
+			unsigned share = file_flags::read, unsigned hints = file_flags::nohints);
 		~mapped_file();
 
 		void prefetchAll();
