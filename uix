@@ -91,10 +91,30 @@ struct TextUi : UserInterface, UniversalInterface
 	UiRenderer* uiRenderer;
 	TextRenderer* textRenderer;
 	
+	struct AbstractContext
+	{
+		bool active;
+		
+		AbstractContext()
+			: active(true) { }
+		virtual ~AbstractContext() { }
+
+		void touch() { active = true; }
+	};
+	template <class T>
+	struct GenericContext : AbstractContext, T
+	{
+		GenericContext() { }
+		GenericContext(T&& v) : T(std::move(v)) { }
+	};
+
 	struct HiddenContext
 	{
 		int insertLine;
 		unsigned pendingIndent;
+
+		typedef std::pair<std::vector<UniqueElementIdentifier>, std::unique_ptr<AbstractContext>> edit_ctx_mapping;
+		std::vector<edit_ctx_mapping> editContext;
 	} hiddenCtx;
 
 	TextUi(UiRenderer* uiRenderer, TextRenderer* textRenderer, Options options = Options())
@@ -118,6 +138,12 @@ struct TextUi : UserInterface, UniversalInterface
 		context.parentPath.clear();
 		context.pendingInput.clear();
 		context.insertPos = setup.rect.min;
+
+		hiddenCtx.editContext.erase(
+			  std::remove_if(hiddenCtx.editContext.begin(), hiddenCtx.editContext.end(),
+				[](HiddenContext::edit_ctx_mapping& m) { bool remove = !m.second->active; m.second->active = false; return remove; })
+			, hiddenCtx.editContext.end()
+			);
 
 		hiddenCtx.insertLine = 0;
 		hiddenCtx.pendingIndent = 0;
@@ -165,8 +191,7 @@ struct TextUi : UserInterface, UniversalInterface
 
 	void capture(stdx::data_range_param<UniqueElementIdentifier> path, UniqueElementIdentifier id) override
 	{
-		state.capturePath.assign(path.begin(), path.end());
-		state.capturePath.push_back(id);
+		state.capturePath = UniqueElementIdentifier::concat(path, id);
 	}
 	CaptureState::T captureState(stdx::data_range_param<UniqueElementIdentifier> path, UniqueElementIdentifier id) const override
 	{
@@ -202,6 +227,90 @@ struct TextUi : UserInterface, UniversalInterface
 		hiddenCtx.pendingIndent = 0;
 		context.insertPos.y += setup.options.lineHeight;
 		++hiddenCtx.insertLine;
+	}
+
+	struct ParentCompare
+	{
+		std::vector<UniqueElementIdentifier> const& parentPath;
+
+		enum parent_t { parent };
+
+		bool operator ()(std::vector<UniqueElementIdentifier> const& elem, parent_t)
+		{
+			return std::lexicographical_compare(elem.begin(), --elem.end(), parentPath.begin(), parentPath.end());
+		}
+		bool operator ()(parent_t, std::vector<UniqueElementIdentifier> const& elem)
+		{
+			return std::lexicographical_compare(parentPath.begin(), parentPath.end(), elem.begin(), --elem.end());
+		}
+		
+		bool operator ()(HiddenContext::edit_ctx_mapping const& elem, parent_t)
+		{
+			return (*this)(elem.first, parent);
+		}
+		bool operator ()(parent_t, HiddenContext::edit_ctx_mapping const& elem)
+		{
+			return (*this)(parent, elem.first);
+		}
+	};
+
+	struct HeadCompare
+	{
+		UniqueElementIdentifier ueid;
+
+		enum head_t { head };
+
+		bool operator ()(std::vector<UniqueElementIdentifier> const& elem, head_t)
+		{
+			return elem.back() < ueid;
+		}
+		bool operator ()(head_t, std::vector<UniqueElementIdentifier> const& elem)
+		{
+			return ueid < elem.back();
+		}
+
+		bool operator ()(HiddenContext::edit_ctx_mapping const& elem, head_t)
+		{
+			return elem.first.back() < ueid;
+		}
+		bool operator ()(head_t, HiddenContext::edit_ctx_mapping const& elem)
+		{
+			return ueid < elem.first.back();
+		}
+	};
+
+	template <class Context, class ContextFactory>
+	Context& editContext(UniqueElementIdentifier id, ContextFactory&& factory)
+	{
+		auto editCtxBegin = hiddenCtx.editContext.begin(), editCtxEnd = hiddenCtx.editContext.end();
+
+		ParentCompare parentCompare = { context.parentPath };
+		auto parentBegin = std::lower_bound(editCtxBegin, editCtxEnd, ParentCompare::parent, parentCompare);
+		auto insertPos = parentBegin;
+		if (parentBegin != editCtxEnd && !parentCompare(ParentCompare::parent, parentBegin->first))
+		{
+			auto parentEnd = std::upper_bound(editCtxBegin, editCtxEnd, ParentCompare::parent, parentCompare);
+
+			HeadCompare headCompare = { id };
+			auto candidate = std::lower_bound(parentBegin, parentEnd, HeadCompare::head, headCompare);
+			insertPos = candidate;
+			if (candidate != parentEnd && candidate->first.back() == id)
+				return static_cast<Context&>(*candidate->second);
+		}
+
+		insertPos = hiddenCtx.editContext.emplace(insertPos,
+				  UniqueElementIdentifier::concat(context.parentPath, id)
+				, factory()
+			);
+		return static_cast<Context&>(*insertPos->second);
+	}
+	template <class Context, class ContextFactory>
+	GenericContext<Context>& genericEditContext(UniqueElementIdentifier id, ContextFactory&& factory)
+	{
+		return editContext< GenericContext<Context> >(
+			  id
+			  , [&factory]() { return std::unique_ptr< GenericContext<Context> >( new GenericContext<Context>(factory()) ); }
+			);
 	}
 
 	void maybeDrawCursor(glm::ivec2 valuePos, char const* value)
@@ -386,10 +495,19 @@ struct TextUi : UserInterface, UniversalInterface
 		if (interact.ptr)
 		{
 			if (mouse.primary && capturedOrAcquired(context.parentPath, slider.id, mouse.primaryChanged && glm::in_aabb(mouse.pos, slider.rect)))
+			{
+				struct EditContext
+				{
+					float valueBase;
+				};
+				auto& editCtx = genericEditContext<EditContext>(id, [&slider]() -> EditContext { EditContext c = { slider.valueBase }; return c; } );
+				editCtx.touch();
+
 				interact.ptr->updateValue(
-					  slider.valueBase
+					  editCtx.valueBase
 					+ float(mouse.pos.x - slider.rect.min.x) / float(slider.rect.max.x - slider.rect.min.x) * slider.range
 					);
+			}
 		}
 		
 		return slider;

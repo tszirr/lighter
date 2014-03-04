@@ -1,6 +1,7 @@
 #pragma once
 
 #include "stdx"
+#include <vector>
 
 namespace ui
 {
@@ -33,6 +34,16 @@ struct UniqueElementIdentifier
 		: value(value) { }
 
 	bool operator ==(UniqueElementIdentifier const& r) const { return value == r.value; }
+	bool operator <(UniqueElementIdentifier const& r) const { return value < r.value; }
+
+	static std::vector<UniqueElementIdentifier> concat(stdx::data_range_param<UniqueElementIdentifier const> path, UniqueElementIdentifier head)
+	{
+		std::vector<UniqueElementIdentifier> r;
+		r.reserve(path.size() + 1);
+		r.assign(path.begin(), path.end());
+		r.push_back(head);
+		return r;
+	}
 };
 
 struct UniversalInterface
