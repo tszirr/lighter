@@ -102,7 +102,7 @@ struct TextUi : UserInterface, UniversalInterface
 		void touch() { active = true; }
 	};
 	template <class T>
-	struct GenericContext : AbstractContext, T
+	struct GenericContext : T, AbstractContext
 	{
 		GenericContext() { }
 		GenericContext(T&& v) : T(std::move(v)) { }
@@ -113,8 +113,9 @@ struct TextUi : UserInterface, UniversalInterface
 		int insertLine;
 		unsigned pendingIndent;
 
-		typedef std::pair<std::vector<UniqueElementIdentifier>, std::unique_ptr<AbstractContext>> edit_ctx_mapping;
+		typedef std::pair< std::vector<UniqueElementIdentifier>, std::unique_ptr<AbstractContext> > edit_ctx_mapping;
 		std::vector<edit_ctx_mapping> editContext;
+
 	} hiddenCtx;
 
 	TextUi(UiRenderer* uiRenderer, TextRenderer* textRenderer, Options options = Options())
@@ -229,67 +230,37 @@ struct TextUi : UserInterface, UniversalInterface
 		++hiddenCtx.insertLine;
 	}
 
-	struct ParentCompare
-	{
-		std::vector<UniqueElementIdentifier> const& parentPath;
-
-		enum parent_t { parent };
-
-		bool operator ()(std::vector<UniqueElementIdentifier> const& elem, parent_t)
-		{
-			return std::lexicographical_compare(elem.begin(), --elem.end(), parentPath.begin(), parentPath.end());
-		}
-		bool operator ()(parent_t, std::vector<UniqueElementIdentifier> const& elem)
-		{
-			return std::lexicographical_compare(parentPath.begin(), parentPath.end(), elem.begin(), --elem.end());
-		}
-		
-		bool operator ()(HiddenContext::edit_ctx_mapping const& elem, parent_t)
-		{
-			return (*this)(elem.first, parent);
-		}
-		bool operator ()(parent_t, HiddenContext::edit_ctx_mapping const& elem)
-		{
-			return (*this)(parent, elem.first);
-		}
-	};
-
-	struct HeadCompare
-	{
-		UniqueElementIdentifier ueid;
-
-		enum head_t { head };
-
-		bool operator ()(std::vector<UniqueElementIdentifier> const& elem, head_t)
-		{
-			return elem.back() < ueid;
-		}
-		bool operator ()(head_t, std::vector<UniqueElementIdentifier> const& elem)
-		{
-			return ueid < elem.back();
-		}
-
-		bool operator ()(HiddenContext::edit_ctx_mapping const& elem, head_t)
-		{
-			return elem.first.back() < ueid;
-		}
-		bool operator ()(head_t, HiddenContext::edit_ctx_mapping const& elem)
-		{
-			return ueid < elem.first.back();
-		}
-	};
-
 	template <class Context, class ContextFactory>
 	Context& editContext(UniqueElementIdentifier id, ContextFactory&& factory)
 	{
 		auto editCtxBegin = hiddenCtx.editContext.begin(), editCtxEnd = hiddenCtx.editContext.end();
 
+		struct ParentCompare
+		{
+			std::vector<UniqueElementIdentifier> const& parentPath;
+
+			enum parent_t { parent };
+			bool operator ()(HiddenContext::edit_ctx_mapping const& elem, parent_t) {
+				return std::lexicographical_compare(elem.first.begin(), --elem.first.end(), parentPath.begin(), parentPath.end()); }
+			bool operator ()(parent_t, HiddenContext::edit_ctx_mapping const& elem) {
+				return std::lexicographical_compare(parentPath.begin(), parentPath.end(), elem.first.begin(), --elem.first.end()); }
+		};
+
 		ParentCompare parentCompare = { context.parentPath };
 		auto parentBegin = std::lower_bound(editCtxBegin, editCtxEnd, ParentCompare::parent, parentCompare);
 		auto insertPos = parentBegin;
-		if (parentBegin != editCtxEnd && !parentCompare(ParentCompare::parent, parentBegin->first))
+		if (parentBegin != editCtxEnd && !parentCompare(ParentCompare::parent, *parentBegin))
 		{
 			auto parentEnd = std::upper_bound(editCtxBegin, editCtxEnd, ParentCompare::parent, parentCompare);
+
+			struct HeadCompare
+			{
+				UniqueElementIdentifier ueid;
+
+				enum head_t { head };
+				bool operator ()(HiddenContext::edit_ctx_mapping const& elem, head_t) { return elem.first.back() < ueid; }
+				bool operator ()(head_t, HiddenContext::edit_ctx_mapping const& elem) { return ueid < elem.first.back(); }
+			};
 
 			HeadCompare headCompare = { id };
 			auto candidate = std::lower_bound(parentBegin, parentEnd, HeadCompare::head, headCompare);
