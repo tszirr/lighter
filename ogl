@@ -514,11 +514,11 @@ struct Shader : glew_delete_single<GLuint, glDeleteShader>::handle_type
 		switch (shaderType)
 		{
 		case GL_COMPUTE_SHADER: shaderTypePreamble = "#define cs_main main\n#define IN_CS\n"; break;
-		case GL_VERTEX_SHADER: shaderTypePreamble = "#define vs_main main\n#define IN_VS\n"; break;
-		case GL_FRAGMENT_SHADER: shaderTypePreamble = "#define fs_main main\n#define IN_FS\n"; break;
-		case GL_GEOMETRY_SHADER: shaderTypePreamble = "#define gs_main main\n#define IN_GS\n"; break;
-		case GL_TESS_CONTROL_SHADER: shaderTypePreamble = "#define tcs_main main\n#define IN_TCS\n"; break;
-		case GL_TESS_EVALUATION_SHADER: shaderTypePreamble = "#define tes_main main\n#define IN_TES\n"; break;
+		case GL_VERTEX_SHADER: shaderTypePreamble = "#define vs_main main\n#define IN_VS\n#define VERTEX_OUT\n#define VERTEX_OUT_ARRAY\n"; break;
+		case GL_FRAGMENT_SHADER: shaderTypePreamble = "#define fs_main main\n#define IN_FS\n#define VERTEX_IN\n#define VERTEX_IN_ARRAY\n"; break;
+		case GL_GEOMETRY_SHADER: shaderTypePreamble = "#define gs_main main\n#define IN_GS\n#define VERTEX_IN\n#define VERTEX_IN_ARRAY []\n#define VERTEX_OUT\n#define VERTEX_OUT_ARRAY []\n"; break;
+		case GL_TESS_CONTROL_SHADER: shaderTypePreamble = "#define tcs_main main\n#define IN_TCS\n#define VERTEX_IN\n#define VERTEX_IN_ARRAY []\n#define VERTEX_OUT\n#define VERTEX_OUT_ARRAY []\n"; break;
+		case GL_TESS_EVALUATION_SHADER: shaderTypePreamble = "#define tes_main main\n#define IN_TES\n#define VERTEX_IN\n#define VERTEX_IN_ARRAY []\n#define VERTEX_OUT\n#define VERTEX_OUT_ARRAY\n"; break;
 		default: shaderTypePreamble = "";
 		};
 
