@@ -34,6 +34,8 @@
 	#pragma warning(disable : 4610)
 #endif
 
+namespace std { struct random_access_iterator_tag; }
+
 namespace stdx
 {
 	namespace detail
@@ -81,6 +83,8 @@ namespace stdx
 	{
 		typedef Iterator iterator;
 		typedef Iterator const_iterator;
+		typedef Iterator pointer;
+		typedef Iterator const_pointer;
 
 		iterator first, last;
 
@@ -112,21 +116,47 @@ namespace stdx
 		operator bool() const { return (first != last); }
 
 		/// Same as begin.
-		iterator data() const { return first; }
+		pointer data() const { return first; }
 		/// Same as begin.
-		const_iterator cdata() const { return first; }
+		const_pointer cdata() const { return first; }
 	};
 
 	/// Range type w/ implicit conversion constructors, FOR USE IN PARAMETER LISTS.
-	template <class Value>
-	struct data_range_param : range<Value*>
+	template <class Value, class Iterator = Value*>
+	struct data_range_param : range<Iterator>
 	{
 		data_range_param() { }
-		data_range_param(Value* f, Value* l) : range<Value*>(f, l) { }
+		data_range_param(Iterator f, Iterator l) : range<Iterator>(f, l) { }
 		template <class Range>
-		data_range_param(Range& r) : range<Value*>(r.data(), const_cast<Value*>(r.data()) + r.size()) { }
+		data_range_param(Range& r
+			, typename std::enable_if<std::is_convertible<typename Range::pointer, Iterator>::value>::type *enable_if_typematch = nullptr
+			) : range<Iterator>(r.data(), const_cast<Iterator>(r.data()) + r.size()) { } // const_cast forbids implicit casting (don't lose strides!)
 		template <class Range>
-		data_range_param(Range const& r) : range<Value*>(r.data(), const_cast<Value*>(r.data()) + r.size()) { }
+		data_range_param(Range const& r
+			, typename std::enable_if<std::is_convertible<typename Range::const_pointer, Iterator>::value>::type *enable_if_typematch = nullptr)
+			: range<Iterator>(r.data(), const_cast<Iterator>(r.data()) + r.size()) { } // const_cast forbids implicit casting (don't lose strides!)
+	};
+
+	template <class Type> struct strided_ptr;
+
+	/// Strided range type w/ implicit conversion constructors, FOR USE IN PARAMETER LISTS.
+	template <class Value, class Iterator = strided_ptr<Value>>
+	struct relaxed_data_range_param : range<Iterator>
+	{
+		relaxed_data_range_param() { }
+		relaxed_data_range_param(Iterator f, Iterator l) : range<Iterator>(f, l) { }
+		template <class Range>
+		relaxed_data_range_param(Range& r
+			, typename std::enable_if<std::is_convertible<typename Range::pointer, Iterator>::value>::type *enable_if_typematch = nullptr)
+			: range<Iterator>(Iterator(r.data()), Iterator(r.data() + r.size())) { }
+		template <class Range>
+		relaxed_data_range_param(Range const& r
+			, typename std::enable_if<std::is_convertible<typename Range::const_pointer, Iterator>::value>::type *enable_if_typematch = nullptr)
+			: range<Iterator>(Iterator(r.data()), Iterator(r.data() + r.size())) { }
+
+		template <class Value2>
+		range<typename Iterator::template reinterpret_t<Value2>::t> reinterpret() const {
+			return range<typename Iterator::template reinterpret_t<Value2>::t>(this->first.reinterpret<Value2>(), this->last.reinterpret<Value2>()); }
 	};
 
 	template <class Iterator>
@@ -148,6 +178,98 @@ namespace stdx
 	template <class Range>
 	inline range<typename Range::const_pointer> data_range(Range const &r) {
 		return range<typename Range::const_pointer>(r.data(), r.data() + r.size()); }
+
+	template <class Type>
+	struct strided_ptr
+	{
+		typedef Type value_type;
+		typedef value_type* pointer;
+		typedef value_type& reference;
+		typedef ptrdiff_t difference_type;
+		typedef std::random_access_iterator_tag iterator_category;
+
+		pointer ptr;
+		difference_type stride;
+
+		strided_ptr()
+			: ptr( nullptr )
+			, stride( sizeof(value_type) ) { }
+		strided_ptr(pointer object, difference_type stride)
+			: ptr( object )
+			, stride( stride ) { }
+		template <class Type2>
+		strided_ptr(Type2 *object, difference_type stride = sizeof(Type2)
+			, typename std::enable_if<std::is_convertible<Type2*, pointer>::value>::type *enable_if_typematch = nullptr)
+			: ptr( object )
+			, stride( stride ) { }
+		template <class Type2>
+		strided_ptr(strided_ptr<Type2> const& right
+			, typename std::enable_if<std::is_convertible<Type2*, pointer>::value>::type *enable_if_typematch = nullptr)
+			: ptr( right.ptr ),
+			, stride( right.stride ) { }
+
+		template <class Type2>
+		strided_ptr& operator =(strided_ptr<Type2> const& right) {
+			ptr = right.ptr;
+			stride = right.stride;
+			return *this; }
+
+		template <class Type2>
+		struct reinterpret_t { typedef strided_ptr<Type2> t; };
+		template <class Type2>
+		strided_ptr<Type2> reinterpret() const {
+			return strided_ptr<Type2>( reinterpret_cast<Type2*>(ptr), stride ); }
+
+		/// Increments the pointer.
+		strided_ptr& operator ++() {
+			ptr = (pointer) &(char&)((*this)[1]);
+			return *this; }
+		/// Decrements the pointer.
+		strided_ptr& operator --() {
+			ptr = (pointer) &(char&)((*this)[-1]);
+			return *this; }
+
+		/// Increments the pointer.
+		strided_ptr operator ++(int) {
+			strided_ptr old(*this);
+			++(*this);
+			return old; }
+		/// Decrements the pointer.
+		strided_ptr operator --(int) {
+			strided_ptr old(*this);
+			--(*this);
+			return old; }
+
+		/// Gets the pointer stored by this strided pointer. Don't call unless you know what you are doing!
+		pointer get() const { return ptr; }
+		/// Gets the stride stored by this strided pointer. Don't call unless you know what you are doing!
+		difference_type get_stride() const { return stride; }
+
+		/// Gets the first object referenced by this strided pointer.
+		reference operator *() const { return *ptr; }
+		/// Gets the first object referenced by this strided pointer.
+		pointer operator ->() const { return ptr; }
+
+		/// Gets the n-th object referenced by this strided pointer.
+		reference operator [](difference_type n) const {
+			return *pointer((char*) ptr + stride * n); }
+	
+		friend inline strided_ptr operator +(const strided_ptr &p, ptrdiff_t diff) {
+			return strided_ptr( (pointer) &(char&)(p[diff]), p.get_stride() ); }
+		friend inline strided_ptr operator -(const strided_ptr &p, ptrdiff_t diff) {
+			return strided_ptr( (pointer) &(char&)(p[-diff]), p.get_stride() ); }
+
+		template <class T> friend inline bool operator ==(const strided_ptr &l, const strided_ptr &r) { return l.get() == r.get(); }
+		template <class T> friend inline bool operator !=(const strided_ptr &l, const strided_ptr &r) { return l.get() != r.get(); }
+		template <class T> friend inline bool operator <=(const strided_ptr &l, const strided_ptr &r) { return l.get() <= r.get(); }
+		template <class T> friend inline bool operator >=(const strided_ptr &l, const strided_ptr &r) { return l.get() >= r.get(); }
+		template <class T> friend inline bool operator <(const strided_ptr &l, const strided_ptr &r) { return l.get() < r.get(); }
+		template <class T> friend inline bool operator >(const strided_ptr &l, const strided_ptr &r) { return l.get() > r.get(); }
+
+		friend inline ptrdiff_t operator -(const strided_ptr &p, const strided_ptr &q) {
+			assert(p.get_stride() == q.get_stride());
+			return ( (char*) p.get() - (char*) q.get() ) / p.get_stride(); }
+	};
 
 	class noncopyable
 	{
