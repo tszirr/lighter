@@ -179,6 +179,13 @@ namespace stdx
 	inline range<typename Range::const_pointer> data_range(Range const &r) {
 		return range<typename Range::const_pointer>(r.data(), r.data() + r.size()); }
 
+	template <class Range>
+	inline range<typename Range::pointer> data_range(Range &r, size_t len, size_t offset = 0) {
+		return range<typename Range::pointer>(r.data() + offset, r.data() + offset + len); }
+	template <class Range>
+	inline range<typename Range::const_pointer> data_range(Range const &r, size_t len, size_t offset = 0) {
+		return range<typename Range::const_pointer>(r.data() + offset, r.data() + offset + len); }
+
 	template <class Type>
 	struct strided_ptr
 	{
