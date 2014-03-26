@@ -32,6 +32,11 @@ namespace glm
 	{
 		return in_aabb(p, box.min, box.max);
 	}
+	
+	inline float triangle_sign(glm::vec3 const& v0, glm::vec3 const& v1, glm::vec3 const& v2, glm::vec3 const& origin)
+	{
+		return dot(cross(v0 - v1, v1 - origin), v2 - origin);
+	}
 
 	inline vec4 transformdiv(mat4 const& matrix, vec4 const& vector)
 	{
