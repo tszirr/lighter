@@ -259,12 +259,12 @@ namespace stdx
 		friend inline strided_ptr operator -(const strided_ptr &p, ptrdiff_t diff) {
 			return strided_ptr( (pointer) &(char&)(p[-diff]), p.get_stride() ); }
 
-		template <class T> friend inline bool operator ==(const strided_ptr &l, const strided_ptr &r) { return l.get() == r.get(); }
-		template <class T> friend inline bool operator !=(const strided_ptr &l, const strided_ptr &r) { return l.get() != r.get(); }
-		template <class T> friend inline bool operator <=(const strided_ptr &l, const strided_ptr &r) { return l.get() <= r.get(); }
-		template <class T> friend inline bool operator >=(const strided_ptr &l, const strided_ptr &r) { return l.get() >= r.get(); }
-		template <class T> friend inline bool operator <(const strided_ptr &l, const strided_ptr &r) { return l.get() < r.get(); }
-		template <class T> friend inline bool operator >(const strided_ptr &l, const strided_ptr &r) { return l.get() > r.get(); }
+		friend inline bool operator ==(const strided_ptr &l, const strided_ptr &r) { return l.get() == r.get(); }
+		friend inline bool operator !=(const strided_ptr &l, const strided_ptr &r) { return l.get() != r.get(); }
+		friend inline bool operator <=(const strided_ptr &l, const strided_ptr &r) { return l.get() <= r.get(); }
+		friend inline bool operator >=(const strided_ptr &l, const strided_ptr &r) { return l.get() >= r.get(); }
+		friend inline bool operator <(const strided_ptr &l, const strided_ptr &r) { return l.get() < r.get(); }
+		friend inline bool operator >(const strided_ptr &l, const strided_ptr &r) { return l.get() > r.get(); }
 
 		friend inline ptrdiff_t operator -(const strided_ptr &p, const strided_ptr &q) {
 			assert(p.get_stride() == q.get_stride());
