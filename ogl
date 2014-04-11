@@ -375,6 +375,8 @@ struct RenderBuffer : glew_delete<GLuint, glDeleteRenderbuffers>::handle_type
 template <class Resource>
 struct AutoTarget : Resource
 {
+	MOVE_GENERATE(AutoTarget, MOVE_2, BASE, Resource, MEMBER, target)
+
 	using Resource::operator =;
 
 	GLenum target;
@@ -403,6 +405,9 @@ struct AutoTarget : Resource
 		Resource::unbind(target, slot);
 	}
 };
+
+template <class R>
+inline AutoTarget<R> auto_target(GLenum target, R resource) { return AutoTarget<R>(target, std::move(resource)); }
 
 struct VertexArrays : glew_delete<GLuint, glDeleteVertexArrays>::handle_type
 {
@@ -486,6 +491,13 @@ struct Framebuffer : glew_delete<GLuint, glDeleteFramebuffers>::handle_type
 		return result;
 	}
 
+	static Framebuffer default()
+	{
+		Framebuffer result(nullptr);
+		result.reset(0);
+		return result;
+	}
+
 	static GLuint getAttachement(GLenum attachment, GLenum target = GL_FRAMEBUFFER)
 	{
 		GLint object;
@@ -494,6 +506,37 @@ struct Framebuffer : glew_delete<GLuint, glDeleteFramebuffers>::handle_type
 		return (GLuint) object;
 	}
 };
+
+template <class Resource>
+struct AutoViewport : Resource
+{
+	MOVE_GENERATE(AutoViewport, MOVE_5, BASE, Resource, MEMBER, x, MEMBER, y, MEMBER, width, MEMBER, height)
+
+	using Resource::operator =;
+
+	GLint x;
+	GLint y;
+	GLint width;
+	GLint height;
+
+	AutoViewport(Resource resource, GLint width, GLint height, GLint x = 0, GLint y = 0)
+		: Resource(std::move(resource))
+		, x(x)
+		, y(y)
+		, width(width)
+		, height(height)
+	{ }
+
+	void bind(GLenum target = GL_FRAMEBUFFER)
+	{
+		Resource::bind(target);
+		glViewport(x, y, width, height);
+	}
+};
+
+template <class R>
+inline AutoViewport<R> auto_viewport(R resource, GLint width, GLint height, GLint x = 0, GLint y = 0) {
+	return AutoViewport<R>(std::move(resource), width, height, x, y); }
 
 struct Shader : glew_delete_single<GLuint, glDeleteShader>::handle_type
 {
