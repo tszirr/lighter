@@ -46,6 +46,7 @@ inline void copy_channels(D* destBytes, unsigned destChannels, S const* srcBytes
 	auto destByte = destBytes;
 	auto srcLine = srcBytes;
 	auto copyChannels = std::min(destChannels, srcChannels);
+	auto skipChannels = srcChannels - copyChannels;
 
 	for (unsigned y = 0; y < dim.y; ++y)
 	{
@@ -64,9 +65,10 @@ inline void copy_channels(D* destBytes, unsigned destChannels, S const* srcBytes
 			}
 			for (; c < destChannels; ++c)
 				*destByte++ = ((c & 3) == 3) ? one : zero;
+			srcByte += skipChannels;
 		}
 
-		srcByte += srcPitch;
+		srcLine += srcPitch;
 	}
 }
 
