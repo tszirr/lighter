@@ -244,6 +244,14 @@ struct Buffer : glew_delete<GLuint, glDeleteBuffers>::handle_type
 	}
 };
 
+inline size_t computeMipLevelCount(size_t dim)
+{
+	size_t c = 1;
+	for (; dim > 1; dim = dim >> 1)
+		++c;
+	return c;
+}
+
 struct Texture : gl_delete<GLuint, glDeleteTextures>::handle_type
 {
 	MOVE_BASE(Texture, unique_handle)
@@ -273,21 +281,21 @@ struct Texture : gl_delete<GLuint, glDeleteTextures>::handle_type
 		return create3D(textureType, internalFormat, width, height, 0, levels, data, dataType, dataFormat);
 	}
 
-	static Texture create3D(GLenum textureType, GLenum internalFormat, size_t width, size_t height, size_t depth, size_t levels = 1
+	static Texture create3D(GLenum textureType, GLenum internalFormat, size_t width, size_t height, size_t depth, size_t levelsOrGen = 1
 		, void const* data = nullptr, GLenum dataType = GL_FLOAT, GLenum dataFormat = GL_RED)
 	{
 		Texture result;
 		result.bind(textureType);
 
-		if (levels < 1)
-			levels = 1;
+		size_t levels = (levelsOrGen >= 1U) ? levelsOrGen : computeMipLevelCount(std::max(std::max(width, height), depth));
 
-		glTexParameteri(textureType, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexParameteri(textureType, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
-		glTexParameteri(textureType, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(textureType, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTexParameteri(textureType, GL_TEXTURE_MAG_FILTER, (levels == 1) ? GL_NEAREST : GL_LINEAR);
+		glTexParameteri(textureType, GL_TEXTURE_MIN_FILTER, (levels == 1) ? GL_NEAREST_MIPMAP_NEAREST : GL_LINEAR_MIPMAP_LINEAR);
+		auto defaultWrapMode = (levels == 1) ? GL_CLAMP_TO_EDGE : GL_REPEAT;
+		glTexParameteri(textureType, GL_TEXTURE_WRAP_S, defaultWrapMode);
+		glTexParameteri(textureType, GL_TEXTURE_WRAP_T, defaultWrapMode);
 		if (depth > 0)
-			glTexParameteri(textureType, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+			glTexParameteri(textureType, GL_TEXTURE_WRAP_R, defaultWrapMode);
 		THROW_OPENGL_LASTERROR("glTexParameteri()");
 
 		if (depth == 0) {
@@ -304,7 +312,12 @@ struct Texture : gl_delete<GLuint, glDeleteTextures>::handle_type
 		THROW_OPENGL_LASTERROR("glTexParameteri()");
 
 		if (data)
+		{
 			result.write(textureType, 0, data, dataType, dataFormat, width, height, depth);
+
+			if (levelsOrGen == 0)
+				result.genMipMaps(textureType);
+		}
 
 		return result;
 	}
@@ -328,6 +341,13 @@ struct Texture : gl_delete<GLuint, glDeleteTextures>::handle_type
 				, dataFormat, dataType, data);
 			THROW_OPENGL_LASTERROR("glTexSubImage3D()");
 		}
+	}
+
+	void genMipMaps(GLenum textureType)
+	{
+		bind(textureType);
+		glGenerateMipmap(textureType);
+		THROW_OPENGL_LASTERROR("glGenerateMipmap()");
 	}
 };
 
