@@ -252,6 +252,9 @@ inline size_t computeMipLevelCount(size_t dim)
 	return c;
 }
 
+inline bool is3DTexture(GLenum textureType) {
+	return (textureType == GL_TEXTURE_3D); }
+
 struct Texture : gl_delete<GLuint, glDeleteTextures>::handle_type
 {
 	MOVE_BASE(Texture, unique_handle)
@@ -321,6 +324,28 @@ struct Texture : gl_delete<GLuint, glDeleteTextures>::handle_type
 
 		return result;
 	}
+
+	void filterMode(GLenum textureType, GLint min, GLint mag)
+	{
+		bind(textureType);
+		glTexParameteri(textureType, GL_TEXTURE_MAG_FILTER, mag);
+		glTexParameteri(textureType, GL_TEXTURE_MIN_FILTER, min);
+		THROW_OPENGL_LASTERROR("glTexParameteri()");
+	}
+	void filterNearest(GLenum textureType) { filterMode(textureType, GL_NEAREST_MIPMAP_NEAREST, GL_NEAREST); }
+	void filterLinear(GLenum textureType) { filterMode(textureType, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);  }
+
+	void wrapMode(GLenum textureType, GLint mode)
+	{
+		bind(textureType);
+		glTexParameteri(textureType, GL_TEXTURE_WRAP_S, mode);
+		glTexParameteri(textureType, GL_TEXTURE_WRAP_T, mode);
+		if (is3DTexture(textureType))
+			glTexParameteri(textureType, GL_TEXTURE_WRAP_R, mode);
+		THROW_OPENGL_LASTERROR("glTexParameteri()");
+	}
+	void wrapRepeat(GLenum textureType) { wrapMode(textureType, GL_REPEAT); }
+	void wrapClamp(GLenum textureType) { wrapMode(textureType, GL_CLAMP_TO_EDGE); }
 
 	void write(GLenum textureType, size_t level
 		, void const* data, GLenum dataType, GLenum dataFormat
