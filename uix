@@ -129,6 +129,7 @@ struct TextUi : UserInterface, UniversalInterface
 		state.cursor.column = -1;
 
 		state.cursorVisible = true;
+		state.focus = false;
 	}
 	
 	// prepare internal state for next cycle
@@ -153,6 +154,12 @@ struct TextUi : UserInterface, UniversalInterface
 		hiddenCtx.insertLine = 0;
 		hiddenCtx.pendingIndent = 0;
 		hiddenCtx.horizontalGroup = false;
+
+		if ( (state.mouse.primary && state.mouse.primaryChanged || state.mouse.secondary && state.mouse.secondaryChanged)
+			&& state.capturePath.empty())
+		{
+			state.focus = in_aabb(state.mouse.pos, setup.rect);
+		}
 
 		// get next input
 		{
@@ -191,7 +198,8 @@ struct TextUi : UserInterface, UniversalInterface
 	UniversalInterface& reset(Mouse const& mouse, stdx::data_range_param<unsigned const> input) override
 	{
 		state.mouse = mouse;
-		state.input.insert(state.input.end(), input.begin(), input.end());
+		if (state.focus)
+			state.input.insert(state.input.end(), input.begin(), input.end());
 		return TextUi::reset();
 	}
 

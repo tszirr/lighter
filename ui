@@ -151,6 +151,7 @@ struct UserInterface
 		Cursor cursor;
 		bool cursorVisible;
 
+		bool focus;
 		Mouse mouse;
 		std::vector<unsigned> input;
 
