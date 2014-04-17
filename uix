@@ -438,6 +438,7 @@ struct TextUi : UserInterface, UniversalInterface
 		auto buttonPos = context.insertPos;
 		buttonPos.y += valBox.min.y - buttonPadding; 
 		auto buttonSize = glm::uvec2(valBox.max - valBox.min) + glm::uvec2(2 * buttonPadding);
+		buttonSize.y -= std::min((int) buttonPadding, valBox.max.y); // move excess into padding
 		uiRenderer->drawWidget(buttonPos, buttonSize, ui::UiElement::Frame);
 		
 		Button button = { id, { buttonPos, buttonPos + glm::ivec2(buttonSize) }, false };
@@ -501,6 +502,7 @@ struct TextUi : UserInterface, UniversalInterface
 		sliderPos.y += valBox.min.y - sliderPadding; 
 		auto sliderSize = glm::uvec2(valBox.max - valBox.min) + glm::uvec2(2 * sliderPadding);
 		sliderSize.x = std::max((int) sliderSize.x, (int) setup.rect.max.x - context.insertPos.x);
+		sliderSize.y -= std::min((int) sliderPadding, valBox.max.y); // move excess into padding
 		uiRenderer->drawWidget(sliderPos, sliderSize, ui::UiElement::Frame);
 		
 		auto barPos = sliderPos + glm::ivec2(sliderBarInset);
