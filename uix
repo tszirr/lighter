@@ -428,7 +428,7 @@ struct TextUi : UserInterface, UniversalInterface
 		nextLine();
 	}
 
-	Button addButton(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<bool> interact) override
+	Button addButton(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<ButtonEvent::T> interact) override
 	{
 		auto valBox = textRenderer->boundText(text);
 		
@@ -448,11 +448,14 @@ struct TextUi : UserInterface, UniversalInterface
 			button.pressed = true;
 
 			if (mouse.primaryChanged && interact.ptr)
-				interact.ptr->updateValue(true);
+				interact.ptr->updateValue(ButtonEvent::Down);
 		}
 
-		if (mouse.primaryChanged && interact.ptr && glm::in_aabb(mouse.pos, button.rect) && wasCaptureReleased(context.parentPath, button.id))
-			interact.ptr->updateValue(false);
+		if (!mouse.primary && mouse.primaryChanged && interact.ptr && wasCaptureReleased(context.parentPath, button.id))
+			interact.ptr->updateValue(
+				glm::in_aabb(mouse.pos, button.rect)
+					? ButtonEvent::UpAccept
+					: ButtonEvent::UpDismiss);
 
 		if (button.pressed != value)
 		{
@@ -472,7 +475,12 @@ struct TextUi : UserInterface, UniversalInterface
 
 	Button addButton(UniqueElementIdentifier id, char const* text, InteractionParam<void> interact) override
 	{
-		return addButton(id, text, false, [&interact](bool pressed) { if (!pressed && interact.ptr) interact.ptr->trigger(); });
+		return addButton(id, text, false, [&interact](ButtonEvent::T pressed) { if (pressed == ButtonEvent::UpAccept && interact.ptr) interact.ptr->trigger(); });
+	}
+
+	Button addOption(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<bool> interact)
+	{
+		return addButton(id, text, value, [&interact, value](ButtonEvent::T pressed) { if (pressed == ButtonEvent::UpAccept && interact.ptr) interact.ptr->updateValue(!value); });
 	}
 
 	Slider addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks = 0.0f) override
