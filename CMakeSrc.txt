@@ -27,12 +27,17 @@ set(LIGHTER_SRC
   uii
   ui
   uix
-  ui.cpp
   ui.glsl
 )
 if (LIGHTER_USE_FREEIMAGE)
   set(LIGHTER_SRC
     ${LIGHTER_SRC}
 	img.cpp
+  )
+endif()
+if (LIGHTER_USE_FREETYPE)
+  set(LIGHTER_SRC
+    ${LIGHTER_SRC}
+	ui.cpp
   )
 endif()
