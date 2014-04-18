@@ -1,0 +1,138 @@
+#pragma once
+
+#include "scene"
+
+namespace scene
+{
+
+struct WriteVisitor
+{
+	char* dest;
+
+	WriteVisitor(char* dest)
+		: dest(dest) { }
+
+	template <class Collection>
+	void operator ()(Collection const& c, char const* id)
+	{
+		auto header = DataHeader::make(id, c.size(), DataHeader::make_version(Collection::value_type()), sizeof(*c.data()));
+		memcpy(dest, &header, sizeof(header));
+		dest += sizeof(header);
+		memcpy(dest, c.data(), header.size);
+		dest += header.size;
+	}
+};
+
+template <class ErrorHandler>
+struct ReadVisitor
+{
+	char const* src;
+	char const* srcEnd;
+
+	ErrorHandler& errors;
+
+	ReadVisitor(char const* src, char const* srcEnd, ErrorHandler& errors)
+		: src(src)
+		, srcEnd(srcEnd)
+		, errors(errors) { }
+
+	template <class Collection>
+	void operator ()(Collection& c, char const* id)
+	{
+		if (sizeof(DataHeader) <= srcEnd - src)
+		{
+			auto header = *reinterpret_cast<DataHeader const*>(src);
+			if (header.id == DataHeader::make_id(id))
+			{
+				src += sizeof(DataHeader);
+
+				if (header.size > srcEnd - src || header.elementSize != sizeof(*c.data()) || header.size % header.elementSize != 0)
+					errors(id, "invalid chunk size");
+				else
+				{
+					size_t count = header.size / header.elementSize;
+
+					auto currentVersion = DataHeader::make_version(Collection::value_type());
+					if (header.version > currentVersion)
+						errors(id, "format not supported yet");
+					else if (header.version < currentVersion)
+						errors(id, "format no longer supported");
+					else
+					{
+						c.resize(count);
+						memcpy(c.data(), src, header.size);
+					}
+				}
+
+				src += header.size;
+			}
+		}
+	}
+};
+
+struct SizeVisitor
+{
+	size_t size;
+
+	SizeVisitor()
+		: size(0) { }
+
+	template <class Collection>
+	void operator ()(Collection const& c, char const* id)
+	{
+		size += sizeof(DataHeader);
+		size += sizeof(*c.data()) * c.size();
+	}
+};
+
+template <class Scene>
+size_t compute_size(Scene const& scene)
+{
+	SizeVisitor v;
+	scene.reflect(v);
+	return v.size;
+}
+
+template <class Scene>
+char* write(char* dest, Scene const& scene)
+{
+	WriteVisitor v(dest);
+	scene.reflect(v);
+	return v.dest;
+}
+
+inline std::vector<char> dump_scene(Scene const& scene)
+{
+	std::vector<char> bin(compute_size(scene));
+	write(bin.data(), scene);
+	return bin;
+}
+
+namespace io_error_handlers
+{
+	inline void exception(char const* id, char const* what)
+	{
+		throw std::runtime_error(what);
+	}
+
+	inline void ignore(char const* id, char const* what) { }
+
+} // namespace
+
+template <class Scene, class ErrorHandler>
+char const* read(stdx::data_range_param<char const> src, Scene& scene, ErrorHandler&& errorHandler)
+{
+	ReadVisitor<ErrorHandler> v(src.first, src.last, errorHandler);
+	scene.reflect(v);
+	return v.src;
+}
+
+template <class ErrorHandler>
+inline Scene load_scene(stdx::data_range_param<char const> src, ErrorHandler&& errorHandler)
+{
+	Scene scene;
+	read(src, scene, errorHandler);
+	return scene;
+}
+
+} // namespace

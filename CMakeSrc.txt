@@ -28,16 +28,21 @@ set(LIGHTER_SRC
   ui
   uix
   ui.glsl
+  scene
+  scenex
 )
 if (LIGHTER_USE_FREEIMAGE)
-  set(LIGHTER_SRC
-    ${LIGHTER_SRC}
+  list(APPEND LIGHTER_SRC
 	img.cpp
   )
 endif()
 if (LIGHTER_USE_FREETYPE)
-  set(LIGHTER_SRC
-    ${LIGHTER_SRC}
+  list(APPEND LIGHTER_SRC
 	ui.cpp
+  )
+endif()
+if (LIGHTER_USE_SCENE)
+  list(APPEND LIGHTER_SRC
+	scene.cpp
   )
 endif()

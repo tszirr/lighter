@@ -1,0 +1,136 @@
+#pragma once
+
+#include "stdx"
+#include "mathx"
+
+#include <vector>
+
+namespace scene
+{
+
+template <class T>
+struct VectorStorage { typedef std::vector<T> type; };
+template <class T>
+struct ExternalStorage { typedef stdx::range<T> type; };
+
+template <template <class T> class Storage>
+struct SceneGeometryT
+{
+	MOVE_GENERATE(SceneGeometryT, MOVE_7
+		, MEMBER, positions
+		, MEMBER, normals
+		, MEMBER, tangents
+		, MEMBER, bitangents
+		, MEMBER, texcoords
+		, MEMBER, colors
+		, MEMBER, indices
+		)
+
+	typename Storage< glm::pod_vec<float, 3> >::type positions;
+
+	typename Storage< glm::pod_vec<float, 3> >::type normals;
+	typename Storage< glm::pod_vec<float, 3> >::type tangents;
+	typename Storage< glm::pod_vec<float, 3> >::type bitangents;
+
+	typename Storage< glm::pod_vec<float, 2> >::type texcoords;
+
+	typename Storage< unsigned >::type colors;
+
+	typename Storage< unsigned >::type indices;
+
+	template <class Visitor>
+	void reflect(Visitor&& v) const
+	{
+		v(positions, "pos");
+		v(normals, "nrm");
+		v(tangents, "tan");
+		v(bitangents, "bitn");
+		v(texcoords, "texc");
+		v(colors, "col");
+		v(indices, "ind");
+	}
+};
+
+struct Mesh
+{
+	static unsigned const version = 1;
+
+	stdx::range<unsigned> primitives;
+	unsigned material;
+};
+
+template <class Source>
+struct MaterialProperties
+{
+	Source diffuse;
+
+	Source emissive;
+	
+	Source specular;
+	Source shininess;
+	Source reflectivity;
+
+	Source filter;
+	Source refract;
+};
+
+template <class Texture>
+struct MaterialTextures : MaterialProperties<Texture>
+{
+	Texture bump;
+	float bumpScale;
+
+	Texture normal;
+};
+
+struct Material : MaterialProperties< glm::pod_vec<float, 3> >
+{
+	static unsigned const version = 1;
+
+	MaterialTextures<unsigned> tex;
+};
+
+template <template <class T> class Storage = VectorStorage>
+struct SceneT : SceneGeometryT<Storage>
+{
+	MOVE_GENERATE(SceneT, MOVE_4
+		, BASE, SceneGeometry
+		, MEMBER, meshes
+		, MEMBER, materials
+		, MEMBER, textures
+		)
+
+	typename Storage<Mesh>::type meshes;
+
+	typename Storage<Material>::type materials;
+	typename Storage<char>::type textures;
+
+	template <class Visitor>
+	void reflect(Visitor&& v) const
+	{
+		this->SceneGeometryT::reflect(v);
+		v(meshes, "mesh");
+		v(materials, "mat");
+		v(textures, "tex");
+	}
+
+	char const* getTexture(unsigned i) const { return (i) ? &textures[i] : nullptr; }
+};
+
+typedef SceneT<> Scene;
+
+struct DataHeader
+{
+	unsigned id;
+	unsigned size;
+	unsigned version;
+	unsigned elementSize;
+
+	static unsigned make_id(char const* id);
+	static DataHeader make(char const* id, size_t size, unsigned version, size_t elementSize);
+	template <class T>
+	static unsigned make_version(T, std::integral_constant<unsigned, T::version>* = nullptr) { return T::version; }
+	static unsigned make_version(...) { return 0; }
+};
+
+} // namespace
