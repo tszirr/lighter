@@ -32,7 +32,8 @@ DataHeader DataHeader::make(char const* id, size_t size, unsigned version, size_
 	header.id = make_id(id);
 	header.version = version;
 
-	assert (elementSize <= size && size <= ~0U);
+	assert (elementSize <= ~0U && size <= ~0U);
+	assert (elementSize > 0 && size % elementSize == 0);
 	header.elementSize = unsigned(elementSize);
 	header.size = unsigned(size);
 
