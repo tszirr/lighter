@@ -57,14 +57,18 @@ struct Mesh
 
 	stdx::range<unsigned> primitives;
 	unsigned material;
+
+	math::aabb< math::vec<float, 3> > bounds;
 };
 
 struct Instance
 {
 	static unsigned const version = 1;
 
-	math::aabb< math::vec<float, 3> > bounds;
+	unsigned mesh;
 	math::vec< math::vec<float, 3>, 4 > transform;
+
+	math::aabb< math::vec<float, 3> > bounds;
 };
 
 template <class Source>
@@ -101,17 +105,20 @@ struct Material : MaterialProperties< math::vec<float, 3> >
 template <template <class T> class Storage = VectorStorage>
 struct SceneT : SceneGeometryT<Storage>
 {
-	MOVE_GENERATE(SceneT, MOVE_4
+	MOVE_GENERATE(SceneT, MOVE_5
 		, BASE, SceneGeometry
 		, MEMBER, meshes
 		, MEMBER, materials
 		, MEMBER, textures
+		, MEMBER, instances
 		)
 
 	typename Storage<Mesh>::type meshes;
 
 	typename Storage<Material>::type materials;
 	typename Storage<char>::type textures;
+
+	typename Storage<Instance>::type instances;
 
 	template <class Visitor>
 	void reflect(Visitor&& v) const
@@ -120,6 +127,7 @@ struct SceneT : SceneGeometryT<Storage>
 		v(meshes, "mesh");
 		v(materials, "mat");
 		v(textures, "tex");
+		v(instances, "inst");
 	}
 
 	char const* getTexture(unsigned i) const { return (i) ? &textures[i] : nullptr; }
