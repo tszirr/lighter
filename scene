@@ -26,13 +26,13 @@ struct SceneGeometryT
 		, MEMBER, indices
 		)
 
-	typename Storage< glm::pod_vec<float, 3> >::type positions;
+	typename Storage< math::vec<float, 3> >::type positions;
 
-	typename Storage< glm::pod_vec<float, 3> >::type normals;
-	typename Storage< glm::pod_vec<float, 3> >::type tangents;
-	typename Storage< glm::pod_vec<float, 3> >::type bitangents;
+	typename Storage< math::vec<float, 3> >::type normals;
+	typename Storage< math::vec<float, 3> >::type tangents;
+	typename Storage< math::vec<float, 3> >::type bitangents;
 
-	typename Storage< glm::pod_vec<float, 2> >::type texcoords;
+	typename Storage< math::vec<float, 2> >::type texcoords;
 
 	typename Storage< unsigned >::type colors;
 
@@ -59,6 +59,14 @@ struct Mesh
 	unsigned material;
 };
 
+struct Instance
+{
+	static unsigned const version = 1;
+
+	math::aabb< math::vec<float, 3> > bounds;
+	math::vec< math::vec<float, 3>, 4 > transform;
+};
+
 template <class Source>
 struct MaterialProperties
 {
@@ -83,7 +91,7 @@ struct MaterialTextures : MaterialProperties<Texture>
 	Texture normal;
 };
 
-struct Material : MaterialProperties< glm::pod_vec<float, 3> >
+struct Material : MaterialProperties< math::vec<float, 3> >
 {
 	static unsigned const version = 1;
 
