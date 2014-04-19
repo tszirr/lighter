@@ -11,17 +11,58 @@
 	#include <iosfwd>
 #endif
 
-namespace glm
+namespace math
 {
-	template <class T, size_t N>
-	struct pod_vec { T c[N]; };
+	using namespace glm;
 
+	// Vector type analysis
+	template <class Vec> struct vec_type;
+	template <class Component> struct vec_type< glm::detail::tvec1<Component> > { static size_t const dimension = 1; typedef Component component; };
+	template <class Component> struct vec_type< glm::detail::tvec2<Component> > { static size_t const dimension = 2; typedef Component component; };
+	template <class Component> struct vec_type< glm::detail::tvec3<Component> > { static size_t const dimension = 3; typedef Component component; };
+	template <class Component> struct vec_type< glm::detail::tvec4<Component> > { static size_t const dimension = 4; typedef Component component; };
+
+	// Vector type synthesis
+	template <class T, size_t N> struct vec_t;
+	template <class T> struct vec_t<T, 1> { typedef glm::detail::tvec1<T> type; };
+	template <class T> struct vec_t<T, 2> { typedef glm::detail::tvec2<T> type; };
+	template <class T> struct vec_t<T, 3> { typedef glm::detail::tvec3<T> type; };
+	template <class T> struct vec_t<T, 4> { typedef glm::detail::tvec4<T> type; };
+
+	// POD vector (no default initialization)
+	template <class T, size_t N>
+	struct vec
+	{
+		T c[N];
+
+		typename vec_t<T, N>::type get() const { return (typename vec_t<T, N>::type const&) *this; }
+		operator typename vec_t<T, N>::type() const { return (typename vec_t<T, N>::type const&) *this; }
+	};
+	template <class T, size_t N> struct vec_type< vec<T, N> > { static size_t const dimension = N; typedef T component; };
+	
+	// compatibility
+	template <class T, size_t N>
+	struct pod_vec : vec<T, N> { };
+
+	template <class Vec> inline vec<typename vec_type<Vec>::component, vec_type<Vec>::dimension> to_pod(Vec const& v)
+	{
+		return (vec<typename vec_type<Vec>::component, vec_type<Vec>::dimension> const&) v;
+	}
+	template <class T, size_t N>
+	inline typename vec_t<T, N>::type to_vec(vec<T, N> const& v)
+	{
+		return (typename vec_t<T, N>::type const&) v;
+	}
+
+	// POD AABB (no default initialization)
 	template <class Vec>
 	struct aabb { Vec min, max; };
 
+	// POD ray (no default initialization)
 	template <class Vec>
 	struct ray { Vec o, d; };
 
+	// Utilities
 	template <class Vec>
 	inline bool in_aabb(Vec const& p, Vec const& min, Vec const& max)
 	{
@@ -68,7 +109,7 @@ namespace glm
 	template <class Uniform, size_t N>
 	struct rand_box
 	{
-		typedef pod_vec<typename Uniform::result_type, N> result_type;
+		typedef vec<typename Uniform::result_type, N> result_type;
 		Uniform c[N];
 		rand_box() { }
 		rand_box(Uniform u) {
@@ -82,14 +123,6 @@ namespace glm
 			return v;
 		}
 	};
-
-	template <class T> inline pod_vec<T, 2> to_pod(glm::detail::tvec2<T> const& v) { return (pod_vec<T, 2> const&) v; }
-	template <class T> inline pod_vec<T, 3> to_pod(glm::detail::tvec3<T> const& v) { return (pod_vec<T, 3> const&) v; }
-	template <class T> inline pod_vec<T, 4> to_pod(glm::detail::tvec4<T> const& v) { return (pod_vec<T, 4> const&) v; }
-
-	template <class T> inline glm::detail::tvec2<T> to_vec(pod_vec<T, 2> const& v) { return (glm::detail::tvec2<T> const&) v; }
-	template <class T> inline glm::detail::tvec3<T> to_vec(pod_vec<T, 3> const& v) { return (glm::detail::tvec3<T> const&) v; }
-	template <class T> inline glm::detail::tvec4<T> to_vec(pod_vec<T, 4> const& v) { return (glm::detail::tvec4<T> const&) v; }
 
 	template <class T> inline T mipCount(T res) { T count(1); for (auto m = res; m > T(1); m /= T(2)) ++count; return count; }
 
@@ -245,5 +278,10 @@ namespace glm
 	{
 		return glm::uvec3( bitcomp2(c), bitcomp2(c >> 1), bitcomp2(c >> 2) );
 	}
+}
+
+namespace glm
+{
+	using namespace math;
 
 } // namespace
