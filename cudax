@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cuda.h>
-#ifdef __CUDA_ARCH__ 
+#ifdef __CUDACC__ 
 	#include <cuda_runtime.h>
 #else
 	#include <host_defines.h>
@@ -112,7 +112,7 @@ inline __host__ __device__ T toGlmExplicit(U const& cuda
 	return reinterpret_cast<T const&>(cuda);
 }
 
-#ifdef __CUDA_ARCH__ 
+#ifdef __CUDACC__ 
 
 template <class Type, class SurfaceType>
 __device__ inline Type surf2Dread(SurfaceType surf, int2 coord, cudaSurfaceBoundaryMode boundaryMode = cudaBoundaryModeTrap)
