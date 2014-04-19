@@ -10,6 +10,10 @@ namespace stdx
 	typedef stdx::error<file_tag> file_error;
 
 	long long file_time(char const* name);
+	bool file_touch(char const* name);
+
+	std::string dirname(char const* path);
+	std::string basename(char const* path);
 
 	std::string load_file(char const* name);
 	

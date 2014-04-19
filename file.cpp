@@ -5,9 +5,13 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/utime.h>
 
 #ifdef WIN32
 	#include <Windows.h>
+	#include <cstdlib>
+#else
+	#include <libgen.h>
 #endif
 
 namespace stdx
@@ -17,6 +21,41 @@ namespace stdx
 		struct stat buf;
 		stat(name, &buf);
 		return static_cast<long long>(buf.st_mtime);
+	}
+
+	bool file_touch(char const* name)
+	{
+		return utime(name, nullptr) == 0;
+	}
+
+	std::string dirname(char const* path)
+	{
+		std::string r(path);
+#ifdef WIN32
+		_splitpath(path, nullptr, &r[0], nullptr, nullptr);
+#else
+		auto n = ::dirname(&r[0]);
+		assert (n == &r[0]);
+		if (n != &r[0]) strcpy(&r[0], n);
+#endif
+		r.resize(strlen(r.data()));
+		return r;
+	}
+
+	std::string basename(char const* path)
+	{
+		std::string r(path);
+		std::string e(path);
+#ifdef WIN32
+		_splitpath(path, nullptr, nullptr, &r[0], &e[0]);
+		strcpy(&r[strlen(r.data())], e.data());
+#else
+		auto n = ::basename(&r[0]);
+		assert (n == &r[0]);
+		if (n != &r[0]) strcpy(&r[0], n);
+#endif
+		r.resize(strlen(r.data()));
+		return r;
 	}
 
 	std::string load_file(char const* name)
