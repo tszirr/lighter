@@ -14,17 +14,18 @@ template <class T>
 struct ExternalStorage { typedef stdx::range<T> type; };
 
 template <template <class T> class Storage>
-struct SceneGeometryT
+struct SceneVerticesT
 {
-	MOVE_GENERATE(SceneGeometryT, MOVE_7
+	MOVE_GENERATE(SceneVerticesT, MOVE_6
 		, MEMBER, positions
 		, MEMBER, normals
 		, MEMBER, tangents
 		, MEMBER, bitangents
 		, MEMBER, texcoords
 		, MEMBER, colors
-		, MEMBER, indices
 		)
+
+	SceneVerticesT() { }
 
 	typename Storage< math::vec<float, 3> >::type positions;
 
@@ -36,8 +37,6 @@ struct SceneGeometryT
 
 	typename Storage< unsigned >::type colors;
 
-	typename Storage< unsigned >::type indices;
-
 	template <class Visitor>
 	void reflect(Visitor&& v) const
 	{
@@ -47,6 +46,25 @@ struct SceneGeometryT
 		v(bitangents, "bitn");
 		v(texcoords, "texc");
 		v(colors, "col");
+	}
+};
+
+template <template <class T> class Storage>
+struct SceneGeometryT : SceneVerticesT<Storage>
+{
+	MOVE_GENERATE(SceneGeometryT, MOVE_2
+		, BASE, SceneVerticesT
+		, MEMBER, indices
+		)
+
+	SceneGeometryT() { }
+
+	typename Storage< unsigned >::type indices;
+
+	template <class Visitor>
+	void reflect(Visitor&& v) const
+	{
+		this->SceneVerticesT::reflect(v);
 		v(indices, "ind");
 	}
 };
@@ -112,6 +130,8 @@ struct SceneT : SceneGeometryT<Storage>
 		, MEMBER, textures
 		, MEMBER, instances
 		)
+
+	SceneT() { }
 
 	typename Storage<Mesh>::type meshes;
 
