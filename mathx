@@ -35,23 +35,25 @@ namespace math
 	{
 		T c[N];
 
-		typename vec_t<T, N>::type get() const { return (typename vec_t<T, N>::type const&) *this; }
-		operator typename vec_t<T, N>::type() const { return (typename vec_t<T, N>::type const&) *this; }
+		typename vec_t<T, N>::type get() const { return reinterpret_cast<typename vec_t<T, N>::type const&>(*this); }
+		operator typename vec_t<T, N>::type() const { return reinterpret_cast<typename vec_t<T, N>::type const&>(*this); }
 	};
 	template <class T, size_t N> struct vec_type< vec<T, N> > { static size_t const dimension = N; typedef T component; };
 	
 	// compatibility
-	template <class T, size_t N>
-	struct pod_vec : vec<T, N> { };
+	#ifndef MATHX_NO_POD_VEC
+		// hurts, but no other way right now
+		#define pod_vec vec
+	#endif
 
 	template <class Vec> inline vec<typename vec_type<Vec>::component, vec_type<Vec>::dimension> to_pod(Vec const& v)
 	{
-		return (vec<typename vec_type<Vec>::component, vec_type<Vec>::dimension> const&) v;
+		return reinterpret_cast<vec<typename vec_type<Vec>::component, vec_type<Vec>::dimension> const&>(v);
 	}
 	template <class T, size_t N>
 	inline typename vec_t<T, N>::type to_vec(vec<T, N> const& v)
 	{
-		return (typename vec_t<T, N>::type const&) v;
+		return reinterpret_cast<typename vec_t<T, N>::type const&>(v);
 	}
 
 	// POD AABB (no default initialization)
