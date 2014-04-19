@@ -5,6 +5,7 @@
 #include <utility>
 #include <type_traits>
 #include <memory>
+#include <cstring>
 
 #ifdef _MSC_VER
 	#pragma warning(push)
@@ -406,6 +407,17 @@ namespace stdx
 	{
 		return transparent_type<typename std::remove_reference<T>::type>::get(std::forward<T>(v));
 	}
+
+	inline bool streq(char const* a, char const* b) { return strcmp(a, b) == 0; }
+	inline bool strieq(char const* a, char const* b)
+#ifdef WIN32
+	{ return _stricmp(a, b) == 0; }
+#else
+	{ return strcasecmp(a, b) == 0; }
+#endif
+
+	inline bool check_flag(char const* arg, char const* flag) {
+		return (arg[0] == '/' || arg[0] == '-') && strieq(arg + 1, flag); }
 
 } // namespace
 
