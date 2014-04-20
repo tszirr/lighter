@@ -15,11 +15,14 @@ struct WriteVisitor
 	template <class Collection>
 	void operator ()(Collection const& c, char const* id)
 	{
-		auto header = DataHeader::make(id, c.size(), DataHeader::make_version(Collection::value_type()), sizeof(*c.data()));
-		memcpy(dest, &header, sizeof(header));
-		dest += sizeof(header);
-		memcpy(dest, c.data(), header.size);
-		dest += header.size;
+		if (c.begin() < c.end())
+		{
+			auto header = DataHeader::make(id, c.size(), DataHeader::make_version(Collection::value_type()), sizeof(*c.data()));
+			memcpy(dest, &header, sizeof(header));
+			dest += sizeof(header);
+			memcpy(dest, c.data(), header.size);
+			dest += header.size;
+		}
 	}
 };
 
