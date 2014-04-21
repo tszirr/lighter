@@ -106,15 +106,19 @@ struct MaterialProperties
 	Source filter;
 	Source refract;
 
-	static MaterialProperties floatDefault()
+	void reset_float_default()
+	{
+		memset(this, 0, sizeof(*this));
+		typedef float float_array[sizeof(Source) / sizeof(float)];
+		for (auto& v : reinterpret_cast<float_array&>(diffuse)) v = 1.0f;
+		for (auto& v : reinterpret_cast<float_array&>(specular)) v = 1.0f;
+		for (auto& v : reinterpret_cast<float_array&>(reflectivity)) v = 1.0f;
+		for (auto& v : reinterpret_cast<float_array&>(refract)) v = 1.0f;
+	}
+	static MaterialProperties float_default()
 	{
 		MaterialProperties r;
-		memset(&r, 0, sizeof(r));
-		typedef float float_array[sizeof(Source) / sizeof(float)];
-		for (auto& v : reinterpret_cast<float_array&>(r.diffuse)) v = 1.0f;
-		for (auto& v : reinterpret_cast<float_array&>(r.specular)) v = 1.0f;
-		for (auto& v : reinterpret_cast<float_array&>(r.reflectivity)) v = 1.0f;
-		for (auto& v : reinterpret_cast<float_array&>(r.refract)) v = 1.0f;
+		r.reset_float_default();
 		return r;
 	}
 };
@@ -127,11 +131,16 @@ struct MaterialTextures : MaterialProperties<Texture>
 
 	Texture normal;
 
-	static MaterialTextures nullDefault()
+	void reset_null_default()
+	{
+		memset(this, 0, sizeof(*this));
+		bumpScale = 1.0f;
+	}
+
+	static MaterialTextures null_default()
 	{
 		MaterialTextures r;
-		memset(&r, 0, sizeof(r));
-		r.bumpScale = 1.0f;
+		r.reset_null_default();
 		return r;
 	}
 };
@@ -142,11 +151,15 @@ struct Material : MaterialProperties< math::vec<float, 3> >
 
 	MaterialTextures<unsigned> tex;
 
+	void reset_default()
+	{
+		reset_float_default();
+		tex.reset_null_default();
+	}
 	static Material default()
 	{
 		Material r;
-		r.floatDefault();
-		r.tex.nullDefault();
+		r.reset_default();
 		return r;
 	}
 };
