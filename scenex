@@ -49,7 +49,7 @@ struct ReadVisitor
 			{
 				src += sizeof(DataHeader);
 
-				if (header.size > srcEnd - src || header.elementSize != sizeof(*c.data()) || header.size % header.elementSize != 0)
+				if (header.size > size_t(srcEnd - src) || header.elementSize != sizeof(*c.data()) || header.size % header.elementSize != 0)
 					errors(id, "invalid chunk size");
 				else
 				{
@@ -92,7 +92,7 @@ template <class Scene>
 size_t compute_size(Scene const& scene)
 {
 	SizeVisitor v;
-	scene.reflect(v);
+	scene.reflect(scene, v);
 	return v.size;
 }
 
@@ -100,7 +100,7 @@ template <class Scene>
 char* write(char* dest, Scene const& scene)
 {
 	WriteVisitor v(dest);
-	scene.reflect(v);
+	scene.reflect(scene, v);
 	return v.dest;
 }
 
@@ -115,7 +115,7 @@ namespace io_error_handlers
 {
 	inline void exception(char const* id, char const* what)
 	{
-		throw std::runtime_error(what);
+		throwx( io_error(what) );
 	}
 
 	inline void ignore(char const* id, char const* what) { }
@@ -126,7 +126,7 @@ template <class Scene, class ErrorHandler>
 char const* read(stdx::data_range_param<char const> src, Scene& scene, ErrorHandler&& errorHandler)
 {
 	ReadVisitor<ErrorHandler> v(src.first, src.last, errorHandler);
-	scene.reflect(v);
+	scene.reflect(scene, v);
 	return v.src;
 }
 

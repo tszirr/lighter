@@ -8,6 +8,9 @@
 namespace scene
 {
 
+struct scene_io_tag;
+typedef stdx::error<scene_io_tag> io_error;
+
 template <class T>
 struct VectorStorage { typedef std::vector<T> type; };
 template <class T>
@@ -37,15 +40,15 @@ struct SceneVerticesT
 
 	typename Storage< unsigned >::type colors;
 
-	template <class Visitor>
-	void reflect(Visitor&& v) const
+	template <class Scene, class Visitor>
+	static void reflect(Scene&& s, Visitor&& v)
 	{
-		v(positions, "pos");
-		v(normals, "nrm");
-		v(tangents, "tan");
-		v(bitangents, "bitn");
-		v(texcoords, "texc");
-		v(colors, "col");
+		v(s.positions, "pos");
+		v(s.normals, "nrm");
+		v(s.tangents, "tan");
+		v(s.bitangents, "bitn");
+		v(s.texcoords, "texc");
+		v(s.colors, "col");
 	}
 };
 
@@ -61,11 +64,11 @@ struct SceneGeometryT : SceneVerticesT<Storage>
 
 	typename Storage< unsigned >::type indices;
 
-	template <class Visitor>
-	void reflect(Visitor&& v) const
+	template <class Scene, class Visitor>
+	static void reflect(Scene&& s, Visitor&& v)
 	{
-		this->SceneVerticesT::reflect(v);
-		v(indices, "ind");
+		SceneVerticesT::reflect(s, v);
+		v(s.indices, "ind");
 	}
 };
 
@@ -124,7 +127,7 @@ template <template <class T> class Storage = VectorStorage>
 struct SceneT : SceneGeometryT<Storage>
 {
 	MOVE_GENERATE(SceneT, MOVE_5
-		, BASE, SceneGeometry
+		, BASE, SceneGeometryT
 		, MEMBER, meshes
 		, MEMBER, materials
 		, MEMBER, textures
@@ -140,14 +143,14 @@ struct SceneT : SceneGeometryT<Storage>
 
 	typename Storage<Instance>::type instances;
 
-	template <class Visitor>
-	void reflect(Visitor&& v) const
+	template <class Scene, class Visitor>
+	static void reflect(Scene& s, Visitor&& v)
 	{
-		this->SceneGeometryT::reflect(v);
-		v(meshes, "mesh");
-		v(materials, "mat");
-		v(textures, "tex");
-		v(instances, "inst");
+		SceneGeometryT::reflect(s, v);
+		v(s.meshes, "mesh");
+		v(s.materials, "mat");
+		v(s.textures, "tex");
+		v(s.instances, "inst");
 	}
 
 	char const* getTexture(unsigned i) const { return (i) ? &textures[i] : nullptr; }
