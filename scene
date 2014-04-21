@@ -105,6 +105,18 @@ struct MaterialProperties
 
 	Source filter;
 	Source refract;
+
+	static MaterialProperties floatDefault()
+	{
+		MaterialProperties r;
+		memset(&r, 0, sizeof(r));
+		typedef float float_array[sizeof(Source) / sizeof(float)];
+		for (auto& v : reinterpret_cast<float_array&>(r.diffuse)) v = 1.0f;
+		for (auto& v : reinterpret_cast<float_array&>(r.specular)) v = 1.0f;
+		for (auto& v : reinterpret_cast<float_array&>(r.reflectivity)) v = 1.0f;
+		for (auto& v : reinterpret_cast<float_array&>(r.refract)) v = 1.0f;
+		return r;
+	}
 };
 
 template <class Texture>
@@ -114,6 +126,14 @@ struct MaterialTextures : MaterialProperties<Texture>
 	float bumpScale;
 
 	Texture normal;
+
+	static MaterialTextures nullDefault()
+	{
+		MaterialTextures r;
+		memset(&r, 0, sizeof(r));
+		r.bumpScale = 1.0f;
+		return r;
+	}
 };
 
 struct Material : MaterialProperties< math::vec<float, 3> >
@@ -121,6 +141,14 @@ struct Material : MaterialProperties< math::vec<float, 3> >
 	static unsigned const version = 1;
 
 	MaterialTextures<unsigned> tex;
+
+	static Material default()
+	{
+		Material r;
+		r.floatDefault();
+		r.tex.nullDefault();
+		return r;
+	}
 };
 
 template <template <class T> class Storage = VectorStorage>
