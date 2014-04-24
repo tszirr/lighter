@@ -81,7 +81,7 @@ namespace stdx
 			folder
 		};
 	};
-	std::string prompt_file(char const* current = nullptr, char const* extensions = nullptr
+	std::vector<std::string> prompt_file(char const* current = nullptr, char const* extensions = nullptr
 		, dialog::t mode = dialog::open, bool multi = false);
 
 	struct include_resolver

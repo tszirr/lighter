@@ -280,10 +280,10 @@ namespace stdx
 
 	} // namespace
 
-	std::string prompt_file(char const* current, char const* extensions
+	std::vector<std::string> prompt_file(char const* current, char const* extensions
 		, dialog::t mode, bool multi)
 	{
-		std::string result;
+		std::vector<std::string> result;
 
 		using namespace detail::prompt_file;
 		prepareCOM();
@@ -369,13 +369,36 @@ namespace stdx
 		// Show the dialog
 		if (SUCCEEDED(pfd->Show(NULL)))
 		{
-			com_handle_t<IShellItem>::t psiResult;
-			throw_com_error(pfd->GetResult(psiResult.rebind()));
+			auto&& getPath = [&utfcvt](IShellItem& item) -> std::string
+			{
+				PWSTR pszFilePath = NULL;
+				throw_com_error(item.GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath));
+				return utfcvt.to_bytes(pszFilePath);
+			};
 
-			PWSTR pszFilePath = NULL;
-			throw_com_error(psiResult->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath));
+			if (multi)
+			{
+				com_handle_t<IFileOpenDialog>::t ofd;
+				throw_com_error(pfd->QueryInterface(IID_PPV_ARGS(ofd.rebind())));
 
-			result = utfcvt.to_bytes(pszFilePath);
+				com_handle_t<IShellItemArray>::t psiResults;
+				throw_com_error(ofd->GetResults(psiResults.rebind()));
+
+				DWORD resultCount = 0;
+				psiResults->GetCount(&resultCount);
+				for (DWORD i = 0; i < resultCount; ++i)
+				{
+					com_handle_t<IShellItem>::t psiResult;
+					throw_com_error(psiResults->GetItemAt(i, psiResult.rebind()));
+					result.push_back( getPath(*psiResult) );
+				}
+			}
+			else
+			{
+				com_handle_t<IShellItem>::t psiResult;
+				throw_com_error(pfd->GetResult(psiResult.rebind()));
+				result.push_back( getPath(*psiResult) );
+			}
 		}
 
 		return result;
