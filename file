@@ -72,6 +72,18 @@ namespace stdx
 		mapped_file(mapped_file const&);
 	};
 
+	struct dialog
+	{
+		enum t
+		{
+			open,
+			save,
+			folder
+		};
+	};
+	std::string prompt_file(char const* current = nullptr, char const* extensions = nullptr
+		, dialog::t mode = dialog::open, bool multi = false);
+
 	struct include_resolver
 	{
 		virtual std::string resolve(char const* filename, bool localInclude) const = 0; 

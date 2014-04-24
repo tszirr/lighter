@@ -10,6 +10,12 @@
 #ifdef WIN32
 	#include <Windows.h>
 	#include <cstdlib>
+
+	#include <Shobjidl.h>
+	#include <Shlobj.h>
+	#include <locale>
+	#include <codecvt>
+
 #else
 	#include <libgen.h>
 #endif
@@ -231,6 +237,148 @@ namespace stdx
 			WIN32_MEMORY_RANGE_ENTRY prefetchRange = { data, size };
 			(*PrefetchVirtualMemory)(process, 1, &prefetchRange, 0);
 		}
+	}
+
+	namespace detail
+	{
+		namespace prompt_file
+		{
+			#define throw_com_error(x) if (FAILED(x)) throwx( std::runtime_error("COM/Windows Shell") );
+
+			struct COM
+			{
+				COM()
+				{
+					throw_com_error(CoInitializeEx(NULL, COINIT_MULTITHREADED));
+				}
+				~COM()
+				{
+					CoUninitialize();
+				}
+			};
+
+			void prepareCOM()
+			{
+				static COM com;
+			}
+
+			struct com_delete
+			{
+				void operator ()(IUnknown* ptr) const
+				{
+					if (ptr)
+						ptr->Release();
+				}
+			};
+			
+			template <class T>
+			struct com_handle_t
+			{
+				typedef stdx::unique_handle<T, com_delete> t;
+			};
+		}
+
+	} // namespace
+
+	std::string prompt_file(char const* current, char const* extensions
+		, dialog::t mode, bool multi)
+	{
+		std::string result;
+
+		using namespace detail::prompt_file;
+		prepareCOM();
+
+		com_handle_t<IFileDialog>::t pfd;
+		auto dialogCLSID = (mode != dialog::save) ? CLSID_FileOpenDialog : CLSID_FileSaveDialog;
+		throw_com_error(CoCreateInstance(dialogCLSID, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(pfd.rebind())));
+
+		// Options
+		{
+			DWORD dwFlags = 0;
+			pfd->GetOptions(&dwFlags);
+			dwFlags |= FOS_FORCEFILESYSTEM | FOS_NOCHANGEDIR;
+			if (mode == dialog::folder)
+				dwFlags |= FOS_PICKFOLDERS;
+			if (multi)
+				dwFlags |= FOS_ALLOWMULTISELECT;
+			throw_com_error(pfd->SetOptions(dwFlags));
+		}
+
+		std::wstring_convert< std::codecvt_utf8_utf16<wchar_t> > utfcvt;
+
+		// Extensions
+		if (extensions)
+		{
+			auto typeStr = utfcvt.from_bytes(extensions);
+			auto typeCStr = typeStr.c_str();
+			size_t typeCnt = 1 + std::count(typeStr.begin(), typeStr.end(), L'|');
+			std::vector<COMDLG_FILTERSPEC> types(typeCnt);
+
+			for (size_t i = 0, off = 0; i < typeCnt; ++i)
+			{
+				size_t nextOff = typeStr.find('|', off);
+				if (nextOff != typeStr.npos)
+					typeStr[nextOff++] = 0;
+
+				auto& type = types[i];
+				type.pszName = type.pszSpec = typeCStr + off;
+
+				auto ass = typeStr.find('=', off);
+				if (ass < nextOff)
+				{
+					typeStr[ass++] = 0;
+					type.pszSpec = typeCStr + ass;
+				}
+
+				off = nextOff;
+			}
+
+			throw_com_error(pfd->SetFileTypes(UINT(typeCnt), types.data()));
+		}
+
+		// Initial folder
+		if (current)
+		{
+			SFGAOF folderAtt;
+			com_handle_t<IShellItem>::t item;
+			{
+				struct abs_iid_deleter
+				{
+					void operator ()(ITEMIDLIST* ptr) const
+					{
+						if (ptr)
+							ILFree(ptr);
+					}
+				};
+				stdx::unique_handle<ITEMIDLIST, abs_iid_deleter> iidl;
+			
+				throw_com_error(SHParseDisplayName(utfcvt.from_bytes(current).c_str(), nullptr, iidl.rebind(), SFGAO_FOLDER, &folderAtt));
+				throw_com_error(SHCreateItemFromIDList(iidl, IID_PPV_ARGS(item.rebind())));
+			}
+
+			if (~folderAtt & SFGAO_FOLDER)
+			{
+				com_handle_t<IShellItem>::t folder;
+				item->GetParent(folder.rebind());
+				item = std::move(folder);
+			}
+
+			throw_com_error(pfd->SetFolder(item));
+		}
+
+		// Show the dialog
+		if (SUCCEEDED(pfd->Show(NULL)))
+		{
+			com_handle_t<IShellItem>::t psiResult;
+			throw_com_error(pfd->GetResult(psiResult.rebind()));
+
+			PWSTR pszFilePath = NULL;
+			throw_com_error(psiResult->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath));
+
+			result = utfcvt.to_bytes(pszFilePath);
+		}
+
+		return result;
 	}
 
 #endif
