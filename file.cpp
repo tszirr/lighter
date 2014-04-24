@@ -339,6 +339,8 @@ namespace stdx
 		// Initial folder
 		if (current)
 		{
+			auto path = utfcvt.from_bytes(current);
+
 			SFGAOF folderAtt;
 			com_handle_t<IShellItem>::t item;
 			{
@@ -352,15 +354,25 @@ namespace stdx
 				};
 				stdx::unique_handle<ITEMIDLIST, abs_iid_deleter> iidl;
 			
-				throw_com_error(SHParseDisplayName(utfcvt.from_bytes(current).c_str(), nullptr, iidl.rebind(), SFGAO_FOLDER, &folderAtt));
+				if (auto pathLen = GetFullPathNameW(path.c_str(), 0, nullptr, nullptr))
+				{
+					std::wstring fullPath;
+					fullPath.resize(pathLen);
+					if (GetFullPathNameW(path.c_str(), pathLen, &fullPath[0], nullptr))
+						path = std::move(fullPath);
+				}
+
+				throw_com_error(SHParseDisplayName(path.c_str(), nullptr, iidl.rebind(), SFGAO_FOLDER, &folderAtt));
 				throw_com_error(SHCreateItemFromIDList(iidl, IID_PPV_ARGS(item.rebind())));
 			}
 
-			if (~folderAtt & SFGAO_FOLDER)
+			if (~folderAtt & SFGAO_FOLDER || mode == dialog::folder)
 			{
 				com_handle_t<IShellItem>::t folder;
-				item->GetParent(folder.rebind());
+				throw_com_error(item->GetParent(folder.rebind()));
 				item = std::move(folder);
+
+				throw_com_error(pfd->SetFileName(path.c_str()));
 			}
 
 			throw_com_error(pfd->SetFolder(item));
