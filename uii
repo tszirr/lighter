@@ -118,7 +118,7 @@ struct UniversalInterface
 		InteractionParam(std::nullptr_t) : ptr() { }
 		template <class Function>
 		InteractionParam(Function&& fun, FunctionInteraction<void, typename std::remove_reference<Function>::type>&& interaction = nullptr)
-			: ptr(&interaction) { interaction = FunctionInteraction<Value, typename std::remove_reference<Function>::type>(fun); }
+			: ptr(&interaction) { interaction = FunctionInteraction<void, typename std::remove_reference<Function>::type>(fun); }
 	};
 
 	struct Button;
