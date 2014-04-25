@@ -11,10 +11,8 @@
 	#include <iosfwd>
 #endif
 
-namespace math
+namespace glm
 {
-	using namespace glm;
-
 	// Vector type analysis
 	template <class Vec> struct vec_type;
 	template <class Component> struct vec_type< glm::detail::tvec1<Component> > { static size_t const dimension = 1; typedef Component component; };
@@ -280,10 +278,7 @@ namespace math
 	{
 		return glm::uvec3( bitcomp2(c), bitcomp2(c >> 1), bitcomp2(c >> 2) );
 	}
-}
-
-namespace glm
-{
-	using namespace math;
 
 } // namespace
+
+namespace math = glm;
