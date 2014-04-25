@@ -376,6 +376,76 @@ struct Texture : gl_delete<GLuint, glDeleteTextures>::handle_type
 	}
 };
 
+struct Sampler : glew_delete<GLuint, glDeleteSamplers>::handle_type
+{
+	MOVE_BASE(Sampler, unique_handle)
+
+	Sampler(std::nullptr_t) { }
+	Sampler()
+	{
+		glGenSamplers(1, rebind());
+		THROW_OPENGL_LASTERROR("glGenSamplers()");
+	}
+
+	void bind(unsigned slot = 0)
+	{
+		glBindSampler(slot, *this);
+	}
+
+	static void unbind(unsigned slot = 0)
+	{
+		glBindSampler(slot, 0);
+	}
+
+	static Sampler createLinear(GLint wrapMode = GL_REPEAT, GLint min = GL_LINEAR_MIPMAP_LINEAR, GLint mag = GL_LINEAR)
+	{
+		Sampler r;
+		r.filterMode(min, mag);
+		r.wrapMode(wrapMode);
+		return r;
+	}
+	static Sampler createNearest(GLint wrapMode = GL_REPEAT, GLint min = GL_NEAREST_MIPMAP_NEAREST, GLint mag = GL_NEAREST)
+	{
+		Sampler r;
+		r.filterMode(min, mag);
+		r.wrapMode(wrapMode);
+		r.anisotropy(1);
+		return r;
+	}
+
+	void filterMode(GLint min, GLint mag)
+	{
+		glSamplerParameteri(*this, GL_TEXTURE_MAG_FILTER, mag);
+		glSamplerParameteri(*this, GL_TEXTURE_MIN_FILTER, min);
+		THROW_OPENGL_LASTERROR("glSamplerParameteri()");
+	}
+	void filterNearest() { filterMode(GL_NEAREST_MIPMAP_NEAREST, GL_NEAREST); }
+	void filterLinear() { filterMode(GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);  }
+
+	void wrapMode(GLint mode)
+	{
+		glSamplerParameteri(*this, GL_TEXTURE_WRAP_S, mode);
+		glSamplerParameteri(*this, GL_TEXTURE_WRAP_T, mode);
+		glSamplerParameteri(*this, GL_TEXTURE_WRAP_R, mode);
+		THROW_OPENGL_LASTERROR("glSamplerParameteri()");
+	}
+	void wrapRepeat() { wrapMode(GL_REPEAT); }
+	void wrapClamp() { wrapMode(GL_CLAMP_TO_EDGE); }
+
+	void levels(size_t level, size_t count = 1)
+	{
+		glSamplerParameteri(*this, GL_TEXTURE_BASE_LEVEL, int(level));
+		glSamplerParameteri(*this, GL_TEXTURE_MAX_LEVEL, int(level + count - 1));
+		THROW_OPENGL_LASTERROR("glSamplerParameteri()");
+	}
+
+	void anisotropy(size_t maxAnisotropy)
+	{
+		glSamplerParameteri(*this, GL_TEXTURE_MAX_ANISOTROPY_EXT, int(maxAnisotropy));
+		THROW_OPENGL_LASTERROR("glSamplerParameteri()");
+	}
+};
+
 struct RenderBuffer : glew_delete<GLuint, glDeleteRenderbuffers>::handle_type
 {
 	MOVE_BASE(RenderBuffer, unique_handle)
@@ -564,6 +634,7 @@ struct AutoViewport : Resource
 	GLint width;
 	GLint height;
 
+	AutoViewport(nullptr_t) : Resource(nullptr) { }
 	AutoViewport(Resource resource, GLint width, GLint height, GLint x = 0, GLint y = 0)
 		: Resource(std::move(resource))
 		, x(x)
