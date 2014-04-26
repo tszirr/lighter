@@ -438,6 +438,9 @@ namespace stdx
 #define TOKEN_TO_STRING(x) #x
 #define VALUE_TO_STRING(x) TOKEN_TO_STRING(x)
 
+#define FILE_LINE __FILE__ "(" VALUE_TO_STRING(__LINE__) ")"
+#define FILE_LINE_PREFIX FILE_LINE ": "
+
 // MSVC 2013 shame
 #define MSVC_EXPAND(x) x
 

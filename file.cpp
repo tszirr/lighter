@@ -16,6 +16,7 @@
 	#include <locale>
 	#include <codecvt>
 
+	#pragma comment(linker, "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 #else
 	#include <libgen.h>
 #endif
@@ -243,7 +244,7 @@ namespace stdx
 	{
 		namespace prompt_file
 		{
-			#define throw_com_error(x) if (FAILED(x)) throwx( std::runtime_error("COM/Windows Shell") );
+			#define throw_com_error(x) if (FAILED(x)) throwx( std::runtime_error(FILE_LINE_PREFIX "COM/Windows Shell") );
 
 			struct COM
 			{
