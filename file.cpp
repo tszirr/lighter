@@ -244,7 +244,10 @@ namespace stdx
 	{
 		namespace prompt_file
 		{
-			#define throw_com_error(x) if (FAILED(x)) throwx( std::runtime_error(FILE_LINE_PREFIX "COM/Windows Shell") );
+			#define throw_com_error(x) do { \
+					auto winErr = (x); \
+					if (FAILED(winErr)) throwx( std::runtime_error(FILE_LINE_PREFIX "COM/Windows Shell") ); \
+				} while (false)
 
 			struct COM
 			{
