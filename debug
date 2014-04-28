@@ -1,0 +1,32 @@
+#pragma once
+
+#include "stdx"
+#ifdef _MSC_VER
+#include <excpt.h>
+#endif
+
+namespace stdx
+{
+
+	bool dump_exception(void* excpt, char const* dumpPath = nullptr);
+	
+#ifdef _MSC_VER
+	template <class Fun>
+	auto dump_on_exception(Fun&& run) -> typename std::decay<decltype(run())>::type
+	{
+		__try
+		{
+			return run();
+		}
+		__except (dump_exception(GetExceptionInformation()), EXCEPTION_CONTINUE_SEARCH) { }
+		__assume(false); // never reached
+	}
+#else
+	template <class Fun>
+	auto dump_on_exception(Fun&& run) -> typename std::decay<decltype(run())>::type
+	{
+		return run();
+	}
+#endif
+
+} // namespace
