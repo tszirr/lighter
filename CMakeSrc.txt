@@ -7,6 +7,8 @@ set(LIGHTER_DATA_FILES
 )
 set(LIGHTER_SRC
   stdx
+  debug
+  debug.cpp
   file
   filex
   file.cpp
