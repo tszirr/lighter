@@ -165,13 +165,15 @@ namespace stdx
 				typedef std::unique_ptr< Pointer, win_delete<Pointer, Deleter> > pointer_type;
 				typedef stdx::unique_handle< Pointer, win_delete<Pointer, Deleter> > handle_type;
 			};
+
+			typedef win_delete<HANDLE, CloseHandle>::handle_type winhandle;
 		}
 	}
 
 	mapped_file::mapped_file(char const* name, size_t size, unsigned access, open_mode mode,
 	                         unsigned share, unsigned hints)
 	{
-		typedef detail::generic_file::win_delete<HANDLE, CloseHandle>::handle_type winhandle;
+		typedef detail::generic_file::winhandle winhandle;
 
 		winhandle file( ::CreateFileA(
 			  name // todo: from utf8?
