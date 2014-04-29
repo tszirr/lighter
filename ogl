@@ -892,7 +892,7 @@ struct ProgramWithTime : Program
 		, preamble(preamble)
 		, file(std::move(file))
 		, time(0)
-		, options(options)
+		, options( (~options & HasCS) ? options : options | NoVS | NoFS ) // CS is exclusive
 		, compatibilityInclude(compatibilityInclude)
 	{
 		load();
