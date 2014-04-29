@@ -253,7 +253,7 @@ namespace stdx
 			{
 				COM()
 				{
-					throw_com_error(CoInitializeEx(NULL, COINIT_MULTITHREADED));
+					throw_com_error(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE));
 				}
 				~COM()
 				{
@@ -295,6 +295,10 @@ namespace stdx
 		com_handle_t<IFileDialog>::t pfd;
 		auto dialogCLSID = (mode != dialog::save) ? CLSID_FileOpenDialog : CLSID_FileSaveDialog;
 		throw_com_error(CoCreateInstance(dialogCLSID, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(pfd.rebind())));
+
+		com_handle_t<IFileOpenDialog>::t ofd;
+		if (dialogCLSID == CLSID_FileOpenDialog)
+			throw_com_error(pfd->QueryInterface(IID_PPV_ARGS(ofd.rebind())));
 
 		// Options
 		{
@@ -394,8 +398,7 @@ namespace stdx
 
 			if (multi)
 			{
-				com_handle_t<IFileOpenDialog>::t ofd;
-				throw_com_error(pfd->QueryInterface(IID_PPV_ARGS(ofd.rebind())));
+				assert (ofd.get() != nullptr);
 
 				com_handle_t<IShellItemArray>::t psiResults;
 				throw_com_error(ofd->GetResults(psiResults.rebind()));
