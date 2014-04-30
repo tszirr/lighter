@@ -46,15 +46,8 @@ struct UniqueElementIdentifier
 	}
 };
 
-struct UniversalInterface
+struct UniversalInterfaceInteraction
 {
-	virtual void pushGroup(UniqueElementIdentifier id) = 0;
-	virtual void popGroup(UniqueElementIdentifier id) = 0;
-	virtual void addLabel(char const* label) = 0;
-
-	virtual void beginUnion() = 0;
-	virtual void endUnion() = 0;
-	
 	template <class Value>
 	struct Interaction
 	{
@@ -65,51 +58,57 @@ struct UniversalInterface
 	{
 		virtual void trigger() = 0;
 	};
-	template <class Value, class ModifiedValue = Value>
-	struct ValueInteraction : Interaction<Value>
-	{
-		ModifiedValue* value;
-		ValueInteraction(std::nullptr_t) { }
-		ValueInteraction(ModifiedValue& value)
-			: value(&value) { }
-		void updateValue(Value const& value) override {
-			*this->value = value; }
-	};
-	template <class Value, class Function>
-	struct FunctionInteraction : Interaction<Value>
-	{
-		Function* fun;
-		FunctionInteraction(std::nullptr_t) { }
-		FunctionInteraction(Function& fun)
-			: fun(&fun) { }
-		void updateValue(Value const& value) override {
-			(*this->fun)(value); }
-	};
-	template <class Function>
-	struct FunctionInteraction<void, Function> : Interaction<void>
-	{
-		Function* fun;
-		FunctionInteraction(std::nullptr_t) { }
-		FunctionInteraction(Function& fun)
-			: fun(&fun) { }
-		void trigger() override {
-			(*this->fun)(); }
-	};
-	template <class Value> struct InteractionParam;
+
+	template <class Value>
+	struct InteractionParam;
+
 	struct InteractionParamHelper
 	{
+		template <class Value, class ModifiedValue = Value>
+		struct ValueInteraction : Interaction<Value>
+		{
+			ModifiedValue* value;
+			ValueInteraction(std::nullptr_t) { }
+			ValueInteraction(ModifiedValue& value)
+				: value(&value) { }
+			void updateValue(Value const& value) override {
+				*this->value = value; }
+		};
+		template <class Value, class Function>
+		struct FunctionInteraction : Interaction<Value>
+		{
+			Function* fun;
+			FunctionInteraction(std::nullptr_t) { }
+			FunctionInteraction(Function& fun)
+				: fun(&fun) { }
+			void updateValue(Value const& value) override {
+				(*this->fun)(value); }
+		};
+		template <class Function>
+		struct FunctionInteraction<void, Function> : Interaction<void>
+		{
+			Function* fun;
+			FunctionInteraction(std::nullptr_t) { }
+			FunctionInteraction(Function& fun)
+				: fun(&fun) { }
+			void trigger() override {
+				(*this->fun)(); }
+		};
+
 		template <class IA = void>
 		struct ParamStorage
 		{
 			char buffer[sizeof(IA)];
 		};
-		template <> struct ParamStorage<void>
+		template <>
+		struct ParamStorage<void>
 		{
 			char* buffer;
 			template <class T>
 			ParamStorage(ParamStorage<T>&& s)
 				: buffer(s.buffer) { }
 		};
+
 		template <class ModifiedValue, class Value>
 		struct enable_if_value : std::enable_if<
 			!std::is_same< typename std::decay<ModifiedValue>::type, InteractionParam<Value> >::value && std::is_assignable<ModifiedValue, Value>::value
@@ -119,6 +118,7 @@ struct UniversalInterface
 			!std::is_same< typename std::decay<Function>::type, InteractionParam<Value> >::value && !std::is_assignable<Function, Value>::value
 		> { };
 	};
+
 	template <class Value>
 	struct InteractionParam : InteractionParamHelper
 	{
@@ -159,6 +159,16 @@ struct UniversalInterface
 		Interaction<void>* operator ->() const { return ptr; }
 		operator bool() const { return ptr != nullptr; }
 	};
+};
+
+struct UniversalInterface : UniversalInterfaceInteraction
+{
+	virtual void pushGroup(UniqueElementIdentifier id) = 0;
+	virtual void popGroup(UniqueElementIdentifier id) = 0;
+	virtual void addLabel(char const* label) = 0;
+
+	virtual void beginUnion() = 0;
+	virtual void endUnion() = 0;
 
 	struct Button;
 	struct ButtonEvent { enum T { Down, UpAccept, UpDismiss }; };
