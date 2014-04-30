@@ -89,19 +89,68 @@ struct GLEW : stdx::noncopyable
 	}
 };
 
-struct GLFWWindow : stdx::noncopyable
+struct TrackedGLFWWindow : stdx::fun_delete<GLFWwindow*, glfwDestroyWindow>::handle_type
 {
-	void registerThis() throw();
-	void unregisterThis() throw();
+	explicit TrackedGLFWWindow(GLFWwindow* wnd = nullptr) throw()
+		: unique_handle(wnd)
+	{
+		registerThis();
+	}
+	TrackedGLFWWindow(TrackedGLFWWindow &&right) throw()
+		: unique_handle(std::move(right))
+	{
+		registerThis();
+	}
+	TrackedGLFWWindow& operator =(TrackedGLFWWindow &&right) throw()
+	{
+		this->swap(right);
+		return *this;
+	}
+
+	void reset(GLFWwindow* wnd = nullptr) throw()
+	{
+		unique_handle::reset(wnd);
+		registerThis();
+	}
+	GLFWwindow* release() throw()
+	{
+		unregisterThis();
+		return unique_handle::release();
+	}
+	void swap(TrackedGLFWWindow& right) throw()
+	{
+		unique_handle::swap(right);
+		registerThis();
+		right.registerThis();
+	}
+
+	void registerThis() throw()
+	{
+		if (valid())
+			glfwSetWindowUserPointer(*this, this);
+	}
+	void unregisterThis() throw()
+	{
+		if (valid())
+			glfwSetWindowUserPointer(*this, nullptr);
+	}
+	template <class GLFWWindow>
+	static GLFWWindow* getThis(GLFWwindow* wnd)
+	{
+		return static_cast<GLFWWindow*>( static_cast<TrackedGLFWWindow*>( glfwGetWindowUserPointer(wnd) ) );
+	}
+};
+
+struct GLFWWindow : TrackedGLFWWindow
+{
+	MOVE_GENERATE(GLFWWindow, MOVE_6, BASE, TrackedGLFWWindow
+		, MEMBER, resize, MEMBER, keyboard, MEMBER, text, MEMBER, mouse, MEMBER, buttons)
 
 	static void resizeCallback(GLFWwindow *window, int w, int h);
 	static void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
 	static void textCallback(GLFWwindow *window, unsigned chr);
 	static void mouseCallback(GLFWwindow *window, double x, double y);
 	static void buttonsCallback(GLFWwindow *window, int button, int action, int mods);
-
-	stdx::unique_handle<GLFWwindow*> window;
-	TRANSPARENT_MEMBER(GLFWWindow, window)
 
 	std::function<void (unsigned w, unsigned h)> resize;
 	std::function<void (int key, bool pressed, bool repeat)> keyboard;
@@ -110,64 +159,29 @@ struct GLFWWindow : stdx::noncopyable
 	std::function<void (int button, bool pressed)> buttons;
 
 	GLFWWindow(int w, int h, char const *title, GLFWmonitor *monitor = glfwGetPrimaryMonitor(), GLFWwindow *share = nullptr)
+		: TrackedGLFWWindow( glfwCreateWindow(w, h, title, monitor, share) )
 	{
-		window.reset( glfwCreateWindow(w, h, title, monitor, share) );
-		if (!window.valid())
-			throwx( ogl_error("Failed to create glfw window!") );
-		glfwSetFramebufferSizeCallback(window, resizeCallback);
-		glfwSetKeyCallback(window, keyCallback);
-		glfwSetCharCallback(window, textCallback);
-		glfwSetCursorPosCallback(window, mouseCallback);
-		glfwSetMouseButtonCallback(window, buttonsCallback);
-
-		registerThis();
-	}
-	~GLFWWindow()
-	{
-		if (window.valid())
-		{
-			glfwDestroyWindow(window);
-			unregisterThis();
-		}
-	}
-	GLFWWindow(GLFWWindow &&right)
-		: window(std::move(right.window))
-		, resize(std::move(right.resize))
-		, keyboard(std::move(right.keyboard))
-		, text(std::move(right.text))
-		, mouse(std::move(right.mouse))
-		, buttons(std::move(right.buttons))
-	{
-		registerThis();
-	}
-	GLFWWindow& operator =(GLFWWindow &&right)
-	{
-		std::swap(window, right.window);
-		std::swap(resize, right.resize);
-		std::swap(keyboard, right.keyboard);
-		std::swap(text, right.text);
-		std::swap(mouse, right.mouse);
-		std::swap(buttons, right.buttons);
-
-		registerThis();
-		right.registerThis();
-
-		return *this;
+		if (!valid()) throwx( ogl_error("Failed to create glfw window!") );
+		glfwSetFramebufferSizeCallback(*this, resizeCallback);
+		glfwSetKeyCallback(*this, keyCallback);
+		glfwSetCharCallback(*this, textCallback);
+		glfwSetCursorPosCallback(*this, mouseCallback);
+		glfwSetMouseButtonCallback(*this, buttonsCallback);
 	}
 
 	void makeCurrent()
 	{
-		glfwMakeContextCurrent(window);
+		glfwMakeContextCurrent(*this);
 	}
 
 	void swapBuffers()
 	{
-		glfwSwapBuffers(window);
+		glfwSwapBuffers(*this);
 	}
 
 	bool shouldClose() const
 	{
-		return glfwWindowShouldClose(window) != 0;
+		return glfwWindowShouldClose(*this) != 0;
 	}
 
 	void initialResize()
@@ -175,7 +189,7 @@ struct GLFWWindow : stdx::noncopyable
 		if (resize)
 		{
 			int w, h;
-			glfwGetFramebufferSize(window, &w, &h);
+			glfwGetFramebufferSize(*this, &w, &h);
 			resize((unsigned) w, (unsigned) h);
 		}
 	}

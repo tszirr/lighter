@@ -68,57 +68,37 @@ namespace ogl
 			std::cout << srcS << ": " << typeS << "(" << severityS << ") " << id << ": " << message << std::endl;
 	}
 
-	namespace
-	{
-		std::map<GLFWwindow*, GLFWWindow*>& windows()
-		{
-			static std::map<GLFWwindow*, GLFWWindow*> w;
-			return w;
-		}
-	}
-
-	void GLFWWindow::registerThis() throw()
-	{
-		if (window.valid())
-			windows()[window] = this;
-	}
-	void GLFWWindow::unregisterThis() throw()
-	{
-		if (window.valid())
-			windows().erase(window);
-	}
-
 	void GLFWWindow::resizeCallback(GLFWwindow *window, int w, int h)
 	{
-		auto* self = windows()[window];
+		auto* self = getThis<GLFWWindow>(window);
 		if (self && self->resize)
 			self->resize((unsigned) w, (unsigned) h);
 	}
 
 	void GLFWWindow::keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
 	{
-		auto* self = windows()[window];
+		auto* self = getThis<GLFWWindow>(window);
 		if (self && self->keyboard)
 			self->keyboard(key, action != GLFW_RELEASE, action == GLFW_REPEAT);
 	}
 
 	void GLFWWindow::textCallback(GLFWwindow *window, unsigned chr)
 	{
-		auto* self = windows()[window];
+		auto* self = getThis<GLFWWindow>(window);
 		if (self && self->text)
 			self->text(chr);
 	}
 
 	void GLFWWindow::mouseCallback(GLFWwindow *window, double x, double y)
 	{
-		auto* self = windows()[window];
+		auto* self = getThis<GLFWWindow>(window);
 		if (self && self->mouse)
 			self->mouse((int) x, (int) y);
 	}
 
 	void GLFWWindow::buttonsCallback(GLFWwindow *window, int button, int action, int mods)
 	{
-		auto* self = windows()[window];
+		auto* self = getThis<GLFWWindow>(window);
 		if (self && self->buttons)
 			self->buttons(button, action == GLFW_PRESS);
 	}

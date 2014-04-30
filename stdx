@@ -342,18 +342,16 @@ namespace stdx
 		typedef Pointer pointer;
 		void operator ()(pointer ptr) const { }
 	};
-
+	
 	template < class Handle, class Deleter = no_delete<Handle> >
 	class unique_handle : public std::unique_ptr<Handle, Deleter>
 	{
 	public:
 		// Need fully qualified template, otherwise compiler crashes
 		typedef typename std::unique_ptr<Handle, Deleter>::pointer pointer;
-		typedef pointer transparent_type;
 
 		// Inherit constructors
-		unique_handle() { }
-		unique_handle(std::nullptr_t) { }
+		unique_handle(std::nullptr_t = nullptr) { }
 		explicit unique_handle(pointer value)
 			: unique_handle::unique_ptr(std::move(value)) { }
 			
@@ -372,12 +370,12 @@ namespace stdx
 			return &reinterpret_cast<pointer&>(*this);
 		}
 		
-		transparent_type const& get() const
+		pointer const& get() const
 		{
 			static_assert(sizeof(*this) == sizeof(pointer), "unique_handle not binary compatible!");
 			return reinterpret_cast<pointer const&>(*this);
 		}
-		operator transparent_type() const { return get(); }
+		operator pointer() const { return get(); }
 		bool valid() const { return get() != pointer(); }
 
 	private:
@@ -385,43 +383,16 @@ namespace stdx
 		template <class T>
 		unique_handle(unique_handle<T> const &right);
 	};
-
-	template <class T>
-	struct has_transparent_type
+	
+	template <class Pointer, void (*Deleter)(Pointer)>
+	struct fun_delete
 	{
-		typedef char yes[1];
-		typedef char no[2];
+		typedef Pointer pointer;
+		void operator ()(pointer ptr) const { if (ptr) (*Deleter)(ptr); }
 
-		template <class Z>
-		static yes& sfinae(Z*, typename Z::transparent_type* = nullptr);
-		static no& sfinae(...);
-
-		static bool const value = sizeof(yes) == sizeof(sfinae(static_cast<T*>(nullptr)));
+		typedef std::unique_ptr< Pointer, fun_delete<Pointer, Deleter> > pointer_type;
+		typedef stdx::unique_handle< Pointer, fun_delete<Pointer, Deleter> > handle_type;
 	};
-
-	template <class T, bool = has_transparent_type<T>::value>
-	struct transparent_type
-	{
-		typedef typename transparent_type<typename T::transparent_type>::type type;
-
-		template <class V>
-		static auto get(V &&v) -> decltype(std::forward<V>(v).get()) { return std::forward<V>(v).get(); }
-	};
-	template <class T>
-	struct transparent_type<T, false>
-	{
-		typedef T type;
-
-		template <class V>
-		static auto get(V &&v) -> decltype(std::forward<V>(v)) { return std::forward<V>(v); }
-	};
-
-	template <class T>
-	inline auto get_transparent(T &&v)
-		-> decltype(transparent_type<typename std::remove_reference<T>::type>::get(std::forward<T>(v)))
-	{
-		return transparent_type<typename std::remove_reference<T>::type>::get(std::forward<T>(v));
-	}
 
 	inline bool streq(char const* a, char const* b) { return strcmp(a, b) == 0; }
 	inline bool strieq(char const* a, char const* b)
@@ -488,12 +459,6 @@ namespace stdx
 #define MOVE_BASE(clazz, base) MOVE_GENERATE(clazz, MOVE_1, BASE, base)
 #define MOVE_MEMBER(clazz, member) MOVE_GENERATE(clazz, MOVE_1, MEMBER, member)
 #define MOVE_BASE_MEMBER(clazz, base, member) MOVE_GENERATE(clazz, MOVE_2, BASE, base, MEMBER, member)
-
-// Recursive transparent conversion functionality
-#define TRANSPARENT_MEMBER(clazz, member) \
-	typedef decltype(clazz::member) transparent_type; \
-	stdx::transparent_type<decltype(clazz::member)>::type const& get() const { return stdx::get_transparent(member); } \
-	operator stdx::transparent_type<decltype(clazz::member)>::type() const { return member; }
 
 #define INPLACE_OSTREAM(t, x) static_cast<t&>(t() << x)
 #define INPLACE_SSTREAM(x) INPLACE_OSTREAM(std::stringstream, x)
