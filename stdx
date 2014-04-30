@@ -178,6 +178,14 @@ namespace stdx
 	inline range<typename Range::const_iterator> make_range(Range const &r) {
 		return range<typename Range::const_iterator>(r.begin(), r.end()); }
 
+	template <class Iterator>
+	inline range<Iterator> str_range(Iterator cstr) {
+		Iterator end = cstr; [&end](){ while (*end) ++end; }();
+		return range<Iterator>(cstr, end); }
+	template <class Char, size_t Size>
+	inline range<Char*> strlit_range(Char (&cstr)[Size]) {
+		return range<Char*>(cstr, strend(cstr)); }
+
 	template <class Range>
 	inline range<typename Range::pointer> data_range(Range &r
 		, typename enable_if_iterator_compatible<decltype(static_cast<Range*>(nullptr)->data()), typename Range::pointer>::type *enable_if_typematch = nullptr) {
