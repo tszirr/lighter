@@ -68,23 +68,24 @@ std::unique_ptr<UserInterface> UserInterface::create(text::FreeType* freeTypeLib
 
 } // namespace
 
-#include <map>
+#include <cstdio>
 
 namespace ui
 {
 
-struct UiToText : UserInterface, UniversalInterface
+struct UiToText : UniversalInterface
 {
 	typedef std::pair<std::string, std::string> tuple;
 	
+	KeyValueStream* stream;
+
 	std::string groupPrefix;
 	std::vector<size_t> groupPrefixLen;
 	size_t groupLabelPending;
 
-	std::vector<tuple> dump;
-
-	UiToText()
-		: groupPrefixLen(1, 0)
+	UiToText(KeyValueStream& stream)
+		: stream(&stream)
+		, groupPrefixLen(1, 0)
 		, groupLabelPending(0) { }
 
 	void pushGroup(UniqueElementIdentifier id) override
@@ -111,6 +112,7 @@ struct UiToText : UserInterface, UniversalInterface
 			groupPrefix.append(label);
 			groupPrefixLen.push_back(groupPrefix.size());
 			--groupLabelPending;
+			stream->changeSection(groupPrefix.c_str());
 			return "$";
 		}
 		else
@@ -132,14 +134,12 @@ struct UiToText : UserInterface, UniversalInterface
 
 	void addText(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact) override
 	{
-		auto key = keyFromLabel(label);
-		text;
+		stream->addItem(keyFromLabel(label), text);
 	}
 
 	void addHidden(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact) override
 	{
-		auto key = keyFromLabel(label);
-		text;
+		stream->addItem(keyFromLabel(label), text);
 	}
 
 	void addButton(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<ButtonEvent::T> interact, InteractionParam<Button> control = nullptr) override
@@ -154,15 +154,21 @@ struct UiToText : UserInterface, UniversalInterface
 
 	void addOption(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<bool> interact, InteractionParam<Button> control = nullptr) override
 	{
-		auto key = keyFromLabel(text);
-		(value) ? "true" : "false";
+		stream->addItem(keyFromLabel(text), (value) ? "true" : "false");
 	}
 
 	void addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks = 0.0f, InteractionParam<Slider> control = nullptr) override
 	{
-		auto key = keyFromLabel(label);
-		value;
+		char buf[1024];
+		sprintf(buf, "%f", value);
+		stream->addItem(keyFromLabel(label), buf);
 	}
 };
+
+void write(KeyValueStream& out, std::function<void(UniversalInterface&)> const& ui)
+{
+	UiToText uitt(out);
+	ui(uitt);
+}
 
 } // namespace

@@ -2,6 +2,7 @@
 
 #include "stdx"
 #include <vector>
+#include <functional>
 
 namespace ui
 {
@@ -221,5 +222,12 @@ struct Union : stdx::noncopyable
 
 	operator bool() const { return true; }
 };
+
+struct KeyValueStream
+{
+	virtual void changeSection(char const* section) = 0;
+	virtual void addItem(char const* key, char const* value) = 0;
+};
+void write(KeyValueStream& out, std::function<void(UniversalInterface&)> const& ui);
 
 } // namespace
