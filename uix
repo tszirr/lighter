@@ -418,17 +418,17 @@ struct TextUi : UserInterface, UniversalInterface
 			}
 		}
 
-		if (interact.ptr)
+		if (interact)
 			maybeEditText(id, text, [&](char const* newText)
 			{
-				interact.ptr->updateValue(newText);
+				interact->updateValue(newText);
 			});
 		// warning: text may be invalid from here on
 
 		nextLine();
 	}
 
-	Button addButton(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<ButtonEvent::T> interact) override
+	void addButton(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<ButtonEvent::T> interact, InteractionParam<Button> control = nullptr) override
 	{
 		auto valBox = textRenderer->boundText(text);
 		
@@ -448,12 +448,12 @@ struct TextUi : UserInterface, UniversalInterface
 		{
 			button.pressed = true;
 
-			if (mouse.primaryChanged && interact.ptr)
-				interact.ptr->updateValue(ButtonEvent::Down);
+			if (mouse.primaryChanged && interact)
+				interact->updateValue(ButtonEvent::Down);
 		}
 
-		if (!mouse.primary && mouse.primaryChanged && interact.ptr && wasCaptureReleased(context.parentPath, button.id))
-			interact.ptr->updateValue(
+		if (!mouse.primary && mouse.primaryChanged && interact && wasCaptureReleased(context.parentPath, button.id))
+			interact->updateValue(
 				glm::in_aabb(mouse.pos, button.rect)
 					? ButtonEvent::UpAccept
 					: ButtonEvent::UpDismiss);
@@ -471,20 +471,23 @@ struct TextUi : UserInterface, UniversalInterface
 		
 		nextLine();
 
-		return button;
+		if (control)
+			control->updateValue(button);
 	}
 
-	Button addButton(UniqueElementIdentifier id, char const* text, InteractionParam<void> interact) override
+	void addButton(UniqueElementIdentifier id, char const* text, InteractionParam<void> interact, char const* fullText = nullptr, InteractionParam<Button> control = nullptr) override
 	{
-		return addButton(id, text, false, [&interact](ButtonEvent::T pressed) { if (pressed == ButtonEvent::UpAccept && interact.ptr) interact.ptr->trigger(); });
+		// todo: might want to use fullText in tooltip later?
+		return addButton(id, text, false, [&interact](ButtonEvent::T pressed) { if (pressed == ButtonEvent::UpAccept && interact) interact->trigger(); }, control);
 	}
 
-	Button addOption(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<bool> interact)
+	void addOption(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<bool> interact, InteractionParam<Button> control = nullptr) override
 	{
-		return addButton(id, text, value, [&interact, value](ButtonEvent::T pressed) { if (pressed == ButtonEvent::UpAccept && interact.ptr) interact.ptr->updateValue(!value); });
+		return addButton(id, text, value, [&interact, value](ButtonEvent::T pressed) { if (pressed == ButtonEvent::UpAccept && interact) interact->updateValue(!value); }, control);
 	}
 
-	Slider addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks = 0.0f) override
+	void addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks = 0.0f
+		, InteractionParam<Slider> control = nullptr) override
 	{
 		addLabel(label);
 
@@ -541,19 +544,19 @@ struct TextUi : UserInterface, UniversalInterface
 			}
 		}
 
-		if (interact.ptr)
+		if (interact)
 			maybeEditText(id, num, [&](char const* newText)
 			{
 				float newVal = value;
 				if (sscanf(newText, "%f", &newVal) == 1)
-					interact.ptr->updateValue(newVal);
+					interact->updateValue(newVal);
 			});
 
 		nextLine();
 
 		Slider slider = { id, { barPos, barEnd }, value, range, relativeValueBase * range };
 		
-		if (interact.ptr)
+		if (interact)
 		{
 			if (mouse.primary && capturedOrAcquired(context.parentPath, slider.id, mouse.primaryChanged && glm::in_aabb(mouse.pos, slider.rect)))
 			{
@@ -564,14 +567,15 @@ struct TextUi : UserInterface, UniversalInterface
 				auto& editCtx = genericEditContext<EditContext>(id, [&slider]() -> EditContext { EditContext c = { slider.valueBase }; return c; } );
 				editCtx.touch();
 
-				interact.ptr->updateValue(
+				interact->updateValue(
 					  editCtx.valueBase
 					+ float(mouse.pos.x - slider.rect.min.x) / float(slider.rect.max.x - slider.rect.min.x) * slider.range
 					);
 			}
 		}
 		
-		return slider;
+		if (control)
+			control->updateValue(slider);
 	}
 };
 
