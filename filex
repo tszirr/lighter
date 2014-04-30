@@ -186,12 +186,24 @@ namespace stdx
 	typedef stdx::error<parse_tag> parse_error;
 
 	template <class Char>
-	std::map< std::basic_string<Char>, std::basic_string<Char> > parse_ini_file(Char const *file)
+	void trim_char_range(Char const*& beg, Char const*& end)
+	{
+		while (beg < end && *beg == Char(' '))
+			++beg;
+		while (beg < end && end[-1] == Char(' '))
+			--end;
+	}
+	
+	template <class Char>
+	void parse_ini_file(Char const *file, std::map< std::basic_string<Char>, std::basic_string<Char> >& contents, stdx::data_range_param<typename std::identity<Char>::type const> prefix = stdx::data_range_param<Char const>())
 	{
 		typedef std::basic_string<Char> string_type;
-		std::map<string_type, string_type> contents;
+		
+		stdx::range<Char const*> sectionPrefix = prefix;
+		string_type sectionPrefixStore;
 
 		Char const *keyBegin = file, *keyEnd = file;
+		Char const *secBegin = file, *secEnd = file;
 
 		for (; *file; ++file)
 		{
@@ -199,30 +211,45 @@ namespace stdx
 			{
 				Char const *valBegin = keyEnd + 1, *valEnd = file;
 
-				// Trim key
-				while (keyBegin < keyEnd && *keyBegin == Char(' '))
-					++keyBegin;
-				while (keyBegin < keyEnd && keyEnd[-1] == Char(' '))
-					--keyEnd;
+				// Trim
+				trim_char_range(keyBegin, keyEnd);
+				trim_char_range(secBegin, secEnd);
 
 				// ORDER: Make sure key was complete with '='
-				if (keyBegin != keyEnd)
+				if (keyBegin < keyEnd)
 				{
 					// Trim value
-					while (valBegin < valEnd && *valBegin == Char(' '))
-						++valBegin;
-					while (valBegin < valEnd && valEnd[-1] == Char(' '))
-						--valEnd;
+					trim_char_range(valBegin, valEnd);
 
-					contents[string_type(keyBegin, keyEnd)] = string_type(valBegin, valEnd);
+					string_type key;
+					key.resize(sectionPrefix.size() + (keyEnd - keyBegin));
+					std::copy( keyBegin, keyEnd, std::copy(sectionPrefix.first, sectionPrefix.last, &key[0]) );
+					contents[std::move(key)] = string_type(valBegin, valEnd);
+				}
+				else if (secBegin < secEnd)
+				{
+					sectionPrefixStore.resize(prefix.size() + (secEnd - secBegin) + 1);
+					*std::copy( secBegin, secEnd, std::copy(prefix.first, prefix.last, &sectionPrefixStore[0]) ) = Char('.');
+					sectionPrefix = data_range(sectionPrefixStore);
 				}
 
-				keyBegin = keyEnd = file + 1;
+				keyBegin = keyEnd = secBegin = secEnd = file + 1;
 			}
 			else if (*file == Char('=') && keyBegin == keyEnd)
 				keyEnd = file;
+			else if (*file == Char('['))
+				secBegin = file + 1;
+			else if (*file == Char(']') && secBegin >= secEnd)
+				secEnd = file;
 		}
-
+	}
+	
+	template <class Char>
+	std::map< std::basic_string<Char>, std::basic_string<Char> > parse_ini_file(Char const *file, stdx::data_range_param<typename std::identity<Char>::type const> prefix = stdx::data_range_param<Char const>())
+	{
+		typedef std::basic_string<Char> string_type;
+		std::map<string_type, string_type> contents;
+		parse_ini_file(file, contents, prefix);
 		return contents;
 	}
 	
