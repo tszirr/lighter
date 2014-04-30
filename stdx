@@ -92,13 +92,15 @@ namespace stdx
 		range() : first(), last() { }
 		range(iterator f, iterator l) : first((iterator&&) f), last((iterator&&) l) { }
 		template <class Range>
-		explicit range(Range& r) : first(r.begin()), last(r.end()) { }
+		explicit range(Range& r) : first(r.begin()), last(const_cast<iterator>(r.end())) { } // const_cast forbids implicit casting (don't lose strides!)
 		template <class Range>
-		explicit range(Range const& r) : first(r.begin()), last(r.end()) { }
-	
+		explicit range(Range const& r) : first(r.begin()), last(const_cast<iterator>(r.end())) { } // const_cast forbids implicit casting (don't lose strides!)
+		template <class T>
+		range(range<T> const& r) : first(r.first), last(const_cast<iterator>(r.last)) { } // const_cast forbids implicit casting (don't lose strides!)
+		
 		void assign(iterator begin, iterator end) { first = begin; last = end; }
 		template <class Range>
-		void assign(Range &range) { first = range.begin(); last = range.end(); }
+		void assign(Range &range) { first = range.begin(); last = const_cast<iterator>(range.end()); }
 
 		// const& to catch pre-POD usage
 		iterator const& begin() const { return first; }
@@ -122,6 +124,9 @@ namespace stdx
 		const_pointer cdata() const { return first; }
 	};
 
+	template <class SrcIt, class DestIt>
+	struct enable_if_iterator_compatible : std::enable_if<std::is_convertible<SrcIt, DestIt>::value> { };
+
 	/// Range type w/ implicit conversion constructors, FOR USE IN PARAMETER LISTS.
 	template <class Value, class Iterator = Value*>
 	struct data_range_param : range<Iterator>
@@ -130,11 +135,11 @@ namespace stdx
 		data_range_param(Iterator f, Iterator l) : range<Iterator>(f, l) { }
 		template <class Range>
 		data_range_param(Range& r
-			, typename std::enable_if<std::is_convertible<typename Range::pointer, Iterator>::value>::type *enable_if_typematch = nullptr
+			, typename enable_if_iterator_compatible<typename Range::pointer, Iterator>::type *enable_if_typematch = nullptr
 			) : range<Iterator>(r.data(), const_cast<Iterator>(r.data()) + r.size()) { } // const_cast forbids implicit casting (don't lose strides!)
 		template <class Range>
 		data_range_param(Range const& r
-			, typename std::enable_if<std::is_convertible<typename Range::const_pointer, Iterator>::value>::type *enable_if_typematch = nullptr)
+			, typename enable_if_iterator_compatible<typename Range::const_pointer, Iterator>::type *enable_if_typematch = nullptr)
 			: range<Iterator>(r.data(), const_cast<Iterator>(r.data()) + r.size()) { } // const_cast forbids implicit casting (don't lose strides!)
 	};
 
@@ -148,11 +153,11 @@ namespace stdx
 		relaxed_data_range_param(Iterator f, Iterator l) : range<Iterator>(f, l) { }
 		template <class Range>
 		relaxed_data_range_param(Range& r
-			, typename std::enable_if<std::is_convertible<typename Range::pointer, Iterator>::value>::type *enable_if_typematch = nullptr)
+			, typename enable_if_iterator_compatible<typename Range::pointer, Iterator>::type *enable_if_typematch = nullptr)
 			: range<Iterator>(Iterator(r.data()), Iterator(r.data() + r.size())) { }
 		template <class Range>
 		relaxed_data_range_param(Range const& r
-			, typename std::enable_if<std::is_convertible<typename Range::const_pointer, Iterator>::value>::type *enable_if_typematch = nullptr)
+			, typename enable_if_iterator_compatible<typename Range::const_pointer, Iterator>::type *enable_if_typematch = nullptr)
 			: range<Iterator>(Iterator(r.data()), Iterator(r.data() + r.size())) { }
 
 		template <class Value2>
@@ -174,14 +179,16 @@ namespace stdx
 		return range<typename Range::const_iterator>(r.begin(), r.end()); }
 
 	template <class Range>
-	inline range<typename Range::pointer> data_range(Range &r) {
+	inline range<typename Range::pointer> data_range(Range &r
+		, typename enable_if_iterator_compatible<decltype(static_cast<Range*>(nullptr)->data()), typename Range::pointer>::type *enable_if_typematch = nullptr) {
 		return range<typename Range::pointer>(r.data(), r.data() + r.size()); }
 	template <class Range>
 	inline range<typename Range::const_pointer> data_range(Range const &r) {
 		return range<typename Range::const_pointer>(r.data(), r.data() + r.size()); }
 
 	template <class Range>
-	inline range<typename Range::pointer> data_range(Range &r, size_t len, size_t offset = 0) {
+	inline range<typename Range::pointer> data_range(Range &r, size_t len, size_t offset = 0
+		, typename enable_if_iterator_compatible<decltype(static_cast<Range*>(nullptr)->data()), typename Range::pointer>::type *enable_if_typematch = nullptr) {
 		return range<typename Range::pointer>(r.data() + offset, r.data() + offset + len); }
 	template <class Range>
 	inline range<typename Range::const_pointer> data_range(Range const &r, size_t len, size_t offset = 0) {
