@@ -170,14 +170,17 @@ struct UniversalInterface : UniversalInterfaceInteraction
 	virtual void beginUnion() = 0;
 	virtual void endUnion() = 0;
 
+	virtual void addText(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact) = 0;
+	virtual void addHidden(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact) { };
+	
 	struct Button;
 	struct ButtonEvent { enum T { Down, UpAccept, UpDismiss }; };
 	virtual void addButton(UniqueElementIdentifier id, char const* text, InteractionParam<void> interact, char const* fullText = nullptr, InteractionParam<Button> control = nullptr) = 0;
 	virtual void addButton(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<ButtonEvent::T> interact, InteractionParam<Button> control = nullptr) = 0;
 	virtual void addOption(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<bool> interact, InteractionParam<Button> control = nullptr) = 0;
-	virtual void addText(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact) = 0;
+	
 	struct Slider;
-	virtual void addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks = 0.0f, InteractionParam<Slider> control = nullptr) = 0;
+	virtual void addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks = 0.0f, InteractionParam<Slider> control = nullptr) = 0;	
 };
 
 struct Group : stdx::noncopyable

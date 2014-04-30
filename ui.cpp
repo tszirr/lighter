@@ -67,3 +67,102 @@ std::unique_ptr<UserInterface> UserInterface::create(text::FreeType* freeTypeLib
 }
 
 } // namespace
+
+#include <map>
+
+namespace ui
+{
+
+struct UiToText : UserInterface, UniversalInterface
+{
+	typedef std::pair<std::string, std::string> tuple;
+	
+	std::string groupPrefix;
+	std::vector<size_t> groupPrefixLen;
+	size_t groupLabelPending;
+
+	std::vector<tuple> dump;
+
+	UiToText()
+		: groupPrefixLen(1, 0)
+		, groupLabelPending(0) { }
+
+	void pushGroup(UniqueElementIdentifier id) override
+	{
+		++groupLabelPending;
+	}
+	void popGroup(UniqueElementIdentifier id) override
+	{
+		if (groupLabelPending > 0)
+			--groupLabelPending;
+		else
+		{
+			groupPrefixLen.pop_back();
+			assert (!groupPrefixLen.empty()); // Always keep 0 sentinel
+			groupPrefix.resize(groupPrefixLen.back());
+		}
+	}
+	
+	char const* keyFromLabel(char const* label)
+	{
+		if (groupLabelPending > 0)
+		{
+			groupPrefix.push_back('.');
+			groupPrefix.append(label);
+			groupPrefixLen.push_back(groupPrefix.size());
+			--groupLabelPending;
+			return "$";
+		}
+		else
+			return label;
+	}
+	void addLabel(char const* label) override
+	{
+		// Labels are not stored, but may name groups
+		keyFromLabel(label);
+	}
+
+	void beginUnion() override
+	{
+	}
+
+	void endUnion() override
+	{
+	}
+
+	void addText(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact) override
+	{
+		auto key = keyFromLabel(label);
+		text;
+	}
+
+	void addHidden(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact) override
+	{
+		auto key = keyFromLabel(label);
+		text;
+	}
+
+	void addButton(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<ButtonEvent::T> interact, InteractionParam<Button> control = nullptr) override
+	{
+	}
+
+	void addButton(UniqueElementIdentifier id, char const* text, InteractionParam<void> interact, char const* fullText = nullptr, InteractionParam<Button> control = nullptr) override
+	{
+//		auto key = keyFromLabel(label);
+//		(fullText) ? fullText : text;
+	}
+
+	void addOption(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<bool> interact, InteractionParam<Button> control = nullptr) override
+	{
+		auto key = keyFromLabel(text);
+		(value) ? "true" : "false";
+	}
+
+	void addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks = 0.0f, InteractionParam<Slider> control = nullptr) override
+	{
+		auto key = keyFromLabel(label);
+		value;
+	}
+};
+
+} // namespace
