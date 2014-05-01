@@ -404,6 +404,148 @@ namespace stdx
 
 	inline bool check_flag(char const* arg, char const* flag) {
 		return (arg[0] == '/' || arg[0] == '-') && strieq(arg + 1, flag); }
+	
+	// Forward & move w/o function call
+	#define FORWARD(T, x) static_cast<T&&>(x)
+	#define MOVE(x) static_cast<std::remove_reference<decltype(x)>::type&&>(x)
+	#define MOVE_T(x) static_cast<typename std::remove_reference<decltype(x)>::type&&>(x)
+
+	template <class S>
+	struct signature { typedef S type; };
+	template <class S>
+	struct signature<S*> { typedef S type; };
+	template <class S>
+	struct signature<S&> { typedef S type; };
+	template <class S, class C>
+	struct signature<S C::*> { typedef S type; typedef C clazz; };
+
+	template <class S>
+	struct return_type { typedef S type; };
+	template <class R>
+	struct return_type<R()> { typedef R type; };
+	template <class R, class A1>
+	struct return_type<R(A1)> { typedef R type; };
+	template <class R, class A1, class A2>
+	struct return_type<R(A1, A2)> { typedef R type; };
+	template <class R, class A1, class A2, class A3>
+	struct return_type<R(A1, A2, A3)> { typedef R type; };
+	template <class R, class A1, class A2, class A3, class A4>
+	struct return_type<R(A1, A2, A3, A4)> { typedef R type; };
+	template <class R, class A1, class A2, class A3, class A4, class A5>
+	struct return_type<R(A1, A2, A3, A4, A5)> { typedef R type; };
+
+	struct fun_ref_data
+	{
+		void* self;
+	};
+	template <class Signature>
+	struct fun_ref : fun_ref_data
+	{
+		typedef Signature signature_type;
+
+		template <class Callable>
+		struct callable_dispatcher
+		{
+			template <class S>
+			struct dispatcher;
+
+			template <class R>
+			struct dispatcher<R()> {
+				static R call(fun_ref_data ref) {
+					return static_cast<R>( (*static_cast<Callable*>(ref.self))() ); }
+			};
+			template <class R, class A1>
+			struct dispatcher<R(A1)> {
+				static R call(fun_ref_data ref, A1 a1) {
+					return static_cast<R>( (*static_cast<Callable*>(ref.self))(FORWARD(A1, a1)) ); }
+			};
+			template <class R, class A1, class A2>
+			struct dispatcher<R(A1, A2)> {
+				static R call(fun_ref_data ref, A1 a1, A2 a2) {
+					return static_cast<R>( (*static_cast<Callable*>(ref.self))(FORWARD(A1, a1), FORWARD(A2, a2)) ); }
+			};
+			template <class R, class A1, class A2, class A3>
+			struct dispatcher<R(A1, A2, A3)> {
+				static R call(fun_ref_data ref, A1 a1, A2 a2, A3 a3) {
+					return static_cast<R>( (*static_cast<Callable*>(ref.self))(FORWARD(A1, a1), FORWARD(A2, a2), FORWARD(A3, a3)) ); }
+			};
+			template <class R, class A1, class A2, class A3, class A4>
+			struct dispatcher<R(A1, A2, A3, A4)> {
+				static R call(fun_ref_data ref, A1 a1, A2 a2, A3 a3, A4 a4) {
+					return static_cast<R>( (*static_cast<Callable*>(ref.self))(FORWARD(A1, a1), FORWARD(A2, a2), FORWARD(A3, a3), FORWARD(A4, a4)) ); }
+			};
+			template <class R, class A1, class A2, class A3, class A4, class A5>
+			struct dispatcher<R(A1, A2, A3, A4, A5)> {
+				static R call(fun_ref_data ref, A1 a1, A2 a2, A3 a3, A4 a4, A5 a5) {
+					return static_cast<R>( (*static_cast<Callable*>(ref.self))(FORWARD(A1, a1), FORWARD(A2, a2), FORWARD(A3, a3), FORWARD(A4, a4), FORWARD(A5, a5)) ); }
+			};
+		};
+
+		template <class Class, signature_type (Class::*Callable)>
+		struct memfun_dispatcher
+		{
+			template <class S>
+			struct dispatcher;
+
+			template <class R>
+			struct dispatcher<R()> {
+				static R call(fun_ref_data ref) {
+					return static_cast<R>( (static_cast<Class*>(ref.self)->*Callable)() ); }
+			};
+			template <class R, class A1>
+			struct dispatcher<R(A1)> {
+				static R call(fun_ref_data ref, A1 a1) {
+					return static_cast<R>( (static_cast<Class*>(ref.self)->*Callable)(FORWARD(A1, a1)) ); }
+			};
+			template <class R, class A1, class A2>
+			struct dispatcher<R(A1, A2)> {
+				static R call(fun_ref_data ref, A1 a1, A2 a2) {
+					return static_cast<R>( (static_cast<Class*>(ref.self)->*Callable)(FORWARD(A1, a1), FORWARD(A2, a2)) ); }
+			};
+			template <class R, class A1, class A2, class A3>
+			struct dispatcher<R(A1, A2, A3)> {
+				static R call(fun_ref_data ref, A1 a1, A2 a2, A3 a3) {
+					return static_cast<R>( (static_cast<Class*>(ref.self)->*Callable)(FORWARD(A1, a1), FORWARD(A2, a2), FORWARD(A3, a3)) ); }
+			};
+			template <class R, class A1, class A2, class A3, class A4>
+			struct dispatcher<R(A1, A2, A3, A4)> {
+				static R call(fun_ref_data ref, A1 a1, A2 a2, A3 a3, A4 a4) {
+					return static_cast<R>( (static_cast<Class*>(ref.self)->*Callable)(FORWARD(A1, a1), FORWARD(A2, a2), FORWARD(A3, a3), FORWARD(A4, a4)) ); }
+			};
+			template <class R, class A1, class A2, class A3, class A4, class A5>
+			struct dispatcher<R(A1, A2, A3, A4, A5)> {
+				static R call(fun_ref_data ref, A1 a1, A2 a2, A3 a3, A4 a4, A5 a5) {
+					return static_cast<R>( (static_cast<Class*>(ref.self)->*Callable)(FORWARD(A1, a1), FORWARD(A2, a2), FORWARD(A3, a3), FORWARD(A4, a4), FORWARD(A5, a5)) ); }
+			};
+		};
+
+		typedef decltype(&callable_dispatcher<void>::template dispatcher<signature_type>::call) dispatch_ptr;
+		
+		dispatch_ptr dispatch;
+
+		template <class Callable>
+		fun_ref(Callable&& callable
+			, typename std::enable_if<!std::is_same<typename std::decay<Callable>::type, fun_ref>::value>::type *enable_if_not_copy = nullptr)
+			: dispatch(&callable_dispatcher<typename std::remove_reference<Callable>::type>::template dispatcher<signature_type>::call)
+		{
+			this->self = &callable;
+		}
+		template <class Class>
+		fun_ref(Class&& obj, dispatch_ptr dispatch)
+			: dispatch(dispatch)
+		{
+			this->self = &callable;
+		}
+	};
+
+	template <class MemFunT, MemFunT MemFun, class Class>
+	fun_ref<typename signature<MemFunT>::type> mem_fun_ref(Class&& obj)
+	{
+		typedef fun_ref<typename signature<MemFunT>::type> fun_ref;
+		return fun_ref(
+			  obj
+			, &fun_ref::template memfun_dispatcher<typename std::remove_reference<Class>::type, MemFun>::template dispatcher<typename fun_ref::signature_type>::call)
+	}
 
 } // namespace
 
