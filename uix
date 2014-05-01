@@ -225,11 +225,12 @@ struct TextUi : UserInterface, UniversalInterface
 				&& std::equal(path.begin(), path.end(), state.captureReleasedPath.data());
 	}
 
-	void pushGroup(UniqueElementIdentifier id) override
+	bool pushGroup(UniqueElementIdentifier id, bool openByDefault = true) override
 	{
 		context.parentPath.push_back(id);
 
 		hiddenCtx.pendingIndent += setup.options.indent;
+		return true;
 	}
 	void popGroup(UniqueElementIdentifier id) override
 	{

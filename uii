@@ -163,7 +163,7 @@ struct UniversalInterfaceInteraction
 
 struct UniversalInterface : UniversalInterfaceInteraction
 {
-	virtual void pushGroup(UniqueElementIdentifier id) = 0;
+	virtual bool pushGroup(UniqueElementIdentifier id, bool openByDefault = true) = 0;
 	virtual void popGroup(UniqueElementIdentifier id) = 0;
 	virtual void addLabel(char const* label) = 0;
 
@@ -187,20 +187,22 @@ struct Group : stdx::noncopyable
 {
 	UniqueElementIdentifier id;
 	UniversalInterface* ui;
+	bool groupOpened;
 
-	Group(std::nullptr_t) : id(nullptr), ui(nullptr) { }
-	Group(UniversalInterface& ui, UniqueElementIdentifier id) : id(id), ui(&ui) { ui.pushGroup(id); }
-	Group(Group&& right) : id(right.id), ui(right.ui) { right.id = nullptr; right.ui = nullptr; }
-	~Group() { if (ui) ui->popGroup(id); }
+	Group(std::nullptr_t) : id(nullptr), ui(nullptr), groupOpened(false) { }
+	Group(UniversalInterface& ui, UniqueElementIdentifier id, bool openByDefault = true) : id(id), ui(&ui), groupOpened(ui.pushGroup(id, openByDefault)) { }
+	Group(Group&& right) : id(right.id), ui(right.ui), groupOpened(right.groupOpened) { right.id = nullptr; right.ui = nullptr; right.groupOpened = false; }
+	~Group() { if (ui && groupOpened) ui->popGroup(id); }
 
-	Group& operator =(Group&& right)
+	Group& operator =(Group right)
 	{
-		id = right.id; ui = right.ui;
-		right.id = nullptr; right.ui = nullptr;
+		std::swap(id, right.id);
+		std::swap(ui, right.ui);
+		std::swap(groupOpened, right.groupOpened);
 		return *this;
 	}
 
-	operator bool() const { return true; }
+	operator bool() const { return groupOpened; }
 };
 
 struct Union : stdx::noncopyable

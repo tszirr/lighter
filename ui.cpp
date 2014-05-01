@@ -88,9 +88,10 @@ struct UiToText : UniversalInterface
 		, groupPrefixLen(1, 0)
 		, groupLabelPending(0) { }
 
-	void pushGroup(UniqueElementIdentifier id) override
+	bool pushGroup(UniqueElementIdentifier id, bool openByDefault = true) override
 	{
 		++groupLabelPending;
+		return true;
 	}
 	void popGroup(UniqueElementIdentifier id) override
 	{
@@ -191,9 +192,10 @@ struct TextToUi : UniversalInterface
 		: stream(&stream)
 		, groupLabelPending(0) { }
 
-	void pushGroup(UniqueElementIdentifier id) override
+	bool pushGroup(UniqueElementIdentifier id, bool openByDefault = true) override
 	{
 		++groupLabelPending;
+		return true;
 	}
 	void popGroup(UniqueElementIdentifier id) override
 	{
