@@ -134,12 +134,14 @@ struct UiToText : UniversalInterface
 
 	void addText(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact) override
 	{
-		stream->addItem(keyFromLabel(label), text);
+		auto key = keyFromLabel(label);
+		if (interact)
+			stream->addItem(key, text);
 	}
 
 	void addHidden(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact) override
 	{
-		stream->addItem(keyFromLabel(label), text);
+		stream->addItem(label, text);
 	}
 
 	void addButton(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<ButtonEvent::T> interact, InteractionParam<Button> control = nullptr) override
@@ -154,21 +156,127 @@ struct UiToText : UniversalInterface
 
 	void addOption(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<bool> interact, InteractionParam<Button> control = nullptr) override
 	{
-		stream->addItem(keyFromLabel(text), (value) ? "true" : "false");
+		auto key = keyFromLabel(text);
+		if (interact)
+			stream->addItem(key, (value) ? "true" : "false");
 	}
 
 	void addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks = 0.0f, InteractionParam<Slider> control = nullptr) override
 	{
-		char buf[1024];
-		sprintf(buf, "%f", value);
-		stream->addItem(keyFromLabel(label), buf);
+		auto key = keyFromLabel(label);
+		if (interact)
+		{
+			char buf[1024];
+			sprintf(buf, "%f", value);
+			stream->addItem(key, buf);
+		}
 	}
 };
 
-void write(KeyValueStream& out, std::function<void(UniversalInterface&)> const& ui)
+void write(KeyValueStream& out, stdx::fun_ref<void(UniversalInterface&)> ui)
 {
 	UiToText uitt(out);
-	ui(uitt);
+	ui.dispatch(ui, uitt);
+}
+
+struct TextToUi : UniversalInterface
+{
+	typedef std::pair<std::string, std::string> tuple;
+	
+	KeyValueStore* stream;
+
+	size_t groupLabelPending;
+
+	TextToUi(KeyValueStore& stream)
+		: stream(&stream)
+		, groupLabelPending(0) { }
+
+	void pushGroup(UniqueElementIdentifier id) override
+	{
+		++groupLabelPending;
+	}
+	void popGroup(UniqueElementIdentifier id) override
+	{
+		if (groupLabelPending > 0)
+			--groupLabelPending;
+		else
+			stream->leaveSection();
+	}
+	
+	char const* keyFromLabel(char const* label)
+	{
+		if (groupLabelPending > 0)
+		{
+			stream->enterSection(label);
+			return "$";
+		}
+		else
+			return label;
+	}
+	void addLabel(char const* label) override
+	{
+		// Labels are not stored, but may name groups
+		keyFromLabel(label);
+	}
+
+	void beginUnion() override
+	{
+	}
+
+	void endUnion() override
+	{
+	}
+
+	void addText(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact) override
+	{
+		auto key = keyFromLabel(label);
+		if (interact)
+			if (auto val = stream->getValue(key))
+				interact->updateValue(val);
+	}
+
+	void addHidden(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact) override
+	{
+		if (interact)
+			if (auto val = stream->getValue(label))
+				interact->updateValue(val);
+	}
+
+	void addButton(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<ButtonEvent::T> interact, InteractionParam<Button> control = nullptr) override
+	{
+	}
+
+	void addButton(UniqueElementIdentifier id, char const* text, InteractionParam<void> interact, char const* fullText = nullptr, InteractionParam<Button> control = nullptr) override
+	{
+//		auto key = keyFromLabel(label);
+//		(fullText) ? fullText : text;
+	}
+
+	void addOption(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<bool> interact, InteractionParam<Button> control = nullptr) override
+	{
+		auto key = keyFromLabel(text);
+		if (interact)
+			if (auto val = stream->getValue(key))
+				interact->updateValue( !stdx::strieq(val, "false") && !(val[0] == '0' && val[1] == 0) );
+	}
+
+	void addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks = 0.0f, InteractionParam<Slider> control = nullptr) override
+	{
+		auto key = keyFromLabel(label);
+		if (interact)
+			if (auto val = stream->getValue(key))
+			{
+				float newVal = value;
+				if (sscanf(val, "%f", &newVal) == 1)
+					interact->updateValue(newVal);
+			}
+	}
+};
+
+void read(KeyValueStore& in, stdx::fun_ref<void(UniversalInterface&)> ui)
+{
+	TextToUi ttui(in);
+	ui.dispatch(ui, ttui);
 }
 
 } // namespace

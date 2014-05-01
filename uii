@@ -2,7 +2,6 @@
 
 #include "stdx"
 #include <vector>
-#include <functional>
 
 namespace ui
 {
@@ -228,6 +227,14 @@ struct KeyValueStream
 	virtual void changeSection(char const* section) = 0;
 	virtual void addItem(char const* key, char const* value) = 0;
 };
-void write(KeyValueStream& out, std::function<void(UniversalInterface&)> const& ui);
+void write(KeyValueStream& out, stdx::fun_ref<void(UniversalInterface&)> ui);
+
+struct KeyValueStore
+{
+	virtual void enterSection(char const* section) = 0;
+	virtual void leaveSection() = 0;
+	virtual char const* getValue(char const* key) = 0;
+};
+void read(KeyValueStore& in, stdx::fun_ref<void(UniversalInterface&)> ui);
 
 } // namespace
