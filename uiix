@@ -1,0 +1,90 @@
+#pragma once
+
+#include "uii"
+#include <vector>
+#include <iostream>
+#include <algorithm>
+
+namespace ui
+{
+
+struct IniStream : ui::KeyValueStream
+{
+	std::ostream* out;
+
+	IniStream(std::ostream& out)
+		: out(&out)
+	{ }
+
+	void enterSection(char const* section, char const* sectionPath) override
+	{
+		*out << '[' << sectionPath << ']' << std::endl;
+	}
+	void leaveSection() override { }
+	void addItem(char const* key, char const* value) override
+	{
+		*out << key << '=' << value << std::endl;
+	}
+};
+
+template <class Iterator>
+struct SortedKeyValueStore : ui::KeyValueStore
+{
+	typedef Iterator iterator;
+	std::vector< stdx::range<iterator> > sectionRanges;
+	std::vector< size_t > sectionPrefixLen;
+
+	SortedKeyValueStore(stdx::range<iterator> in)
+		: sectionPrefixLen(1, 0)
+		, sectionRanges(1, in)
+	{ }
+
+	void enterSection(char const* section) override
+	{
+		auto r = sectionRanges.back();
+		auto l = sectionPrefixLen.back();
+		auto sl = strlen(section);
+
+		char sectionEndDelim = '.';
+		typedef decltype(*r.first) item_ref;
+		auto&& sectionCmp = [&](item_ref const& key, char const* section) -> bool
+		{
+			auto kc = key.first.data() + l;
+			auto o = strcmp(kc, section);
+			return o < 0 || o == 0 && unsigned(kc[sl]) < unsigned(sectionEndDelim);
+		};
+
+		auto sb = std::lower_bound(r.first, r.last, section, sectionCmp);
+		++sectionEndDelim;
+		auto se = std::lower_bound(r.first, r.last, section, sectionCmp);
+
+		sectionRanges.push_back( stdx::make_range(sb, se) );
+		sectionPrefixLen.push_back( l + sl + 1 );
+	}
+	void leaveSection() override
+	{
+		sectionRanges.pop_back();
+		sectionPrefixLen.pop_back();
+	}
+	char const* getValue(char const* key) override
+	{
+		auto r = sectionRanges.back();
+		auto l = sectionPrefixLen.back();
+
+		typedef decltype(*r.first) item_ref;
+		auto&& sectionCmp = [&](item_ref const& key, char const* seek) -> bool
+		{
+			return strcmp(key.first.data(), seek) < 0;
+		};
+		auto i = std::lower_bound(r.first, r.last, key, sectionCmp);
+		return (i != r.last && i->first == key)
+			? i->second.data()
+			: nullptr;
+	}
+};
+
+template <class Range>
+SortedKeyValueStore<typename Range::iterator> make_SortedKeyValueStore(Range& range) {
+	return SortedKeyValueStore<typename Range::iterator>(stdx::make_range(range)); }
+
+} // namespace
