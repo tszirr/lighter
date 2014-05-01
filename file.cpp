@@ -11,6 +11,7 @@
 	#include <Windows.h>
 	#include <cstdlib>
 
+	#define STRICT_TYPED_ITEMIDS
 	#include <Shobjidl.h>
 	#include <Shlobj.h>
 	#include <locale>
@@ -351,18 +352,16 @@ namespace stdx
 		{
 			auto path = utfcvt.from_bytes(current);
 
-			SFGAOF folderAtt;
+			SFGAOF folderAtt = 0;
 			com_handle_t<IShellItem>::t item;
 			{
-				struct abs_iid_deleter
-				{
-					void operator ()(ITEMIDLIST* ptr) const
-					{
+				struct abs_iid_deleter {
+					void operator ()(ITEMIDLIST_ABSOLUTE* ptr) const {
 						if (ptr)
 							ILFree(ptr);
 					}
 				};
-				stdx::unique_handle<ITEMIDLIST, abs_iid_deleter> iidl;
+				stdx::unique_handle<ITEMIDLIST_ABSOLUTE, abs_iid_deleter> iidl;
 			
 				if (auto pathLen = GetFullPathNameW(path.c_str(), 0, nullptr, nullptr))
 				{
@@ -393,8 +392,14 @@ namespace stdx
 		{
 			auto&& getPath = [&utfcvt](IShellItem& item) -> std::string
 			{
-				PWSTR pszFilePath = NULL;
-				throw_com_error(item.GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath));
+				struct co_str_deleter {
+					void operator ()(PWSTR ptr) const {
+						if (ptr)
+							CoTaskMemFree(ptr);
+					}
+				};
+				stdx::unique_handle<WCHAR, co_str_deleter> pszFilePath;
+				throw_com_error(item.GetDisplayName(SIGDN_FILESYSPATH, pszFilePath.rebind()));
 				return utfcvt.to_bytes(pszFilePath);
 			};
 
