@@ -2,6 +2,7 @@
 
 #include "filex"
 #include <algorithm>
+#include <iostream>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -17,7 +18,7 @@
 	#include <locale>
 	#include <codecvt>
 
-	#pragma comment(linker, "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
+	#pragma comment(linker, "\"/manifestdependency:type='Win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 #else
 	#include <libgen.h>
 #endif
@@ -252,11 +253,16 @@ namespace stdx
 					if (FAILED(winErr)) throwx( std::runtime_error(FILE_LINE_PREFIX "COM/Windows Shell") ); \
 				} while (false)
 
+			HRESULT com_init_unchecked()
+			{
+				return CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+			}
+
 			struct COM
 			{
 				COM()
 				{
-					throw_com_error(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE));
+					throw_com_error(com_init_unchecked());
 				}
 				~COM()
 				{
@@ -286,6 +292,26 @@ namespace stdx
 		}
 
 	} // namespace
+
+	void init_shell_on_startup()
+	{
+		char const* msg;
+		switch(detail::prompt_file::com_init_unchecked())
+		{
+		case S_OK:
+			msg = "COM explicitly initialized";
+			break;
+		case S_FALSE:
+			msg = "Warning: COM already initialized";
+			break;
+		case RPC_E_CHANGED_MODE:
+			msg = "Warning: COM already initialized IN WRONG MODE";
+			break;
+		default:
+			msg = "Warning: COM could not be initialized";
+		}
+		std::cout << msg << std::endl;
+	}
 
 	std::vector<std::string> prompt_file(char const* current, char const* extensions
 		, dialog::t mode, bool multi)
@@ -428,6 +454,12 @@ namespace stdx
 		}
 
 		return result;
+	}
+
+#else
+
+	void init_shell_on_startup()
+	{
 	}
 
 #endif

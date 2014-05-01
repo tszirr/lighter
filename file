@@ -72,6 +72,8 @@ namespace stdx
 		mapped_file(mapped_file const&);
 	};
 
+	void init_shell_on_startup();
+
 	struct dialog
 	{
 		enum t
