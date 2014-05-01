@@ -226,7 +226,8 @@ struct Union : stdx::noncopyable
 
 struct KeyValueStream
 {
-	virtual void changeSection(char const* section) = 0;
+	virtual void enterSection(char const* section, char const* sectionPath) = 0;
+	virtual void leaveSection() = 0;
 	virtual void addItem(char const* key, char const* value) = 0;
 };
 void write(KeyValueStream& out, stdx::fun_ref<void(UniversalInterface&)> ui);

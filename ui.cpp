@@ -99,6 +99,7 @@ struct UiToText : UniversalInterface
 			--groupLabelPending;
 		else
 		{
+			stream->leaveSection();
 			groupPrefixLen.pop_back();
 			assert (!groupPrefixLen.empty()); // Always keep 0 sentinel
 			groupPrefix.resize(groupPrefixLen.back());
@@ -113,7 +114,7 @@ struct UiToText : UniversalInterface
 			groupPrefix.append(label);
 			groupPrefixLen.push_back(groupPrefix.size());
 			--groupLabelPending;
-			stream->changeSection(groupPrefix.c_str());
+			stream->enterSection(label, groupPrefix.c_str());
 			return "$";
 		}
 		else
