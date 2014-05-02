@@ -85,6 +85,8 @@ namespace stdx
 	};
 	std::vector<std::string> prompt_file(char const* current = nullptr, char const* extensions = nullptr
 		, dialog::t mode = dialog::open, bool multi = false);
+	std::vector<std::string> prompt_file_compat(char const* current = nullptr, char const* extensions = nullptr
+		, dialog::t mode = dialog::open, bool multi = false);
 
 	struct include_resolver
 	{

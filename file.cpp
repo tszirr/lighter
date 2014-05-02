@@ -456,6 +456,142 @@ namespace stdx
 
 		return result;
 	}
+		
+	std::vector<std::string> prompt_file_compat(char const* current, char const* extensions
+		, dialog::t mode, bool multi)
+	{
+		std::vector<std::string> result;
+
+		using namespace detail::prompt_file;
+		prepareCOM();
+
+		OPENFILENAMEW ofn = { 0 };
+
+		ofn.lStructSize = sizeof(OPENFILENAMEW);
+		ofn.hwndOwner = 0;
+		
+		std::wstring fileData;
+		fileData.resize(1024 * 1024, 0);
+		ofn.lpstrFile = &fileData[0];
+		ofn.nMaxFile = DWORD(fileData.size());
+		
+		ofn.Flags = OFN_NOCHANGEDIR | OFN_HIDEREADONLY | OFN_EXPLORER | OFN_PATHMUSTEXIST;
+		if (mode == dialog::open)
+			ofn.Flags |= OFN_FILEMUSTEXIST;
+		if (mode == dialog::save)
+			ofn.Flags |= OFN_OVERWRITEPROMPT;
+		if (multi)
+			ofn.Flags |= OFN_ALLOWMULTISELECT;
+		
+		std::wstring_convert< std::codecvt_utf8_utf16<wchar_t> > utfcvt;
+
+		// Extensions
+		std::vector<wchar_t> extensionData;
+		if (extensions)
+		{
+			auto typeStr = utfcvt.from_bytes(extensions);
+			auto typeCStr = typeStr.c_str();
+			size_t typeCnt = 1 + std::count(typeStr.begin(), typeStr.end(), L'|');
+			
+			extensionData.resize(2 * (typeStr.size() + 1) + 1);
+			auto extensionDataCursor = extensionData.data();
+
+			for (size_t i = 0, off = 0; i < typeCnt; ++i)
+			{
+				auto nextOff = typeStr.find('|', off);
+				if (nextOff != typeStr.npos)
+					typeStr[nextOff++] = 0;
+				else
+					nextOff = typeStr.size() + 1;
+
+				auto ass = typeStr.find('=', off);
+				if (ass < nextOff)
+					typeStr[ass++] = 0;
+
+				wcscpy(extensionDataCursor, typeCStr + off);
+				extensionDataCursor += std::min(nextOff, ass) - off;
+				
+				if (ass < nextOff)
+				{
+					wcscpy(extensionDataCursor, typeCStr + ass);
+					extensionDataCursor += nextOff - ass;
+				}
+				else
+				{
+					wcscpy(extensionDataCursor, typeCStr + off);
+					extensionDataCursor += nextOff - off;
+				}
+
+				off = nextOff;
+			}
+			// close w/ double 0
+			*extensionDataCursor = 0;
+
+			ofn.lpstrFilter = extensionData.data();
+		}
+
+		// Initial folder
+		std::wstring initialFolderData;
+		if (current)
+		{
+			auto path = utfcvt.from_bytes(current);
+			bool includesFile = false;
+
+			if (auto pathLen = GetFullPathNameW(path.c_str(), 0, nullptr, nullptr))
+			{
+				std::wstring fullPath;
+				LPWSTR filePart = nullptr;
+				fullPath.resize(pathLen);
+				if (GetFullPathNameW(path.c_str(), pathLen, &fullPath[0], &filePart))
+				{
+					path = std::move(fullPath);
+					includesFile = (filePart != nullptr);
+				}
+			}
+
+			if (includesFile)
+				wcscpy(ofn.lpstrFile, path.c_str());
+			else
+			{
+				// warning: moves path
+				initialFolderData = std::move(path);
+				ofn.lpstrInitialDir = initialFolderData.data();
+			}
+		}
+
+		BOOL accepted = (mode == dialog::save) ? GetSaveFileNameW(&ofn) : GetOpenFileNameW(&ofn);
+		if (accepted && ofn.lpstrFile[0])
+		{
+			if (multi)
+			{
+				auto nextCursor = ofn.lpstrFile + wcslen(ofn.lpstrFile) + 1;
+
+				// Multiple selected
+				if (*nextCursor)
+				{
+					std::wstring pathStr = ofn.lpstrFile;
+					if (pathStr.back() != '\\' && pathStr.back() != '/')
+						pathStr.push_back('\\');
+
+					do
+					{
+						result.push_back( utfcvt.to_bytes(pathStr + nextCursor) );
+						nextCursor += wcslen(nextCursor) + 1;
+					}
+					while (*nextCursor);
+				}
+				// Only one file selected
+				else
+					result.push_back( utfcvt.to_bytes(ofn.lpstrFile) );
+			}
+			else
+			{
+				result.push_back( utfcvt.to_bytes(ofn.lpstrFile) );
+			}
+		}
+
+		return result;
+	}
 
 #else
 
