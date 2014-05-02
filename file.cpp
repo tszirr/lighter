@@ -9,6 +9,7 @@
 #include <sys/utime.h>
 
 #ifdef WIN32
+	#define NOMINMAX
 	#include <Windows.h>
 	#include <cstdlib>
 
@@ -374,12 +375,12 @@ namespace stdx
 		}
 
 		// Initial folder
+		com_handle_t<IShellItem>::t currentFolderItem;
 		if (current)
 		{
 			auto path = utfcvt.from_bytes(current);
 
 			SFGAOF folderAtt = 0;
-			com_handle_t<IShellItem>::t item;
 			{
 				struct abs_iid_deleter {
 					void operator ()(ITEMIDLIST_ABSOLUTE* ptr) const {
@@ -398,19 +399,19 @@ namespace stdx
 				}
 
 				throw_com_error(SHParseDisplayName(path.c_str(), nullptr, iidl.rebind(), SFGAO_FOLDER, &folderAtt));
-				throw_com_error(SHCreateItemFromIDList(iidl, IID_PPV_ARGS(item.rebind())));
+				throw_com_error(SHCreateItemFromIDList(iidl, IID_PPV_ARGS(currentFolderItem.rebind())));
 			}
 
 			if (~folderAtt & SFGAO_FOLDER || mode == dialog::folder)
 			{
 				com_handle_t<IShellItem>::t folder;
-				throw_com_error(item->GetParent(folder.rebind()));
-				item = std::move(folder);
+				throw_com_error(currentFolderItem->GetParent(folder.rebind()));
+				currentFolderItem = std::move(folder);
 
 				throw_com_error(pfd->SetFileName(path.c_str()));
 			}
 
-			throw_com_error(pfd->SetFolder(item));
+			throw_com_error(pfd->SetFolder(currentFolderItem));
 		}
 
 		// Show the dialog
