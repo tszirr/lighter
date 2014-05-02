@@ -559,6 +559,9 @@ namespace stdx
 			}
 		}
 
+		std::wstring currDir(GetCurrentDirectoryW(0, nullptr) + 1, 0);
+		auto savedCurrDir = GetCurrentDirectoryW(DWORD(currDir.size()), &currDir[0]);
+
 		BOOL accepted = (mode == dialog::save) ? GetSaveFileNameW(&ofn) : GetOpenFileNameW(&ofn);
 		if (accepted && ofn.lpstrFile[0])
 		{
@@ -589,6 +592,9 @@ namespace stdx
 				result.push_back( utfcvt.to_bytes(ofn.lpstrFile) );
 			}
 		}
+
+		if (savedCurrDir)
+			SetCurrentDirectoryW(currDir.c_str());
 
 		return result;
 	}
