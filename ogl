@@ -75,6 +75,17 @@ struct GLFW : stdx::noncopyable
 		if (glDebugMessageCallback)
 			glDebugMessageCallback(&GLFW::debugCallback, NULL);
 	}
+
+	void enableMultisampling(size_t samples = 4)
+	{
+		glfwWindowHint(GLFW_SAMPLES, int(samples));
+	}
+
+	void noDepthStencil()
+	{
+		glfwWindowHint(GLFW_DEPTH_BITS, 0);
+		glfwWindowHint(GLFW_STENCIL_BITS, 0);
+	}
 };
 typedef GLFW Platform;
 
