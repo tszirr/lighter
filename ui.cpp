@@ -146,7 +146,7 @@ struct UiToText : UniversalInterface
 		stream->addItem(label, text);
 	}
 
-	void addButton(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<ButtonEvent::T> interact, InteractionParam<Button> control = nullptr) override
+	void addInteractiveButton(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<ButtonEvent::T> interact, InteractionParam<Button> control = nullptr) override
 	{
 	}
 
@@ -245,7 +245,7 @@ struct TextToUi : UniversalInterface
 				interact->updateValue(val);
 	}
 
-	void addButton(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<ButtonEvent::T> interact, InteractionParam<Button> control = nullptr) override
+	void addInteractiveButton(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<ButtonEvent::T> interact, InteractionParam<Button> control = nullptr) override
 	{
 	}
 

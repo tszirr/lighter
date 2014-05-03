@@ -176,7 +176,7 @@ struct UniversalInterface : UniversalInterfaceInteraction
 	struct Button;
 	struct ButtonEvent { enum T { Down, UpAccept, UpDismiss }; };
 	virtual void addButton(UniqueElementIdentifier id, char const* text, InteractionParam<void> interact, char const* fullText = nullptr, InteractionParam<Button> control = nullptr) = 0;
-	virtual void addButton(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<ButtonEvent::T> interact, InteractionParam<Button> control = nullptr) = 0;
+	virtual void addInteractiveButton(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<ButtonEvent::T> interact, InteractionParam<Button> control = nullptr) = 0;
 	virtual void addOption(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<bool> interact, InteractionParam<Button> control = nullptr) = 0;
 	
 	struct Slider;
