@@ -163,11 +163,19 @@ struct GLFWMouse
 		lastMousePos = mousePos;
 	}
 
-	glm::vec2 relativeMouseDelta(GLFWwindow* wnd) const
+	static glm::vec2 relativePos(GLFWwindow* wnd, glm::ivec2 pos)
 	{
 		glm::ivec2 wndRect;
 		glfwGetWindowSize(wnd, &wndRect.x, &wndRect.y);
-		return glm::vec2(mouseDelta) / glm::vec2(wndRect);
+		return glm::vec2(pos) / glm::vec2(wndRect);
+	}
+	glm::vec2 relativeMousePos(GLFWwindow* wnd) const
+	{
+		return relativePos(wnd, lastMousePos);
+	}
+	glm::vec2 relativeMouseDelta(GLFWwindow* wnd) const
+	{
+		return relativePos(wnd, mouseDelta);
 	}
 
 	void buttonHandler(int key, bool pressed)
