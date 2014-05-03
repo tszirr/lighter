@@ -76,6 +76,7 @@ struct GLFW : stdx::noncopyable
 			glDebugMessageCallback(&GLFW::debugCallback, NULL);
 	}
 };
+typedef GLFW Platform;
 
 struct GLEW : stdx::noncopyable
 {
@@ -195,6 +196,7 @@ struct GLFWWindow : TrackedGLFWWindow
 		}
 	}
 };
+typedef GLFWWindow Window;
 
 struct Buffer : glew_delete<GLuint, glDeleteBuffers>::handle_type
 {

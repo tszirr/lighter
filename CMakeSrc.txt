@@ -14,6 +14,7 @@ set(LIGHTER_SRC
   file.cpp
   mathx
   appx
+  input
   oglbase
   ogl
   ogl.cpp
