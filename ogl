@@ -981,4 +981,26 @@ inline double diffMS(GLuint startEvent, GLuint endEvent, bool failQuiet = false)
 	return double(stopTime - startTime) / 1000000.0;
 }
 
+struct NullVertexArray : VertexArrays
+{
+	MOVE_GENERATE(NullVertexArray, MOVE_2, BASE, VertexArrays, MEMBER, buffer)
+
+	ogl::Buffer buffer;
+
+	NullVertexArray(nullptr_t)
+		: VertexArrays(nullptr)
+		, buffer(nullptr)
+	{
+	}
+	NullVertexArray()
+		: buffer( ogl::Buffer::create(GL_ARRAY_BUFFER, sizeof(float)) )
+	{
+		bind();
+		glVertexAttribPointer(0, 1, GL_FLOAT, GL_FALSE, 0, nullptr);
+		glEnableVertexAttribArray(0);
+		unbind();
+		buffer.unbind(GL_ARRAY_BUFFER);
+	}
+};
+
 } // namespace
