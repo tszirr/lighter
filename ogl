@@ -270,6 +270,13 @@ struct Buffer : glew_delete<GLuint, glDeleteBuffers>::handle_type
 		glGetBufferSubData(bufferType, sizeof(*range.data()) * srcOffset, sizeof(*range.data()) * range.size(), range.data());
 		THROW_OPENGL_LASTERROR("glGetBufferSubData()");
 	}
+
+	void clear(GLenum bufferType, GLenum internalFormat = GL_R32F, GLenum type = GL_FLOAT)
+	{
+		bind(bufferType);
+		glClearBufferData(bufferType, internalFormat, GL_RED, type, nullptr);
+		THROW_OPENGL_LASTERROR("glClearBufferData()");
+	}
 };
 
 inline size_t computeMipLevelCount(size_t dim)
