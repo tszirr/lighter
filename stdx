@@ -311,15 +311,6 @@ namespace stdx
 			return ( (char*) p.get() - (char*) q.get() ) / p.get_stride(); }
 	};
 
-	class noncopyable
-	{
-		noncopyable(noncopyable const&);
-		noncopyable& operator =(noncopyable const&);
-
-	public:
-		noncopyable() { } 
-	};
-
 	extern bool const is_debugger_present;
 
 	struct noop
@@ -416,8 +407,17 @@ namespace stdx
 		typedef stdx::unique_handle< Pointer, fun_delete<Pointer, Deleter> > handle_type;
 	};
 	
+	class noncopyable
+	{
+		noncopyable(noncopyable const&);
+		noncopyable& operator =(noncopyable const&);
+
+	public:
+		noncopyable() { } 
+	};
+
 	template <class RefObj>
-	class own : public RefObj
+	class own : public noncopyable, public RefObj
 	{
 	public:
 		typedef RefObj pointer;
@@ -446,13 +446,6 @@ namespace stdx
 			// note: destroy method is a requirement for RefObj type!
 			this->destroy();
 		}
-		
-	private:
-		// strictly noncopyable
-		own(own const &);
-		template <class T> own(own<T> const &);
-		own& operator =(own const &);
-		template <class T> own& operator =(own<T> const &);
 	};
 
 	template <class RefObj>
