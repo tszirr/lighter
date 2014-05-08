@@ -432,8 +432,8 @@ namespace stdx
 		
 		// movement
 		own(own&& right)
-			: RefObj(MOVE_T(right)) { }
-		own& operator =(own&& right)
+			: RefObj(MOVE_T(right)) { right.forget(); }
+		own& operator =(own right)
 		{
 			using std::swap;
 			swap(static_cast<RefObj&>(*this), static_cast<RefObj&>(right));
