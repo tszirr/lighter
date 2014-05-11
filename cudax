@@ -42,12 +42,12 @@ inline __device__ __host__ char (&arraylen_helper(T const volatile (&a)[S]))[S];
 template <class T>
 struct raw_bytes
 {
-	char memory[sizeof(T)];
+	__align__(16) char memory[sizeof(T)];
 
 	__device__ __host__ T& operator *() { return *reinterpret_cast<T*>(memory); }
-	__device__ __host__ T const& operator *() const { return *reinterpret_cast<T*>(memory); }
+	__device__ __host__ T const& operator *() const { return *reinterpret_cast<T const*>(memory); }
 	__device__ __host__ T* operator ->() { return reinterpret_cast<T*>(memory); }
-	__device__ __host__ T const* operator ->() const { return reinterpret_cast<T*>(memory); }
+	__device__ __host__ T const* operator ->() const { return reinterpret_cast<T const*>(memory); }
 
 	__device__ __host__ T& get() { return *reinterpret_cast<T*>(memory); }
 	__device__ __host__ T const& get() const { return *reinterpret_cast<T const*>(memory); }
