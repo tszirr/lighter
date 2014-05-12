@@ -11,6 +11,10 @@
 	#include <iosfwd>
 #endif
 
+#ifndef MATHX_API
+	#define MATHX_API
+#endif
+
 namespace glm
 {
 	// Vector type analysis
@@ -33,8 +37,8 @@ namespace glm
 	{
 		T c[N];
 
-		typename vec_t<T, N>::type get() const { return reinterpret_cast<typename vec_t<T, N>::type const&>(*this); }
-		operator typename vec_t<T, N>::type() const { return reinterpret_cast<typename vec_t<T, N>::type const&>(*this); }
+		MATHX_API typename vec_t<T, N>::type get() const { return reinterpret_cast<typename vec_t<T, N>::type const&>(*this); }
+		MATHX_API operator typename vec_t<T, N>::type() const { return reinterpret_cast<typename vec_t<T, N>::type const&>(*this); }
 	};
 	template <class T, size_t N> struct vec_type< vec<T, N> > { static size_t const dimension = N; typedef T component; };
 	
@@ -44,12 +48,12 @@ namespace glm
 		#define pod_vec vec
 	#endif
 
-	template <class Vec> inline vec<typename vec_type<Vec>::component, vec_type<Vec>::dimension> to_pod(Vec const& v)
+	template <class Vec> MATHX_API inline vec<typename vec_type<Vec>::component, vec_type<Vec>::dimension> to_pod(Vec const& v)
 	{
 		return reinterpret_cast<vec<typename vec_type<Vec>::component, vec_type<Vec>::dimension> const&>(v);
 	}
 	template <class T, size_t N>
-	inline typename vec_t<T, N>::type to_vec(vec<T, N> const& v)
+	inline MATHX_API typename vec_t<T, N>::type to_vec(vec<T, N> const& v)
 	{
 		return reinterpret_cast<typename vec_t<T, N>::type const&>(v);
 	}
@@ -64,34 +68,34 @@ namespace glm
 
 	// Utilities
 	template <class Vec>
-	inline bool in_aabb(Vec const& p, Vec const& min, Vec const& max)
+	MATHX_API inline bool in_aabb(Vec const& p, Vec const& min, Vec const& max)
 	{
 		return all(lessThanEqual(min, p)) && all(lessThanEqual(p, max));
 	}
 	template <class Vec>
-	inline bool in_aabb(Vec const& p, aabb<Vec> const& box)
+	MATHX_API inline bool in_aabb(Vec const& p, aabb<Vec> const& box)
 	{
 		return in_aabb(p, box.min, box.max);
 	}
 	
-	inline float triangle_sign(glm::vec3 const& v0, glm::vec3 const& v1, glm::vec3 const& v2, glm::vec3 const& origin)
+	MATHX_API inline float triangle_sign(glm::vec3 const& v0, glm::vec3 const& v1, glm::vec3 const& v2, glm::vec3 const& origin)
 	{
 		// > 0 if counter clock-wise seen from origin
 		return dot(cross(v1 - v0, v1 - origin), v2 - origin);
 	}
 
-	inline vec4 transformdiv(mat4 const& matrix, vec4 const& vector)
+	MATHX_API inline vec4 transformdiv(mat4 const& matrix, vec4 const& vector)
 	{
 		auto r = matrix * vector;
 		r /= r.w;
 		return r;
 	}
 
-	inline vec2 viewportCoords(ivec2 screenPos, ivec2 screenDim)
+	MATHX_API inline vec2 viewportCoords(ivec2 screenPos, ivec2 screenDim)
 	{
 		return (vec2(screenPos) + 0.5f) / vec2(screenDim) * 2.0f - 1.0f;
 	}
-	inline ray<vec3> rayFromVPI(vec2 viewportCoords, mat4 const& viewProjInverse)
+	MATHX_API inline ray<vec3> rayFromVPI(vec2 viewportCoords, mat4 const& viewProjInverse)
 	{
 		ray<vec3> ray;
 		auto rayBase = vec3( transformdiv( viewProjInverse, vec4(viewportCoords, -1.25f, 1.0f) ) );
@@ -99,7 +103,7 @@ namespace glm
 		ray.d = normalize(ray.o - rayBase);
 		return ray;
 	}
-	inline ray<vec3> rayFromVPInrmZ(vec2 viewportCoords, mat4 const& viewProjInverse, vec3 const& viewDir)
+	MATHX_API inline ray<vec3> rayFromVPInrmZ(vec2 viewportCoords, mat4 const& viewProjInverse, vec3 const& viewDir)
 	{
 		auto ray = rayFromVPI(viewportCoords, viewProjInverse);
 		ray.d /= dot(ray.d, viewDir);
@@ -111,11 +115,11 @@ namespace glm
 	{
 		typedef vec<typename Uniform::result_type, N> result_type;
 		Uniform c[N];
-		rand_box() { }
-		rand_box(Uniform u) {
+		MATHX_API rand_box() { }
+		MATHX_API rand_box(Uniform u) {
 			for (size_t i = 0; i < N; ++i) c[i] = u; }
 		template <class E>
-		result_type operator ()(E& e) const
+		MATHX_API result_type operator ()(E& e) const
 		{
 			result_type v;
 			for (size_t i = 0; i < N; ++i)
@@ -124,20 +128,20 @@ namespace glm
 		}
 	};
 
-	template <class T> inline T mipCount(T res) { T count(1); for (auto m = res; m > T(1); m /= T(2)) ++count; return count; }
+	template <class T> MATHX_API inline T mipCount(T res) { T count(1); for (auto m = res; m > T(1); m /= T(2)) ++count; return count; }
 
-	template <class T> inline T nextPO2(T res) { T po2(1); while (po2 < res) po2 *= T(2); return po2; }
-	template <class T> inline glm::tvec2<T> nextPO2(glm::tvec2<T> res) { return glm::tvec2<T>(nextPO2(res.x), nextPO2(res.y)); }
-	template <class T> inline glm::tvec3<T> nextPO2(glm::tvec3<T> res) { return glm::tvec3<T>(nextPO2(res.x), nextPO2(res.y), nextPO2(res.z)); }
-	template <class T> inline glm::tvec4<T> nextPO2(glm::tvec4<T> res) { return glm::tvec4<T>(nextPO2(res.x), nextPO2(res.y), nextPO2(res.z), nextPO2(res.w)); }
+	template <class T> MATHX_API inline T nextPO2(T res) { T po2(1); while (po2 < res) po2 *= T(2); return po2; }
+	template <class T> MATHX_API inline glm::tvec2<T> nextPO2(glm::tvec2<T> res) { return glm::tvec2<T>(nextPO2(res.x), nextPO2(res.y)); }
+	template <class T> MATHX_API inline glm::tvec3<T> nextPO2(glm::tvec3<T> res) { return glm::tvec3<T>(nextPO2(res.x), nextPO2(res.y), nextPO2(res.z)); }
+	template <class T> MATHX_API inline glm::tvec4<T> nextPO2(glm::tvec4<T> res) { return glm::tvec4<T>(nextPO2(res.x), nextPO2(res.y), nextPO2(res.z), nextPO2(res.w)); }
 	
 	template <class T>
-	inline T ceil_div(T x, T d)
+	MATHX_API inline T ceil_div(T x, T d)
 	{
 		return (x + d - T(1)) / d;
 	}
 	template <class T>
-	inline T ceil_mul(T x, T d)
+	MATHX_API inline T ceil_mul(T x, T d)
 	{
 		auto r = x % d;
 		return (r == 0) ? x : x + d - r;
@@ -208,7 +212,7 @@ namespace glm
 #endif
 	
 	/// Puts a zero bit in-between each of the lower 16 bits of the given value.
-	inline unsigned bitsep1(unsigned x)
+	MATHX_API inline unsigned bitsep1(unsigned x)
 	{
 		// http://fgiesen.wordpress.com/2009/12/13/decoding-morton-codes/
 		x &= 0xffff;                     // x = ---- ---- ---- ---- fedc ba98 7654 3210
@@ -220,7 +224,7 @@ namespace glm
 	}
 
 	/// Puts two zero bits in-between each of the lower 10 bits of the given value.
-	inline unsigned bitsep2(unsigned x)
+	MATHX_API inline unsigned bitsep2(unsigned x)
 	{
 		// http://fgiesen.wordpress.com/2009/12/13/decoding-morton-codes/
 		x &= 0x000003ff;                  // x = ---- ---- ---- ---- ---- --98 7654 3210
@@ -232,7 +236,7 @@ namespace glm
 	}
 
 	/// Inverse of bitsep1.
-	inline unsigned bitcomp1(unsigned x)
+	MATHX_API inline unsigned bitcomp1(unsigned x)
 	{
 		// http://fgiesen.wordpress.com/2009/12/13/decoding-morton-codes/
 		x &= 0x55555555;                  // x = -f-e -d-c -b-a -9-8 -7-6 -5-4 -3-2 -1-0
@@ -244,7 +248,7 @@ namespace glm
 	}
 
 	/// Inverse of bitsep2.
-	inline unsigned bitcomp2(unsigned x)
+	MATHX_API inline unsigned bitcomp2(unsigned x)
 	{
 		// http://fgiesen.wordpress.com/2009/12/13/decoding-morton-codes/
 		x &= 0x09249249;                  // x = ---- 9--8 --7- -6-- 5--4 --3- -2-- 1--0
@@ -256,25 +260,25 @@ namespace glm
 	}
 
 	/// Morton code for 2 dimensions.
-	inline unsigned bitzip(const glm::uvec2 &v)
+	MATHX_API inline unsigned bitzip(const glm::uvec2 &v)
 	{
 		return (bitsep1(v[1]) << 1) + bitsep1(v[0]);
 	}
 
 	/// Morton code for 3 dimensions.
-	inline unsigned bitzip(const glm::uvec3 &v)
+	MATHX_API inline unsigned bitzip(const glm::uvec3 &v)
 	{
 		return (bitsep2(v[2]) << 2) + (bitsep2(v[1]) << 1) + bitsep2(v[0]);
 	}
 
 	/// 2 dimensions from morton code.
-	inline glm::uvec2 bitunzip2(unsigned c)
+	MATHX_API inline glm::uvec2 bitunzip2(unsigned c)
 	{
 		return glm::uvec2( bitcomp1(c), bitcomp1(c >> 1) );
 	}
 
 	/// 3 dimensions from morton code.
-	inline glm::uvec3 bitunzip3(unsigned c)
+	MATHX_API inline glm::uvec3 bitunzip3(unsigned c)
 	{
 		return glm::uvec3( bitcomp2(c), bitcomp2(c >> 1), bitcomp2(c >> 2) );
 	}

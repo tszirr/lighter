@@ -17,6 +17,7 @@
 
 #include <cuda.h>
 #define MATHX_MINIMAL
+#define MATHX_API __host__ __device__
 #define GLM_NO_ASSERT
 #include "mathx"
 
