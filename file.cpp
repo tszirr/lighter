@@ -28,7 +28,7 @@ namespace stdx
 {
 	long long file_time(char const* name)
 	{
-		struct stat buf;
+		struct stat buf = { 0 };
 		stat(name, &buf);
 		return static_cast<long long>(buf.st_mtime);
 	}
@@ -178,6 +178,10 @@ namespace stdx
 	{
 		typedef detail::generic_file::winhandle winhandle;
 
+		// always give read access
+		// note: if we ever remove this, we need differentiated access flags in CreateFileMappingW and MapViewOfFile!
+		access |= file_flags::read;
+
 		winhandle file( ::CreateFileA(
 			  name // todo: from utf8?
 			, detail::generic_file::get_windows_access_flags(access)
@@ -194,10 +198,13 @@ namespace stdx
 		if ((access & file_flags::write) && size != 0)
 		{
 			LONGLONG longSize = size;
-			::SetFilePointerEx(file
-				, reinterpret_cast<const LARGE_INTEGER&>(static_cast<const LONGLONG&>(0))
-				, reinterpret_cast<LARGE_INTEGER*>(&longSize)
-				, FILE_BEGIN);
+			BOOL success = ::SetFilePointerEx(file
+				, reinterpret_cast<const LARGE_INTEGER&>(longSize)
+				, nullptr
+				, FILE_BEGIN)
+			&& ::SetEndOfFile(file);
+			if (!success)
+				throwx(std::runtime_error(name));
 		}
 
 		// Handles size of 0 equal to current file size
