@@ -36,4 +36,39 @@ struct Task
 	}
 };
 
+inline void print_exception()
+{
+	try
+	{
+		throw;
+	}
+	catch (std::exception const &excpt)
+	{
+		std::cout << "Error: " << excpt.what() << std::endl;
+	}
+	catch (...)
+	{
+		std::cout << "Unknown error: " << std::endl;
+	}
+}
+
+template <class Changed, class Fun>
+inline bool print_on_error(Fun&& fun) { try { fun(); return true; }
+	catch (...) { print_exception(); }
+	return false; }
+
+template <class Changed, class Fun>
+inline void maybe_update(Changed& changed, Fun&& update)
+{
+	if (changed)
+	{
+		update();
+		changed = false;
+	}
+}
+
+template <class Changed, class Fun>
+inline void maybe_update_noexcept(Changed& changed, Fun&& update) { try { maybe_update(changed, update); return; }
+	catch (...) { print_exception(); } }
+
 } // namespace
