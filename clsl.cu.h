@@ -9,6 +9,7 @@
 
 #define CLSL_DEFINE_STRUCT(name) struct name
 	
+#define CLSL_INOUT(t) t&
 #define CLSL_OUT_PARAM(pt) pt*
 #define CLSL_DEREF_OUT_PARAM(p) *(p)
 
