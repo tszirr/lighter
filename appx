@@ -52,10 +52,26 @@ inline void print_exception()
 	}
 }
 
-template <class Changed, class Fun>
+template <class Fun>
 inline bool print_on_error(Fun&& fun) { try { fun(); return true; }
 	catch (...) { print_exception(); }
 	return false; }
+
+template <class Fun>
+struct noexcept_wrapper
+{
+	Fun fun;
+
+	bool operator ()() { return print_on_error(fun); }
+	bool operator ()() const { return print_on_error(fun); }
+};
+
+template <class Fun>
+inline noexcept_wrapper<Fun> wrap_noexcept(Fun&& fun)
+{
+	noexcept_wrapper<Fun> w = { MOVE(fun) };
+	return w;
+}
 
 template <class Changed, class Fun>
 inline void maybe_update(Changed& changed, Fun&& update)
