@@ -36,15 +36,15 @@ struct UiRenderer
 		}
 	};
 
-	ogl::Program* widgetProgram;
+	ogl::ProgramRef* widgetProgram;
 	ogl::VertexArrays widgetArrays;
 	unsigned widgetBatchCnt, widgetBatchSize;
 	std::unique_ptr<QueuedWidget[]> widgetMem;
 	ogl::Buffer widgetBuffer;
 
-	UiRenderer(ogl::Program* program, unsigned widgetBatchSize)
-		: widgetProgram(move(program))
-		, widgetArrays()
+	UiRenderer(ogl::ProgramRef* program, unsigned widgetBatchSize)
+		: widgetProgram(program)
+		, widgetArrays(ogl::VertexArrays::create())
 		, widgetBatchCnt(0)
 		, widgetBatchSize(widgetBatchSize)
 		, widgetMem(new QueuedWidget[widgetBatchSize])

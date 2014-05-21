@@ -7,7 +7,7 @@
 
 namespace ogl
 {
-	struct Program;
+	struct ProgramRef;
 }
 
 namespace text
@@ -191,8 +191,8 @@ struct UserInterface
 			return (state == CaptureState::Owned);
 	}
 
-	static std::unique_ptr<UserInterface> create(text::FreeType* freeTypeLib, text::Face* font, ogl::Program* textProgram
-		, ogl::Program* widgetProgram);
+	static std::unique_ptr<UserInterface> create(text::FreeType* freeTypeLib, text::Face* font, ogl::ProgramRef* textProgram
+		, ogl::ProgramRef* widgetProgram);
 
 	// todo: replace by proper render methods
 	virtual void flushWidgets() = 0;

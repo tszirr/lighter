@@ -251,7 +251,7 @@ struct TextRenderer
 		}
 	};
 
-	ogl::Program* charProgram;
+	ogl::ProgramRef* charProgram;
 	ogl::VertexArrays charArrays;
 	unsigned charBatchCnt, charBatchSize;
 	std::unique_ptr<QueuedChar[]> charMem;
@@ -259,9 +259,9 @@ struct TextRenderer
 	GlyphCache glyphCache;
 	FT_Render_Mode renderMode;
 
-	TextRenderer(FT_Library lib, ogl::Program* program, unsigned charBatchSize, unsigned charHeight = 16, unsigned cacheRes = 1024)
-		: charProgram(move(program))
-		, charArrays()
+	TextRenderer(FT_Library lib, ogl::ProgramRef* program, unsigned charBatchSize, unsigned charHeight = 16, unsigned cacheRes = 1024)
+		: charProgram(program)
+		, charArrays(ogl::VertexArrays::create())
 		, charBatchCnt(0)
 		, charBatchSize(charBatchSize)
 		, charMem(new QueuedChar[charBatchSize])

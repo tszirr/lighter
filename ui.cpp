@@ -34,8 +34,8 @@ glm::aabb<glm::ivec2> UiTextRenderer::drawText(glm::ivec2 insertPos, char const*
 	}
 }
 
-std::unique_ptr<UserInterface> UserInterface::create(text::FreeType* freeTypeLib, text::Face* font, ogl::Program* textProgram
-		, ogl::Program* widgetProgram)
+std::unique_ptr<UserInterface> UserInterface::create(text::FreeType* freeTypeLib, text::Face* font, ogl::ProgramRef* textProgram
+		, ogl::ProgramRef* widgetProgram)
 {
 	struct DefaultUserInterfaceDeps
 	{
@@ -43,8 +43,8 @@ std::unique_ptr<UserInterface> UserInterface::create(text::FreeType* freeTypeLib
 		text::TextRenderer textRenderer;
 		UiTextRenderer uiTextRenderer;
 		
-		DefaultUserInterfaceDeps(text::FreeType* freeTypeLib, text::Face* font, ogl::Program* textProgram
-				, ogl::Program* widgetProgram)
+		DefaultUserInterfaceDeps(text::FreeType* freeTypeLib, text::Face* font, ogl::ProgramRef* textProgram
+				, ogl::ProgramRef* widgetProgram)
 			: widgetRenderer(widgetProgram, 1024)
 			, textRenderer(*freeTypeLib, textProgram, 10000) // todo: initialize with adaptive tile size?
 			, uiTextRenderer(*freeTypeLib, *font, textRenderer)
@@ -53,8 +53,8 @@ std::unique_ptr<UserInterface> UserInterface::create(text::FreeType* freeTypeLib
 	};
 	struct DefaultUserInterface : DefaultUserInterfaceDeps, ui::TextUi
 	{
-		DefaultUserInterface(text::FreeType* freeTypeLib, text::Face* font, ogl::Program* textProgram
-				, ogl::Program* widgetProgram)
+		DefaultUserInterface(text::FreeType* freeTypeLib, text::Face* font, ogl::ProgramRef* textProgram
+				, ogl::ProgramRef* widgetProgram)
 			: DefaultUserInterfaceDeps(freeTypeLib, font, textProgram, widgetProgram)
 			, TextUi(&widgetRenderer, &uiTextRenderer)
 		{
