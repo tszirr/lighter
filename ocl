@@ -494,6 +494,7 @@ struct GlBufferRef : cl_destroy<GlBufferRef, cl_mem, clReleaseMemObject>
 		THROW_OPENCL_ERROR( clEnqueueReleaseGLObjects(stream, 1, &ref, 0, nullptr, nullptr), "clEnqueueReleaseGLObjects()" );
 	}
 };
+typedef GlBufferRef::owned GlBuffer;
 
 struct GlTextureRef : cl_destroy<GlTextureRef, cl_mem, clReleaseMemObject>
 {
@@ -521,6 +522,7 @@ struct GlTextureRef : cl_destroy<GlTextureRef, cl_mem, clReleaseMemObject>
 		THROW_OPENCL_ERROR( clEnqueueReleaseGLObjects(stream, 1, &ref, 0, nullptr, nullptr), "clEnqueueReleaseGLObjects()" );
 	}
 };
+typedef GlTextureRef::owned GlTexture;
 
 struct GlGuard : stdx::noncopyable
 {
@@ -547,6 +549,8 @@ struct BindGuard
 	cl_command_queue stream;
 	T* bound;
 
+	BindGuard(nullptr_t)
+		: bound(nullptr) { }
 	BindGuard(cl_command_queue stream, T &bound)
 		: stream(stream)
 		, bound(&bound)

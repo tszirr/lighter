@@ -428,7 +428,7 @@ namespace stdx
 		explicit own(pointer&& value)
 			: RefObj(MOVE_T(value)) { }
 		explicit own(pointer const& value)
-			: RefObj(MOVE_T(value)) { }
+			: RefObj(value) { }
 		
 		// movement
 		own(own&& right)

@@ -110,7 +110,7 @@ struct ProgramRef : cuda_destroy<ProgramRef, CUmodule, cuModuleUnload>
 		return fromData(context, stdx::load_binary_file(file, true).data());
 	}
 };
-typedef ProgramRef Program;
+typedef ProgramRef::owned Program;
 
 struct KernelRef : stdx::ref_base<CUfunction>
 {
@@ -199,7 +199,7 @@ struct VariableRef : stdx::ref_base<CUdeviceptr>
 	VariableRef(nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
 	VariableRef(CUdeviceptr ref) { this->ref = ref; }
 
-	VariableRef fromModule(CUmodule module, char const *name)
+	static VariableRef fromModule(CUmodule module, char const *name)
 	{
 		VariableRef r = nullptr;
 		THROW_CUDA_ERROR(cuModuleGetGlobal(&r.ref, nullptr, module, name), "Failed to retrieve global variable");
@@ -212,7 +212,7 @@ struct TextureVariableRef : stdx::ref_base<CUtexref>
 {
 	TextureVariableRef(CUtexref ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 
-	TextureVariableRef fromModule(CUmodule module, char const *name)
+	static TextureVariableRef fromModule(CUmodule module, char const *name)
 	{
 		TextureVariableRef r = nullptr;
 		THROW_CUDA_ERROR(cuModuleGetTexRef(&r.ref, module, name), "Failed to retrieve texture variable");
@@ -225,7 +225,7 @@ struct SurfaceVariableRef : stdx::ref_base<CUsurfref>
 {
 	SurfaceVariableRef(CUsurfref ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 
-	SurfaceVariableRef fromModule(CUmodule module, char const *name)
+	static SurfaceVariableRef fromModule(CUmodule module, char const *name)
 	{
 		SurfaceVariableRef r = nullptr;
 		THROW_CUDA_ERROR(cuModuleGetSurfRef(&r.ref, module, name), "Failed to retrieve surface variable");
@@ -244,7 +244,7 @@ struct RebindVariable
 	template <class Member>
 	void operator ()(Member& member)
 	{
-		member = typename Member::mem_type(module, member.name());
+		member = Member::mem_type::fromModule(module, member.name());
 	}
 };
 
@@ -655,7 +655,7 @@ struct GlTextureRef : stdx::ref_base<CUgraphicsResource>
 {
 	GlTextureRef(CUgraphicsResource ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 
-	GlTextureRef from(CUcontext context, GLenum glTextureType, GLuint glTexture, unsigned int flags = CU_GRAPHICS_REGISTER_FLAGS_NONE)
+	static GlTextureRef from(CUcontext context, GLenum glTextureType, GLuint glTexture, unsigned int flags = CU_GRAPHICS_REGISTER_FLAGS_NONE)
 	{
 		GlTextureRef r = nullptr;
 		THROW_CUDA_ERROR( cuGraphicsGLRegisterImage(&r.ref, glTexture, glTextureType, flags), "cuGraphicsGLRegisterImage" );
@@ -703,7 +703,8 @@ struct BindGuard
 
 	MOVE_GENERATE(BindGuard, MOVE_2, MEMBER, stream, MEMBER, bound)
 
-	BindGuard(std::nullptr_t) { }
+	BindGuard(std::nullptr_t)
+		: bound(nullptr) { }
 	BindGuard(CUstream stream, T &bound)
 		: stream(stream)
 		, bound(&bound)
