@@ -11,6 +11,10 @@
 #include <iostream>
 #include <string>
 
+#ifndef DEFAULT_ASSIGN_NULL_REFERENCE
+	#define DEFAULT_ASSIGN_NULL_REFERENCE = nullptr
+#endif
+
 namespace cuda
 {
 
@@ -22,20 +26,37 @@ struct CUDA : stdx::noncopyable
 	}
 };
 
-struct Context : cuda_delete<CUcontext, cuCtxDestroy>::handle_type
+struct ContextRef : cuda_destroy<ContextRef, CUcontext, cuCtxDestroy>
 {
-	MOVE_GENERATE(Context, MOVE_2, BASE, unique_handle, MEMBER, device)
+	ContextRef(CUcontext ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
+};
+
+struct ContextRefWithDevice : ContextRef
+{
+	typedef stdx::own<ContextRefWithDevice> owned;
 
 	CUdevice device;
 
+	ContextRefWithDevice(ContextRef ref DEFAULT_ASSIGN_NULL_REFERENCE, CUdevice device = 0)
+		: ContextRef(ref)
+		, device(device) { }
+};
+
+struct Context : ContextRefWithDevice::owned
+{
+	MOVE_BASE(Context, owned)
+
+	Context(nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE)
+		: owned( ContextRefWithDevice(nullptr) ) { }
+
 	explicit Context(CUdevice device, unsigned int flags = 0)
-		: device(device)
+		: owned( ContextRefWithDevice(nullptr, device) )
 	{
 		char deviceName[2048];
 		THROW_CUDA_ERROR( cuDeviceGetName(deviceName, arraylen(deviceName), device), "Unable to query device name.");
 		std::cout << "CUDA Device: " << deviceName << std::endl;
 
-		THROW_CUDA_ERROR(cuCtxCreate(rebind(), flags, device), "cuDeviceGet");
+		THROW_CUDA_ERROR(cuCtxCreate(&ref, flags, device), "cuDeviceGet");
 	}
 
 	static Context default(unsigned int flags = 0)
@@ -46,45 +67,60 @@ struct Context : cuda_delete<CUcontext, cuCtxDestroy>::handle_type
 	}
 };
 
-struct CommandStream : cuda_delete<CUstream, cuStreamDestroy>::handle_type
+struct CommandStreamRef : cuda_destroy<CommandStreamRef, CUstream, cuStreamDestroy>
 {
-	MOVE_BASE(CommandStream, unique_handle)
+	CommandStreamRef(CUstream ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 
-	// Default stream
-	CommandStream(std::nullptr_t) { }
+	static CommandStreamRef default()
+	{
+		return CommandStreamRef(nullptr);
+	}
+};
+
+struct CommandStream : CommandStreamRef::owned
+{
+	MOVE_BASE(CommandStream, owned)
+
+	CommandStream(nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) : owned(nullptr) { }
+	explicit CommandStream(CUstream ref) : owned(ref) { }
+
 	// New stream
 	explicit CommandStream(CUcontext ctx, unsigned int flags = CU_STREAM_DEFAULT)
+		: owned(nullptr)
 	{
-		THROW_CUDA_ERROR(cuStreamCreate(rebind(), flags), "cuStreamCreate");
+		THROW_CUDA_ERROR(cuStreamCreate(&ref, flags), "cuStreamCreate");
 	}
 };
 
-struct Program : cuda_delete<CUmodule, cuModuleUnload>::handle_type
+struct ProgramRef : cuda_destroy<ProgramRef, CUmodule, cuModuleUnload>
 {
-	MOVE_BASE(Program, unique_handle)
+	ProgramRef(CUmodule ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 
-	Program(std::nullptr_t) { }
-	Program(CUcontext context, char const* binary)
+	static owned fromData(CUcontext context, char const* binary)
 	{
+		owned r = nullptr;
 		CUjit_option opt[] = { CU_JIT_TARGET_FROM_CUCONTEXT };
 		void* val[arraylen(opt)] = { nullptr };
-		THROW_CUDA_ERROR(cuModuleLoadDataEx(rebind(), binary, (unsigned) arraylen(opt), opt, val), "cuModuleLoadDataEx");
+		THROW_CUDA_ERROR(cuModuleLoadDataEx(&r.ref, binary, (unsigned) arraylen(opt), opt, val), "cuModuleLoadDataEx");
+		return r;
 	}
 
-	static Program fromFile(CUcontext context, char const* file)
+	static owned fromFile(CUcontext context, char const* file)
 	{
-		return Program(context, stdx::load_binary_file(file, true).data());
+		return fromData(context, stdx::load_binary_file(file, true).data());
 	}
 };
+typedef ProgramRef Program;
 
-struct Kernel : cuda_no_delete<CUfunction>::handle_type
+struct KernelRef : stdx::ref_base<CUfunction>
 {
-	MOVE_BASE(Kernel, unique_handle)
+	KernelRef(CUfunction ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 
-	Kernel(std::nullptr_t) { }
-	Kernel(CUmodule module, char const* name)
+	static KernelRef fromModule(CUmodule module, char const* name)
 	{
-		THROW_CUDA_ERROR(cuModuleGetFunction(rebind(), module, name), "cuModuleGetFunction");
+		KernelRef r = nullptr;
+		THROW_CUDA_ERROR(cuModuleGetFunction(&r.ref, module, name), "cuModuleGetFunction");
+		return r;
 	}
 
 	template <class T>
@@ -156,45 +192,47 @@ struct Kernel : cuda_no_delete<CUfunction>::handle_type
 			"Failed to launch CUDA kernel");
 	}
 };
+typedef KernelRef Kernel;
 
-struct Variable : cuda_no_delete<CUdeviceptr>::handle_type
+struct VariableRef : stdx::ref_base<CUdeviceptr>
 {
-	MOVE_BASE(Variable, unique_handle)
+	VariableRef(nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
+	VariableRef(CUdeviceptr ref) { this->ref = ref; }
 
-	Variable(std::nullptr_t) { }
-	explicit Variable(CUdeviceptr event)
-		: unique_handle(event) { }
-	explicit Variable(CUmodule module, char const *name)
+	VariableRef fromModule(CUmodule module, char const *name)
 	{
-		THROW_CUDA_ERROR(cuModuleGetGlobal(rebind(), nullptr, module, name), "Failed to retrieve global variable");
+		VariableRef r = nullptr;
+		THROW_CUDA_ERROR(cuModuleGetGlobal(&r.ref, nullptr, module, name), "Failed to retrieve global variable");
+		return r;
 	}
 };
+typedef VariableRef Variable;
 
-struct TextureVariable : cuda_no_delete<CUtexref>::handle_type
+struct TextureVariableRef : stdx::ref_base<CUtexref>
 {
-	MOVE_BASE(TextureVariable, unique_handle)
+	TextureVariableRef(CUtexref ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 
-	TextureVariable(std::nullptr_t) { }
-	explicit TextureVariable(CUtexref event)
-		: unique_handle(event) { }
-	explicit TextureVariable(CUmodule module, char const *name)
+	TextureVariableRef fromModule(CUmodule module, char const *name)
 	{
-		THROW_CUDA_ERROR(cuModuleGetTexRef(rebind(), module, name), "Failed to retrieve texture variable");
+		TextureVariableRef r = nullptr;
+		THROW_CUDA_ERROR(cuModuleGetTexRef(&r.ref, module, name), "Failed to retrieve texture variable");
+		return r;
 	}
 };
+typedef TextureVariableRef TextureVariable;
 
-struct SurfaceVariable : cuda_no_delete<CUsurfref>::handle_type
+struct SurfaceVariableRef : stdx::ref_base<CUsurfref>
 {
-	MOVE_BASE(SurfaceVariable, unique_handle)
+	SurfaceVariableRef(CUsurfref ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 
-	SurfaceVariable(std::nullptr_t) { }
-	explicit SurfaceVariable(CUsurfref event)
-		: unique_handle(event) { }
-	explicit SurfaceVariable(CUmodule module, char const *name)
+	SurfaceVariableRef fromModule(CUmodule module, char const *name)
 	{
-		THROW_CUDA_ERROR(cuModuleGetSurfRef(rebind(), module, name), "Failed to retrieve surface variable");
+		SurfaceVariableRef r = nullptr;
+		THROW_CUDA_ERROR(cuModuleGetSurfRef(&r.ref, module, name), "Failed to retrieve surface variable");
+		return r;
 	}
 };
+typedef SurfaceVariableRef SurfaceVariable;
 
 struct RebindVariable
 {
@@ -210,16 +248,15 @@ struct RebindVariable
 	}
 };
 
-struct Event : cuda_delete<CUevent, cuEventDestroy>::handle_type
+struct EventRef : cuda_destroy<EventRef, CUevent, cuEventDestroy>
 {
-	MOVE_BASE(Event, unique_handle)
-
-	Event(std::nullptr_t) { }
-	explicit Event(CUevent event)
-		: unique_handle(event) { }
-	explicit Event(CUstream stream, unsigned int flags = CU_EVENT_DEFAULT)
+	EventRef(CUevent ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
+	
+	static owned create(CUstream stream, unsigned int flags = CU_EVENT_DEFAULT)
 	{
-		THROW_CUDA_ERROR(cuEventCreate(rebind(), flags), "Failed to create CUDA event");
+		owned r = nullptr;
+		THROW_CUDA_ERROR(cuEventCreate(&r.ref, flags), "Failed to create CUDA event");
+		return r;
 	}
 
 	void record(CUstream stream)
@@ -227,6 +264,7 @@ struct Event : cuda_delete<CUevent, cuEventDestroy>::handle_type
 		THROW_CUDA_ERROR(cuEventRecord(*this, stream), "Failed to record CUDA event");
 	}
 };
+typedef EventRef::owned Event;
 
 inline double diffMS(CUevent startEvent, CUevent endEvent, bool failQuiet = false)
 {
@@ -242,19 +280,22 @@ inline double diffMS(CUevent startEvent, CUevent endEvent, bool failQuiet = fals
 	return (double) elapsedMs;
 }
 
-struct Buffer : cuda_delete<CUdeviceptr, cuMemFree>::handle_type
+struct BufferRef : cuda_destroy<BufferRef, CUdeviceptr, cuMemFree>
 {
-	MOVE_BASE(Buffer, unique_handle)
-
-	Buffer(std::nullptr_t) { }
-	Buffer(CUcontext context, size_t size)
+	BufferRef(nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
+	BufferRef(CUdeviceptr ref) { this->ref = ref; }
+	
+	static owned create(CUcontext context, size_t size)
 	{
-		THROW_CUDA_ERROR( cuMemAlloc(rebind(), size), "cuMemAlloc" );
+		owned r = nullptr;
+		THROW_CUDA_ERROR( cuMemAlloc(&r.ref, size), "cuMemAlloc" );
+		return r;
 	}
-	Buffer(CUcontext context, void const* data, size_t size)
+	static owned create(CUcontext context, void const* data, size_t size)
 	{
-		*this = Buffer(context, size);
-		if (data) writeBytes(nullptr, data, size);
+		auto r = create(context, size);
+		if (data) r.writeBytes(nullptr, data, size);
+		return r;
 	}
 
 	void writeBytes(CUstream stream, void const* data, size_t size)
@@ -278,16 +319,17 @@ struct Buffer : cuda_delete<CUdeviceptr, cuMemFree>::handle_type
 	}
 
 	template <class T>
-	Buffer create(CUstream stream, T* data, size_t count)
+	static owned init(CUstream stream, T* data, size_t count)
 	{
-		return Buffer(stream, data, sizeof(T) * count);
+		return create(stream, data, sizeof(T) * count);
 	}
 	template <class Range>
-	Buffer create(CUstream stream, Range const& range)
+	static owned init(CUstream stream, Range const& range)
 	{
-		return Buffer(stream, range.data(), sizeof(*range.data()) * range.size());
+		return create(stream, range.data(), sizeof(*range.data()) * range.size());
 	}
 };
+typedef BufferRef::owned Buffer;
 
 inline size_t format_bytes(CUarray_format format)
 {
@@ -325,13 +367,18 @@ inline void memcpy(CUarray dest, void const* data, unsigned numChannels, CUarray
 	THROW_CUDA_ERROR(cuMemcpy3D(&memcpy), "cuMemcpy3D");
 }
 
-struct Image : cuda_delete<CUarray, cuArrayDestroy>::handle_type
+struct ImageRef : cuda_destroy<ImageRef, CUarray, cuArrayDestroy>
 {
-	MOVE_BASE(Image, unique_handle)
-
-	Image(std::nullptr_t) { }
-	Image(CUcontext context, unsigned numChannels, CUarray_format format, size_t w, size_t h, size_t d, void const* data, unsigned flags)
+	ImageRef(CUarray ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
+	
+	static owned create2D(CUcontext context, unsigned numChannels, CUarray_format format, size_t w, size_t h, void const* data = nullptr, unsigned flags = 0)
 	{
+		return create3D(context, numChannels, format, w, h, 0, data, flags);
+	}
+	static owned create3D(CUcontext context, unsigned numChannels, CUarray_format format, size_t w, size_t h, size_t d, void const* data = nullptr, unsigned flags = 0)
+	{
+		owned r = nullptr;
+
 		CUDA_ARRAY3D_DESCRIPTOR desc = { 0 };
 		desc.Width = w;
 		desc.Height = h;
@@ -339,29 +386,30 @@ struct Image : cuda_delete<CUarray, cuArrayDestroy>::handle_type
 		desc.Format = format;
 		desc.NumChannels = numChannels;
 		desc.Flags = flags;
-		THROW_CUDA_ERROR(cuArray3DCreate(rebind(), &desc), "cuArray3DCreate");
+		THROW_CUDA_ERROR(cuArray3DCreate(&r.ref, &desc), "cuArray3DCreate");
 
 		if (data)
-			memcpy(*this, data, numChannels, format, w, h, d);
-	}
+			memcpy(r, data, numChannels, format, w, h, d);
 
-	static Image create2D(CUcontext context, unsigned numChannels, CUarray_format format, size_t w, size_t h, void const* data = nullptr, unsigned flags = 0)
-	{
-		return Image(context, numChannels, format, w, h, 0, data, flags);
-	}
-	static Image create3D(CUcontext context, unsigned numChannels, CUarray_format format, size_t w, size_t h, size_t d, void const* data = nullptr, unsigned flags = 0)
-	{
-		return Image(context, numChannels, format, w, h, d, data, flags);
+		return r;
 	}
 };
+typedef ImageRef::owned Image;
 
-struct MippedImage : cuda_delete<CUmipmappedArray, cuMipmappedArrayDestroy>::handle_type
+struct MippedImageRef : cuda_destroy<MippedImageRef, CUmipmappedArray, cuMipmappedArrayDestroy>
 {
-	MOVE_BASE(MippedImage, unique_handle)
-
-	MippedImage(std::nullptr_t) { }
-	MippedImage(CUcontext context, unsigned numChannels, CUarray_format format, size_t w, size_t h, size_t d, size_t levels, void const* data, unsigned flags)
+	MippedImageRef(CUmipmappedArray ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
+	
+	static owned create2D(CUcontext context, unsigned numChannels, CUarray_format format, size_t w, size_t h, size_t levels,
+		void const* data = nullptr, unsigned flags = 0)
 	{
+		return create3D(context, numChannels, format, w, h, 0, levels, data, flags);
+	}
+	static owned create3D(CUcontext context, unsigned numChannels, CUarray_format format, size_t w, size_t h, size_t d, size_t levels,
+		void const* data = nullptr, unsigned flags = 0)
+	{
+		owned r = nullptr;
+
 		CUDA_ARRAY3D_DESCRIPTOR desc = { 0 };
 		desc.Width = w;
 		desc.Height = h;
@@ -369,21 +417,12 @@ struct MippedImage : cuda_delete<CUmipmappedArray, cuMipmappedArrayDestroy>::han
 		desc.Format = format;
 		desc.NumChannels = numChannels;
 		desc.Flags = flags;
-		THROW_CUDA_ERROR(cuMipmappedArrayCreate(rebind(), &desc, (unsigned) levels), "cuMipmappedArrayCreate");
+		THROW_CUDA_ERROR(cuMipmappedArrayCreate(&r.ref, &desc, (unsigned) levels), "cuMipmappedArrayCreate");
 
 		if (data)
-			memcpy(subImage(0), data, numChannels, format, w, h, d);
-	}
+			memcpy(r.subImage(0), data, numChannels, format, w, h, d);
 
-	static MippedImage create2D(CUcontext context, unsigned numChannels, CUarray_format format, size_t w, size_t h, size_t levels,
-		void const* data = nullptr, unsigned flags = 0)
-	{
-		return MippedImage(context, numChannels, format, w, h, 0, levels, data, flags);
-	}
-	static MippedImage create3D(CUcontext context, unsigned numChannels, CUarray_format format, size_t w, size_t h, size_t d, size_t levels,
-		void const* data = nullptr, unsigned flags = 0)
-	{
-		return MippedImage(context, numChannels, format, w, h, d, levels, data, flags);
+		return r;
 	}
 
 	CUarray subImage(size_t level = 0)
@@ -393,6 +432,7 @@ struct MippedImage : cuda_delete<CUmipmappedArray, cuMipmappedArrayDestroy>::han
 		return result;
 	}
 };
+typedef MippedImageRef::owned MippedImage;
 
 inline CUDA_RESOURCE_DESC resource_desc(CUdeviceptr res, size_t size, unsigned numChannels, CUarray_format format)
 {
@@ -448,22 +488,24 @@ inline CUDA_TEXTURE_DESC point_texture_desc(CUaddress_mode addressMode = CU_TR_A
 	return linear_texture_desc(addressMode, normalizedCoords, srgb, normalizedInts, mipFilterMode, filterMode);
 }
 
-struct Texture : cuda_delete<CUtexObject, cuTexObjectDestroy>::handle_type
+struct TextureRef : cuda_destroy<TextureRef, CUtexObject, cuTexObjectDestroy>
 {
-	MOVE_BASE(Texture, unique_handle)
-
-	Texture(std::nullptr_t) { }
-	Texture(CUcontext context, CUDA_RESOURCE_DESC const& resDesc, CUDA_TEXTURE_DESC const& texDesc, CUDA_RESOURCE_VIEW_DESC const* pRVDesc = nullptr)
+	TextureRef(nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
+	TextureRef(CUtexObject ref) { this->ref = ref; }
+	
+	static owned create(CUcontext context, CUDA_RESOURCE_DESC const& resDesc, CUDA_TEXTURE_DESC const& texDesc, CUDA_RESOURCE_VIEW_DESC const* pRVDesc = nullptr)
 	{
-		THROW_CUDA_ERROR(cuTexObjectCreate(rebind(), &resDesc, &texDesc, pRVDesc), "cuTexObjectCreate");
+		owned r = nullptr;
+		THROW_CUDA_ERROR(cuTexObjectCreate(&r.ref, &resDesc, &texDesc, pRVDesc), "cuTexObjectCreate");
+		return r;
 	}
 	template <class Res>
-	Texture(CUcontext context, Res&& res, CUDA_TEXTURE_DESC const& texDesc, CUDA_RESOURCE_VIEW_DESC const* pRVDesc = nullptr,
-		typename std::enable_if<!std::is_convertible<Res, CUDA_RESOURCE_DESC>::value>::type* = nullptr)
+	static owned from(CUcontext context, Res&& res, CUDA_TEXTURE_DESC const& texDesc, CUDA_RESOURCE_VIEW_DESC const* pRVDesc = nullptr)
 	{
-		*this = Texture(context, resource_desc(res), texDesc, pRVDesc);
+		return create(context, resource_desc(res), texDesc, pRVDesc);
 	}
 };
+typedef TextureRef::owned Texture;
 
 void bind_texture(CUtexref ref, CUDA_RESOURCE_DESC const& resDesc)
 {
@@ -512,22 +554,24 @@ inline CUDA_RESOURCE_DESC surface_resource_desc(CUarray res)
 	return resource_desc(res);
 }
 
-struct Surface : cuda_delete<CUsurfObject, cuSurfObjectDestroy>::handle_type
+struct SurfaceRef : cuda_destroy<SurfaceRef, CUsurfObject, cuSurfObjectDestroy>
 {
-	MOVE_BASE(Surface, unique_handle)
-
-	Surface(std::nullptr_t) { }
-	Surface(CUcontext context, CUDA_RESOURCE_DESC const& resDesc)
+	SurfaceRef(nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
+	SurfaceRef(CUsurfObject ref) { this->ref = ref; }
+	
+	static owned create(CUcontext context, CUDA_RESOURCE_DESC const& resDesc)
 	{
-		THROW_CUDA_ERROR(cuSurfObjectCreate(rebind(), &resDesc), "cuTexObjectCreate");
+		owned r = nullptr;
+		THROW_CUDA_ERROR(cuSurfObjectCreate(&r.ref, &resDesc), "cuTexObjectCreate");
+		return r;
 	}
 	template <class Res>
-	Surface(CUcontext context, Res&& res,
-		typename std::enable_if<!std::is_convertible<Res, CUDA_RESOURCE_DESC>::value>::type* = nullptr)
+	static owned from(CUcontext context, Res&& res)
 	{
-		*this = Surface(context, surface_resource_desc(res));
+		return create(context, surface_resource_desc(res));
 	}
 };
+typedef SurfaceRef::owned Surface;
 
 void bind_surface(CUsurfref ref, CUDA_RESOURCE_DESC const& resDesc)
 {
@@ -578,14 +622,15 @@ struct WithTextureAndSurface : WithSurface<WithTexture<Resource>>
 		, surface(move(surface)) { }
 };
 
-struct GlBuffer : cuda_no_delete<CUgraphicsResource>::handle_type
+struct GlBufferRef : stdx::ref_base<CUgraphicsResource>
 {
-	MOVE_BASE(GlBuffer, unique_handle)
-
-	GlBuffer(std::nullptr_t) { }
-	GlBuffer(CUcontext context, GLuint glBuffer, unsigned int flags = CU_GRAPHICS_REGISTER_FLAGS_NONE)
+	GlBufferRef(CUgraphicsResource ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
+	
+	static GlBufferRef from(CUcontext context, GLuint glBuffer, unsigned int flags = CU_GRAPHICS_REGISTER_FLAGS_NONE)
 	{
-		THROW_CUDA_ERROR( cuGraphicsGLRegisterBuffer(rebind(), glBuffer, flags), "cuGraphicsGLRegisterBuffer" );
+		GlBufferRef r = nullptr;
+		THROW_CUDA_ERROR( cuGraphicsGLRegisterBuffer(&r.ref, glBuffer, flags), "cuGraphicsGLRegisterBuffer" );
+		return r;
 	}
 
 	void bind(CUstream stream)
@@ -604,15 +649,17 @@ struct GlBuffer : cuda_no_delete<CUgraphicsResource>::handle_type
 		return result;
 	}
 };
+typedef GlBufferRef GlBuffer;
 
-struct GlTexture : cuda_no_delete<CUgraphicsResource>::handle_type
+struct GlTextureRef : stdx::ref_base<CUgraphicsResource>
 {
-	MOVE_BASE(GlTexture, unique_handle)
+	GlTextureRef(CUgraphicsResource ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 
-	GlTexture(std::nullptr_t) { }
-	GlTexture(CUcontext context, GLenum glTextureType, GLuint glTexture, unsigned int flags = CU_GRAPHICS_REGISTER_FLAGS_NONE)
+	GlTextureRef from(CUcontext context, GLenum glTextureType, GLuint glTexture, unsigned int flags = CU_GRAPHICS_REGISTER_FLAGS_NONE)
 	{
-		THROW_CUDA_ERROR( cuGraphicsGLRegisterImage(rebind(), glTexture, glTextureType, flags), "cuGraphicsGLRegisterImage" );
+		GlTextureRef r = nullptr;
+		THROW_CUDA_ERROR( cuGraphicsGLRegisterImage(&r.ref, glTexture, glTextureType, flags), "cuGraphicsGLRegisterImage" );
+		return r;
 	}
 
 	void bind(CUstream stream)
@@ -637,6 +684,7 @@ struct GlTexture : cuda_no_delete<CUgraphicsResource>::handle_type
 		return result;
 	}
 };
+typedef GlTextureRef GlTexture;
 
 inline CUDA_RESOURCE_DESC resource_desc(GlTexture& res)
 {
@@ -651,21 +699,21 @@ template <class T>
 struct BindGuard
 {
 	CUstream stream;
-	stdx::unique_handle<T*> bound;
+	T* bound;
 
 	MOVE_GENERATE(BindGuard, MOVE_2, MEMBER, stream, MEMBER, bound)
 
 	BindGuard(std::nullptr_t) { }
 	BindGuard(CUstream stream, T &bound)
-		: stream(stream),
-		bound(&bound)
+		: stream(stream)
+		, bound(&bound)
 	{
 		bound.bind(stream);
 	}
 	~BindGuard()
 	{
-		if (bound.valid())
-			bound.get()->unbind(stream);
+		if (bound)
+			bound->unbind(stream);
 	}
 
 	void disarm() { bound = nullptr; }
@@ -724,7 +772,7 @@ struct KernelWithTime : Kernel
 	}
 	void load()
 	{
-		*this = Kernel(*module, kernelName);
+		*this = Kernel::fromModule(*module, kernelName);
 		time = module->time;
 	}
 	int maybeReload()
