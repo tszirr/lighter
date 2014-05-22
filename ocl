@@ -56,7 +56,9 @@ struct Context : ContextRefWithDevice::owned
 {
 	MOVE_BASE(Context, owned)
 
-	explicit Context(cl_context ref DEFAULT_ASSIGN_NULL_REFERENCE, cl_platform_id platform = nullptr, cl_device_id device = nullptr)
+	Context(nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE)
+		: owned( ContextRefWithDevice(nullptr) ) { }
+	explicit Context(cl_context ref, cl_platform_id platform = nullptr, cl_device_id device = nullptr)
 		: owned( ContextRefWithDevice(ref, platform, device) ) { }
 
 	explicit Context(cl_device_type deviceType = CL_DEVICE_TYPE_GPU, bool enableGLSharing = true)
@@ -143,7 +145,8 @@ struct CommandStream : CommandStreamRef::owned
 {
 	MOVE_BASE(CommandStream, owned)
 
-	explicit CommandStream(cl_command_queue ref DEFAULT_ASSIGN_NULL_REFERENCE) : owned(ref) { }
+	CommandStream(nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) : owned(nullptr) { }
+	explicit CommandStream(cl_command_queue ref) : owned(ref) { }
 
 	explicit CommandStream(cl_context_with_device context, bool profiling = true)
 		: owned(nullptr)
@@ -472,7 +475,7 @@ struct GlBufferRef : cl_destroy<GlBufferRef, cl_mem, clReleaseMemObject>
 {
 	GlBufferRef(cl_mem ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 
-	static owned connect(cl_context context, GLuint glBuffer, cl_mem_flags flags = CL_MEM_READ_WRITE)
+	static owned from(cl_context context, GLuint glBuffer, cl_mem_flags flags = CL_MEM_READ_WRITE)
 	{
 		owned r = nullptr;
 		cl_int error;
@@ -496,7 +499,7 @@ struct GlTextureRef : cl_destroy<GlTextureRef, cl_mem, clReleaseMemObject>
 {
 	GlTextureRef(cl_mem ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 
-	static owned connect(cl_context context, GLenum glTextureType, GLuint glTexture, cl_mem_flags flags = CL_MEM_READ_WRITE, size_t mipLevel = 0)
+	static owned from(cl_context context, GLenum glTextureType, GLuint glTexture, cl_mem_flags flags = CL_MEM_READ_WRITE, size_t mipLevel = 0)
 	{
 		owned r = nullptr;
 		cl_int error;
