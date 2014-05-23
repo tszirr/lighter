@@ -56,7 +56,7 @@ struct Context : ContextRefWithDevice::owned
 {
 	MOVE_BASE(Context, owned)
 
-	Context(nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE)
+	Context(nullptr_t)
 		: owned( ContextRefWithDevice(nullptr) ) { }
 	explicit Context(cl_context ref, cl_platform_id platform = nullptr, cl_device_id device = nullptr)
 		: owned( ContextRefWithDevice(ref, platform, device) ) { }
