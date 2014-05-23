@@ -234,15 +234,15 @@ struct SurfaceVariableRef : stdx::ref_base<CUsurfref>
 };
 typedef SurfaceVariableRef SurfaceVariable;
 
-struct RebindVariable
+struct RebindEnumerableVariable
 {
 	CUmodule module;
 
-	RebindVariable(CUmodule module)
+	RebindEnumerableVariable(CUmodule module)
 		: module(module) { }
 
 	template <class Member>
-	void operator ()(Member& member)
+	void operator ()(Member& member) const
 	{
 		member = Member::enum_type::fromModule(module, member.enum_name());
 	}
