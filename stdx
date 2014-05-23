@@ -453,6 +453,8 @@ namespace stdx
 	{
 		RefObj ref;
 
+		RefObj operator ->() const { return ref; }
+
 		RefObj const& get() const { return ref; }
 		operator RefObj() const { return ref; }
 	};
