@@ -32,6 +32,10 @@ struct cl_destroy : stdx::ref_base<Pointer>
 	{
 		this->ref = 0;
 	}
+	bool valid() const
+	{
+		return (this->ref != 0);
+	}
 };
 
 } // namespace

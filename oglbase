@@ -30,6 +30,10 @@ struct ref_base : stdx::ref_base<Pointer>
 	{
 		this->ref = 0;
 	}
+	bool valid() const
+	{
+		return (this->ref != 0);
+	}
 };
 
 template <class RefClass, class Pointer, void (GLAPIENTRY* Deleter)(GLsizei, Pointer const*)>
