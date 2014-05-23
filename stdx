@@ -616,9 +616,9 @@ namespace stdx
 		struct enum_iterator<CounterStart - 1> { static int const value = 0; };
 
 		template <class This, class Op>
-		friend void enumerate(This&, enum_iterator<CounterStart - 1>, Op&&) { }
+		friend void enumerate_from(This&, enum_iterator<CounterStart - 1>, Op&&) { }
 		template <class This, class Op>
-		friend void reflect(This*, enum_iterator<CounterStart - 1>, Op&&) { }
+		friend void reflect_from(This*, enum_iterator<CounterStart - 1>, Op&&) { }
 	};
 
 	#define ENUMERABLE ::stdx::enumerable<__COUNTER__>
@@ -639,17 +639,26 @@ namespace stdx
 			using basetype::operator =; \
 		} memname; \
 		template <class This, class Op> \
-		friend void enumerate(This& self, _##memname##_type::enum_iterator i, Op&& op) \
+		friend void enumerate_from(This& self, _##memname##_type::enum_iterator i, Op&& op) \
 		{ \
-			enumerate(self, NEXT_ENUM_ITERATOR(i), op); \
+			enumerate_from(self, NEXT_ENUM_ITERATOR(i), op); \
 			op(self.memname); \
 		} \
 		template <class This, class Op> \
-		friend void reflect(This *self, _##memname##_type::enum_iterator i, Op&& op) \
+		friend void reflect_from(This *self, _##memname##_type::enum_iterator i, Op&& op) \
 		{ \
-			reflect(self, NEXT_ENUM_ITERATOR(i), op); \
+			reflect_from(self, NEXT_ENUM_ITERATOR(i), op); \
 			op(&This::memname); \
 		}
+
+	#define ENUMERABLE_FINISH(type) \
+		typedef enum_iterator<__COUNTER__> enum_iterator_begin; \
+		template <class Op> \
+		void enumerate(Op&& op) { enumerate_from(*this, enum_iterator_begin(), op); } \
+		template <class Op> \
+		void enumerate(Op&& op) const { enumerate_from(*this, enum_iterator_begin(), op); } \
+		template <class Op> \
+		static void reflect(Op&& op) { reflect_from(static_cast<type*>(nullptr), enum_iterator_begin(), op); }
 
 } // namespace
 
