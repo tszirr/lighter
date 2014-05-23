@@ -244,7 +244,7 @@ struct RebindVariable
 	template <class Member>
 	void operator ()(Member& member)
 	{
-		member = Member::mem_type::fromModule(module, member.name());
+		member = Member::enum_type::fromModule(module, member.enum_name());
 	}
 };
 
