@@ -426,6 +426,33 @@ struct TextureRef : gl_destroy<TextureRef, GLuint, glDeleteTextures>
 };
 typedef TextureRef::owned Texture;
 
+struct TextureDesc
+{
+	GLenum textureType;
+	GLenum internalFormat;
+	size_t width;
+	size_t height;
+	size_t depth;
+	size_t levelsOrGen;
+
+	TextureDesc make2D(GLenum textureType, GLenum internalFormat, size_t width, size_t height, size_t levelsOrGen = 1)
+	{
+		return make3D(textureType, internalFormat, width, height, 0, levelsOrGen);
+	}
+
+	TextureDesc make3D(GLenum textureType, GLenum internalFormat, size_t width, size_t height, size_t depth, size_t levelsOrGen = 1)
+	{
+		TextureDesc desc = { textureType, internalFormat, width, height, depth, levelsOrGen };
+		return desc;
+	}
+
+	Texture create(void const* data = nullptr, GLenum dataType = GL_FLOAT, GLenum dataFormat = GL_RED) const
+	{
+		return Texture::create3D(textureType, internalFormat, width, height, depth, levelsOrGen
+			, data, dataType, dataFormat);
+	}
+};
+
 struct SamplerRef : glew_destroy<SamplerRef, GLuint, glDeleteSamplers>
 {
 	SamplerRef(std::nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
@@ -717,6 +744,98 @@ struct FramebufferRef : glew_destroy<FramebufferRef, GLuint, glDeleteFramebuffer
 	}
 };
 typedef FramebufferRef::owned Framebuffer;
+
+template <size_t MaxTextures = 4, GLuint DepthBufferType = 0, GLuint TextureType = GL_TEXTURE_2D>
+struct FramebufferAttachments;
+
+template <size_t MaxTextures, GLuint TextureType>
+struct FramebufferAttachments<MaxTextures, 0, TextureType>
+{
+	static size_t const max_textures = MaxTextures;
+	static GLuint const textureType = TextureType;
+	GLuint textures[max_textures];
+	static GLuint const depthType = GL_RENDERBUFFER;
+	static GLuint const depthBuffer = 0;
+
+	GLuint getTextureAt(size_t i) const { return (i < max_textures) ? textures[i] : 0; }
+	void setTextureAt(size_t i, GLuint tex) { if (i < max_textures) textures[i] = tex; }
+	GLuint getDepth() const { return depthBuffer; }
+	void setDepth(GLuint tex) { }
+};
+
+template <size_t MaxTextures, GLuint DepthBufferType, GLuint TextureType>
+struct FramebufferAttachments : FramebufferAttachments<MaxTextures, 0, TextureType>
+{
+	static GLuint const depthType = DepthBufferType;
+	GLuint depthBuffer;
+
+	GLuint getDepth() const { return depthBuffer; }
+	void setDepth(GLuint tex) { depthBuffer = tex; }
+};
+
+template <class FramebufferAttachments>
+struct FramebufferRefWithAttachments : FramebufferRef
+{
+	typedef stdx::own<FramebufferRefWithAttachments> owned;
+
+	FramebufferAttachments attachments;
+
+	FramebufferRefWithAttachments(std::nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE)
+		: FramebufferRef(nullptr)
+		, attachments() { }
+	FramebufferRefWithAttachments(GLuint ref)
+		: FramebufferRef(ref)
+		, attachments() { }
+
+	static owned create()
+	{
+		return owned( FramebufferRefWithAttachments( Framebuffer::create().detach() ) );
+	}
+
+	void attach(GLuint att0, GLuint att1 = 0, GLuint att2 = 0, GLuint att3 = 0, GLuint att4 = 0
+		, GLuint att5 = 0, GLuint att6 = 0, GLuint att7 = 0, GLuint att8 = 0
+		, GLuint depthSeparatingNull = 0, GLuint depthAtt = 0)
+	{
+		bind();
+
+		unsigned attachmentIdx = 0;
+		bool colorPhase = true;
+		auto&& addAttachment = [&](GLuint buffer)
+		{
+			if (!att)
+			{
+				colorPhase = false;
+				return;
+			}
+
+			bool replace = (colorPhase)
+				? attachments.getTextureAt(attachmentIdx) != buffer
+				: attachments.depthBuffer != buffer;
+
+			if (replace)
+			{
+				GLenum attachmentType = (colorPhase)
+					? (GLenum) (GL_COLOR_ATTACHMENT0 + attachmentIdx)
+					: GL_DEPTH_ATTACHMENT;
+
+				if (attachments.textureType != GL_RENDERBUFFER)
+					attachTextureToBound(attachmentType, buffer);
+				else
+					attachRenderbufferToBound(attachmentType, buffer);
+
+				if (colorPhase)
+					attachments.setTextureAt(attachmentIdx, buffer);
+				else
+					attachments.setDepth(buffer);
+			}
+
+			++attachmentIdx;
+		};
+		addAttachment(att0); addAttachment(att1); addAttachment(att2); addAttachment(att3);
+		addAttachment(att4); addAttachment(att5); addAttachment(att6); addAttachment(att7);
+		addAttachment(depthSeparatingNull); addAttachment(depthAtt);
+	}
+};
 
 template <class Resource>
 struct AutoViewport : Resource

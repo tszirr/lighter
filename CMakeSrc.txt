@@ -23,6 +23,7 @@ set(LIGHTER_SRC
   cudabase
   cuda
   cudax
+  pool
   img
   text
   textx

@@ -1,0 +1,137 @@
+#pragma once
+
+#include "stdx"
+#include <map>
+
+namespace appx
+{
+
+struct pooled_interface
+{
+	virtual void acquire() const = 0;
+	virtual void release() const = 0;
+};
+
+template <class RefObj, class PoolPtr>
+struct pooled_ref : RefObj
+{
+	PoolPtr pooled;
+
+	void destroy() const
+	{
+		if (this->ref)
+			pooled->release();
+	}
+
+	// "inherit" constructors
+	pool_ref_base()
+		: RefObj()
+		, pooled() { }
+	pool_ref_base(std::nullptr_t)
+		: RefObj(nullptr)
+		, pooled() { }
+	pool_ref_base(RefObj&& value, PoolPtr pooled)
+		: RefObj(MOVE_T(value))
+		, pooled(pooled) { }
+	pool_ref_base(RefObj const& value, PoolPtr pooled)
+		: RefObj(value)
+		, pooled(pooled) { }
+};
+
+template <class RefObj>
+class own_pooled : public stdx::own< pooled_ref<RefObj, pooled_interface*> >
+{
+public:
+	// "inherit" constructors
+	own_pooled() : typename own_pooled::own() { }
+	own_pooled(std::nullptr_t) : typename own_pooled::own(nullptr) { }
+	explicit own_pooled(typename own_pooled::pointer&& value)
+		: typename own_pooled::own(MOVE_T(value)) { }
+	explicit own_pooled(typename own_pooled::pointer const& value)
+		: typename own_pooled::own(value) { }
+
+	// movement
+	own_pooled(own_pooled&& right)
+		: typename own_pooled::own(MOVE_T(right)) { }
+	using own_pooled::own::operator =;
+	
+	own_pooled acquire() const
+	{
+		if (this->ref)
+			this->pooled->acquire();
+		return own_pooled(*this);
+	}
+};
+
+namespace detail
+{
+	namespace resource_pool
+	{
+		template <class T>
+		inline bool operator <(T const& a, T const& b)
+		{
+			return memcmp(&a, &b, sizeof(a)) < 0;
+		}
+	}
+}
+
+template <class Desc, class ResourceRef>
+struct resource_pool
+{
+	typedef Desc description;
+	typedef ResourceRef resource_ref;
+	typedef own_pooled<resource_ref> owned;
+
+	struct item : pooled_interface
+	{
+		MOVE_GENERATE(item, MOVE_2, MEMBER, resource, MEMBER, ref_count)
+
+		stdx::own<resource_ref> resource;
+		mutable int ref_count;
+
+		item()
+			: ref_count(0)
+		{ }
+
+		void acquire() const { ++ref_count; }
+		void release() const { --ref_count; }
+	};
+	
+	struct desc_less
+	{
+		bool operator ()(description const& a, description const& b) const
+		{
+			using detail::resource_pool::operator <;
+			return a < b;
+		}
+	};
+
+	typedef std::multimap<description, item, desc_less> items_t;
+	items_t items;
+
+	template <class Context>
+	static stdx::own<resource_ref> create(description const& desc, Context&& ctx) { return desc.create( FORWARD(Context, ctx) ); }
+	enum no_context_t { no_context };
+	static stdx::own<resource_ref> create(description const& desc, no_context_t) { return desc.create(); }
+
+	template <class Context>
+	owned acquire(description const& desc, Context&& context)
+	{
+		auto range = items.equal_range(desc);
+		auto it = range.first;
+		for (; it != range.second; ++it)
+			if (it->second.ref_count == 0)
+				break;
+		if (it == range.second)
+		{
+			item newItem;
+			newItem.resource = create(desc, FORWARD(Context, context));
+			it = items.insert(items_t::value_type(desc, MOVE_T(newItem))).first;
+		}
+		++it->second.ref_count;
+		return owned( owned::pointer(it->second.resource, &it->second) );
+	}
+	owned acquire(description const& desc) { return get(desc, no_context); }
+};
+
+} // namespace
