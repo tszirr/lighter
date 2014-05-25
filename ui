@@ -7,13 +7,13 @@
 
 namespace ogl
 {
-	struct Program;
+	struct ProgramRef;
 }
 
 namespace text
 {
-	struct FreeType;
-	struct Face;
+	struct FreeTypeRef;
+	struct FaceRef;
 	struct TextRenderer;
 }
 
@@ -49,11 +49,11 @@ struct TextRenderer
 
 struct UiTextRenderer : TextRenderer
 {
-	text::FreeType& lib;
-	text::Face& font;
+	text::FreeTypeRef& lib;
+	text::FaceRef& font;
 	text::TextRenderer& renderer;
 
-	UiTextRenderer(text::FreeType& lib, text::Face& font, text::TextRenderer& renderer)
+	UiTextRenderer(text::FreeTypeRef& lib, text::FaceRef& font, text::TextRenderer& renderer)
 		: lib(lib), font(font), renderer(renderer) { }
 
 	glm::aabb<glm::ivec2> selectChar(glm::ivec2 cursorPos, size_t& charIdx, glm::ivec2 insertPos, char const* text, size_t maxChars, CharType type) override;
@@ -191,8 +191,8 @@ struct UserInterface
 			return (state == CaptureState::Owned);
 	}
 
-	static std::unique_ptr<UserInterface> create(text::FreeType* freeTypeLib, text::Face* font, ogl::Program* textProgram
-		, ogl::Program* widgetProgram);
+	static std::unique_ptr<UserInterface> create(text::FreeTypeRef* freeTypeLib, text::FaceRef* font, ogl::ProgramRef* textProgram
+		, ogl::ProgramRef* widgetProgram);
 
 	// todo: replace by proper render methods
 	virtual void flushWidgets() = 0;

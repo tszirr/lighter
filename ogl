@@ -12,6 +12,14 @@
 #include <vector>
 #include <functional>
 
+#ifndef DEFAULT_ASSIGN_NULL_REFERENCE
+	#ifndef NO_DEFAULT_ASSIGN_NULL_REFERENCE
+		#define DEFAULT_ASSIGN_NULL_REFERENCE = nullptr
+	#else
+		#define DEFAULT_ASSIGN_NULL_REFERENCE
+	#endif
+#endif
+
 #ifndef OGL_COMPATIBILITY_PREPROCESSING
 	#define OGL_COMPATIBILITY_PREPROCESSING true
 #endif
@@ -209,17 +217,19 @@ struct GLFWWindow : TrackedGLFWWindow
 };
 typedef GLFWWindow Window;
 
-struct Buffer : glew_delete<GLuint, glDeleteBuffers>::handle_type
+struct BufferRef : glew_destroy<BufferRef, GLuint, glDeleteBuffers>
 {
-	MOVE_BASE(Buffer, unique_handle)
-
-	Buffer(std::nullptr_t) { }
-	Buffer()
+	BufferRef(std::nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
+	BufferRef(GLuint ref) { this->ref = ref; }
+	
+	static owned create()
 	{
-		glGenBuffers(1, rebind());
+		owned r = nullptr;
+		glGenBuffers(1, &r.ref);
 		THROW_OPENGL_LASTERROR("glGenBuffers()");
+		return r;
 	}
-
+	
 	void bind(GLenum bufferType)
 	{
 		glBindBuffer(bufferType, *this);
@@ -240,9 +250,9 @@ struct Buffer : glew_delete<GLuint, glDeleteBuffers>::handle_type
 		glBindBufferBase(bufferType, slot, 0);
 	}
 
-	static Buffer create(GLenum bufferType, size_t size, void const* data = nullptr, GLenum usage = GL_STATIC_DRAW)
+	static owned create(GLenum bufferType, size_t size, void const* data = nullptr, GLenum usage = GL_STATIC_DRAW)
 	{
-		Buffer result;
+		auto result = create();
 		result.bind(bufferType);
 
 		glBufferData(bufferType, size, data, usage);
@@ -252,10 +262,11 @@ struct Buffer : glew_delete<GLuint, glDeleteBuffers>::handle_type
 	}
 
 	template <class Range>
-	static Buffer init(GLenum bufferType, Range const& range, GLenum usage = GL_STATIC_DRAW)
+	static owned init(GLenum bufferType, Range const& range, GLenum usage = GL_STATIC_DRAW)
 	{
 		return create(bufferType, sizeof(*range.data()) * range.size(), range.data(), usage);
 	}
+
 	template <class Range>
 	void write(GLenum bufferType, Range const& range, size_t destOffset = 0)
 	{
@@ -278,6 +289,7 @@ struct Buffer : glew_delete<GLuint, glDeleteBuffers>::handle_type
 		THROW_OPENGL_LASTERROR("glClearBufferData()");
 	}
 };
+typedef BufferRef::owned Buffer;
 
 inline size_t computeMipLevelCount(size_t dim)
 {
@@ -290,15 +302,17 @@ inline size_t computeMipLevelCount(size_t dim)
 inline bool is3DTexture(GLenum textureType) {
 	return (textureType == GL_TEXTURE_3D); }
 
-struct Texture : gl_delete<GLuint, glDeleteTextures>::handle_type
+struct TextureRef : gl_destroy<TextureRef, GLuint, glDeleteTextures>
 {
-	MOVE_BASE(Texture, unique_handle)
+	TextureRef(std::nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
+	TextureRef(GLuint ref) { this->ref = ref; }
 
-	Texture(std::nullptr_t) { }
-	Texture()
+	static owned create()
 	{
-		glGenTextures(1, rebind());
+		owned r = nullptr;
+		glGenTextures(1, &r.ref);
 		THROW_OPENGL_LASTERROR("glGenTextures()");
+		return r;
 	}
 
 	void bind(GLenum textureType, unsigned slot = 0)
@@ -313,16 +327,16 @@ struct Texture : gl_delete<GLuint, glDeleteTextures>::handle_type
 		glBindTexture(textureType, 0);
 	}
 
-	static Texture create2D(GLenum textureType, GLenum internalFormat, size_t width, size_t height, size_t levels = 1
+	static owned create2D(GLenum textureType, GLenum internalFormat, size_t width, size_t height, size_t levels = 1
 		, void const* data = nullptr, GLenum dataType = GL_FLOAT, GLenum dataFormat = GL_RED)
 	{
 		return create3D(textureType, internalFormat, width, height, 0, levels, data, dataType, dataFormat);
 	}
 
-	static Texture create3D(GLenum textureType, GLenum internalFormat, size_t width, size_t height, size_t depth, size_t levelsOrGen = 1
+	static owned create3D(GLenum textureType, GLenum internalFormat, size_t width, size_t height, size_t depth, size_t levelsOrGen = 1
 		, void const* data = nullptr, GLenum dataType = GL_FLOAT, GLenum dataFormat = GL_RED)
 	{
-		Texture result;
+		auto result = create();
 		result.bind(textureType);
 
 		size_t levels = (levelsOrGen >= 1U) ? levelsOrGen : computeMipLevelCount(std::max(std::max(width, height), depth));
@@ -410,16 +424,19 @@ struct Texture : gl_delete<GLuint, glDeleteTextures>::handle_type
 		THROW_OPENGL_LASTERROR("glGenerateMipmap()");
 	}
 };
+typedef TextureRef::owned Texture;
 
-struct Sampler : glew_delete<GLuint, glDeleteSamplers>::handle_type
+struct SamplerRef : glew_destroy<SamplerRef, GLuint, glDeleteSamplers>
 {
-	MOVE_BASE(Sampler, unique_handle)
+	SamplerRef(std::nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
+	SamplerRef(GLuint ref) { this->ref = ref; }
 
-	Sampler(std::nullptr_t) { }
-	Sampler()
+	static owned create()
 	{
-		glGenSamplers(1, rebind());
+		owned r = nullptr;
+		glGenSamplers(1, &r.ref);
 		THROW_OPENGL_LASTERROR("glGenSamplers()");
+		return r;
 	}
 
 	void bind(unsigned slot = 0)
@@ -432,16 +449,16 @@ struct Sampler : glew_delete<GLuint, glDeleteSamplers>::handle_type
 		glBindSampler(slot, 0);
 	}
 
-	static Sampler createLinear(GLint wrapMode = GL_REPEAT, GLint min = GL_LINEAR_MIPMAP_LINEAR, GLint mag = GL_LINEAR)
+	static owned createLinear(GLint wrapMode = GL_REPEAT, GLint min = GL_LINEAR_MIPMAP_LINEAR, GLint mag = GL_LINEAR)
 	{
-		Sampler r;
+		auto r = create();
 		r.filterMode(min, mag);
 		r.wrapMode(wrapMode);
 		return r;
 	}
-	static Sampler createNearest(GLint wrapMode = GL_REPEAT, GLint min = GL_NEAREST_MIPMAP_NEAREST, GLint mag = GL_NEAREST)
+	static owned createNearest(GLint wrapMode = GL_REPEAT, GLint min = GL_NEAREST_MIPMAP_NEAREST, GLint mag = GL_NEAREST)
 	{
-		Sampler r;
+		auto r = create();
 		r.filterMode(min, mag);
 		r.wrapMode(wrapMode);
 		r.anisotropy(1);
@@ -480,16 +497,19 @@ struct Sampler : glew_delete<GLuint, glDeleteSamplers>::handle_type
 		THROW_OPENGL_LASTERROR("glSamplerParameteri()");
 	}
 };
+typedef SamplerRef::owned Sampler;
 
-struct RenderBuffer : glew_delete<GLuint, glDeleteRenderbuffers>::handle_type
+struct RenderBufferRef : glew_destroy<RenderBufferRef, GLuint, glDeleteRenderbuffers>
 {
-	MOVE_BASE(RenderBuffer, unique_handle)
+	RenderBufferRef(std::nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
+	RenderBufferRef(GLuint ref) { this->ref = ref; }
 
-	RenderBuffer(std::nullptr_t) { }
-	RenderBuffer()
+	static owned create()
 	{
-		glGenRenderbuffers(1, rebind());
+		owned r = nullptr;
+		glGenRenderbuffers(1, &r.ref);
 		THROW_OPENGL_LASTERROR("glGenRenderbuffers()");
+		return r;
 	}
 
 	void bind()
@@ -502,9 +522,9 @@ struct RenderBuffer : glew_delete<GLuint, glDeleteRenderbuffers>::handle_type
 		glBindRenderbuffer(GL_RENDERBUFFER, 0);
 	}
 
-	static RenderBuffer create(GLenum internalFormat, size_t width, size_t height, size_t samples = 1)
+	static owned create(GLenum internalFormat, size_t width, size_t height, size_t samples = 1)
 	{
-		RenderBuffer result;
+		auto result = create();
 		result.bind();
 
 		if(samples > 1)
@@ -521,6 +541,7 @@ struct RenderBuffer : glew_delete<GLuint, glDeleteRenderbuffers>::handle_type
 		return result;
 	}
 };
+typedef RenderBufferRef::owned RenderBuffer;
 
 template <class Resource>
 struct AutoTarget : Resource
@@ -559,15 +580,17 @@ struct AutoTarget : Resource
 template <class R>
 inline AutoTarget<R> auto_target(GLenum target, R resource) { return AutoTarget<R>(target, std::move(resource)); }
 
-struct VertexArrays : glew_delete<GLuint, glDeleteVertexArrays>::handle_type
+struct VertexArraysRef : glew_destroy<VertexArraysRef, GLuint, glDeleteVertexArrays>
 {
-	MOVE_BASE(VertexArrays, unique_handle)
+	VertexArraysRef(std::nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
+	VertexArraysRef(GLuint ref) { this->ref = ref; }
 
-	VertexArrays(std::nullptr_t) { }
-	VertexArrays()
+	static owned create()
 	{
-		glGenVertexArrays(1, rebind());
+		owned r = nullptr;
+		glGenVertexArrays(1, &r.ref);
 		THROW_OPENGL_LASTERROR("glGenVertexArrays()");
+		return r;
 	}
 
 	void bind()
@@ -580,16 +603,19 @@ struct VertexArrays : glew_delete<GLuint, glDeleteVertexArrays>::handle_type
 		glBindVertexArray(0);
 	}
 };
+typedef VertexArraysRef::owned VertexArrays;
 
-struct Framebuffer : glew_delete<GLuint, glDeleteFramebuffers>::handle_type
+struct FramebufferRef : glew_destroy<FramebufferRef, GLuint, glDeleteFramebuffers>
 {
-	MOVE_BASE(Framebuffer, unique_handle)
+	FramebufferRef(std::nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
+	FramebufferRef(GLuint ref) { this->ref = ref; }
 
-	Framebuffer(std::nullptr_t) { }
-	Framebuffer()
+	static owned create()
 	{
-		glGenFramebuffers(1, rebind());
+		owned r = nullptr;
+		glGenFramebuffers(1, &r.ref);
 		THROW_OPENGL_LASTERROR("glGenFramebuffers()");
+		return r;
 	}
 
 	void bind(GLenum target = GL_FRAMEBUFFER)
@@ -601,9 +627,9 @@ struct Framebuffer : glew_delete<GLuint, glDeleteFramebuffers>::handle_type
 		glBindFramebuffer(target, 0);
 	}
 
-	static Framebuffer create(GLuint const* textures, size_t textureCount, GLuint depthBuffer = 0)
+	static owned create(GLuint const* textures, size_t textureCount, GLuint depthBuffer = 0)
 	{
-		Framebuffer result;
+		auto result = create();
 		result.bind();
 
 		std::vector<GLenum> attachmentMapping(textureCount);
@@ -628,9 +654,9 @@ struct Framebuffer : glew_delete<GLuint, glDeleteFramebuffers>::handle_type
 		return result;
 	}
 
-	static Framebuffer createEmpty(size_t width, size_t height, size_t samples = 1)
+	static owned createEmpty(size_t width, size_t height, size_t samples = 1)
 	{
-		Framebuffer result;
+		auto result = create();
 		result.bind();
 
 		glFramebufferParameteri(GL_FRAMEBUFFER, GL_FRAMEBUFFER_DEFAULT_WIDTH, GLint(width));
@@ -641,11 +667,9 @@ struct Framebuffer : glew_delete<GLuint, glDeleteFramebuffers>::handle_type
 		return result;
 	}
 
-	static Framebuffer default()
+	static FramebufferRef default()
 	{
-		Framebuffer result(nullptr);
-		result.reset(0);
-		return result;
+		return FramebufferRef(0U);
 	}
 
 	static GLuint getAttachement(GLenum attachment, GLenum target = GL_FRAMEBUFFER)
@@ -656,6 +680,7 @@ struct Framebuffer : glew_delete<GLuint, glDeleteFramebuffers>::handle_type
 		return (GLuint) object;
 	}
 };
+typedef FramebufferRef::owned Framebuffer;
 
 template <class Resource>
 struct AutoViewport : Resource
@@ -689,20 +714,21 @@ template <class R>
 inline AutoViewport<R> auto_viewport(R resource, GLint width, GLint height, GLint x = 0, GLint y = 0) {
 	return AutoViewport<R>(std::move(resource), width, height, x, y); }
 
-struct Shader : glew_delete_single<GLuint, glDeleteShader>::handle_type
+struct ShaderRef : glew_destroy_single<ShaderRef, GLuint, glDeleteShader>
 {
-	MOVE_BASE(Shader, unique_handle)
+	ShaderRef(std::nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
+	ShaderRef(GLuint ref) { this->ref = ref; }
 
-	Shader(std::nullptr_t) { }
-	explicit Shader(GLenum shaderType)
+	static owned create(GLenum shaderType)
 	{
-		reset( glCreateShader(shaderType) );
+		owned r( glCreateShader(shaderType) );
 		THROW_OPENGL_LASTERROR("glCreateShader()");
+		return r;
 	}
 
-	static Shader compile(GLenum shaderType, char const* source, char const* preamble = "")
+	static owned compile(GLenum shaderType, char const* source, char const* preamble = "")
 	{
-		Shader result(shaderType);
+		auto result = create(shaderType);
 
 		char const* shaderTypePreamble;
 		switch (shaderType)
@@ -805,24 +831,26 @@ struct Shader : glew_delete_single<GLuint, glDeleteShader>::handle_type
 		return (status == GL_TRUE);
 	}
 
-	static Shader fromFile(GLenum shaderType, char const* file, char const* preamble = "")
+	static owned fromFile(GLenum shaderType, char const* file, char const* preamble = "")
 	{
 		return compile(shaderType, stdx::load_file(file).c_str(), preamble);
 	}
 };
+typedef ShaderRef::owned Shader;
 
-struct Program : glew_delete_single<GLuint, glDeleteProgram>::handle_type
+struct ProgramRef : glew_destroy_single<ProgramRef, GLuint, glDeleteProgram>
 {
-	MOVE_BASE(Program, unique_handle)
+	ProgramRef(std::nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
+	ProgramRef(GLuint ref) { this->ref = ref; }
 
-	Program(std::nullptr_t) { }
-	Program()
+	static owned create()
 	{
-		reset( glCreateProgram() );
+		owned r( glCreateProgram() );
 		THROW_OPENGL_LASTERROR("glCreateProgram()");
 
-		glProgramParameteri(*this, GL_PROGRAM_BINARY_RETRIEVABLE_HINT, GL_TRUE);
+		glProgramParameteri(r, GL_PROGRAM_BINARY_RETRIEVABLE_HINT, GL_TRUE);
 		THROW_OPENGL_LASTERROR("glProgramParameteri(GL_PROGRAM_BINARY_RETRIEVABLE_HINT)");
+		return r;
 	}
 
 	void bind()
@@ -834,7 +862,7 @@ struct Program : glew_delete_single<GLuint, glDeleteProgram>::handle_type
 		glUseProgram(0);
 	}
 
-	Program& attach(GLuint shader)
+	ProgramRef& attach(GLuint shader)
 	{
 		glAttachShader(*this, shader);
 		THROW_OPENGL_LASTERROR("glAttachShader()");
@@ -887,9 +915,9 @@ struct Program : glew_delete_single<GLuint, glDeleteProgram>::handle_type
 		return (status == GL_TRUE);
 	}
 
-	static Program fromShaders(GLuint s1, GLuint s2 = 0, GLuint s3 = 0, GLuint s4 = 0, GLuint s5 = 0, GLuint s6 = 0)
+	static owned fromShaders(GLuint s1, GLuint s2 = 0, GLuint s3 = 0, GLuint s4 = 0, GLuint s5 = 0, GLuint s6 = 0)
 	{
-		Program result;
+		auto result = create();
 		if (s1) result.attach(s1);
 		if (s2) result.attach(s2);
 		if (s3) result.attach(s3);
@@ -900,6 +928,7 @@ struct Program : glew_delete_single<GLuint, glDeleteProgram>::handle_type
 		return result;
 	}
 };
+typedef ProgramRef::owned Program;
 
 struct ProgramWithTime : Program
 {
@@ -966,17 +995,17 @@ struct ProgramWithTime : Program
 	}
 };
 
-struct Event : glew_delete<GLuint, glDeleteQueries>::handle_type
+struct EventRef : glew_destroy<EventRef, GLuint, glDeleteQueries>
 {
-	MOVE_BASE(Event, unique_handle)
+	EventRef(std::nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
+	EventRef(GLuint ref) { this->ref = ref; }
 
-	Event(std::nullptr_t) { }
-	explicit Event(GLuint event)
-		: unique_handle(event) { }
-	explicit Event()
+	static owned create()
 	{
-		glGenQueries(1, rebind());
+		owned r = nullptr;
+		glGenQueries(1, &r.ref);
 		THROW_OPENGL_LASTERROR("Failed to create OGL event");
+		return r;
 	}
 
 	void record()
@@ -985,6 +1014,7 @@ struct Event : glew_delete<GLuint, glDeleteQueries>::handle_type
 		THROW_OPENGL_LASTERROR("Failed to record OGL event");
 	}
 };
+typedef EventRef::owned Event;
 
 inline double diffMS(GLuint startEvent, GLuint endEvent, bool failQuiet = false)
 {
@@ -1003,7 +1033,7 @@ struct NullVertexArray : VertexArrays
 {
 	MOVE_GENERATE(NullVertexArray, MOVE_2, BASE, VertexArrays, MEMBER, buffer)
 
-	ogl::Buffer buffer;
+	Buffer buffer;
 
 	NullVertexArray(nullptr_t)
 		: VertexArrays(nullptr)
@@ -1011,7 +1041,8 @@ struct NullVertexArray : VertexArrays
 	{
 	}
 	NullVertexArray()
-		: buffer( ogl::Buffer::create(GL_ARRAY_BUFFER, sizeof(float)) )
+		: VertexArrays( create() )
+		, buffer( Buffer::create(GL_ARRAY_BUFFER, sizeof(float)) )
 	{
 		bind();
 		glVertexAttribPointer(0, 1, GL_FLOAT, GL_FALSE, 0, nullptr);

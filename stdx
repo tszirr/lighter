@@ -428,7 +428,7 @@ namespace stdx
 		explicit own(pointer&& value)
 			: RefObj(MOVE_T(value)) { }
 		explicit own(pointer const& value)
-			: RefObj(MOVE_T(value)) { }
+			: RefObj(value) { }
 		
 		// movement
 		own(own&& right)
@@ -452,6 +452,8 @@ namespace stdx
 	struct ref_base
 	{
 		RefObj ref;
+
+		RefObj operator ->() const { return ref; }
 
 		RefObj const& get() const { return ref; }
 		operator RefObj() const { return ref; }
@@ -604,6 +606,59 @@ namespace stdx
 			  obj
 			, &fun_ref::template memfun_dispatcher<typename std::remove_reference<Class>::type, MemFun>::template dispatcher<typename fun_ref::signature_type>::call)
 	}
+
+	template <int CounterStart>
+	struct enumerable
+	{
+		template <int Counter>
+		struct enum_iterator : enum_iterator<Counter - 1> { static int const value = Counter; static int const next_value = Counter - 1; };
+		template <>
+		struct enum_iterator<CounterStart - 1> { static int const value = 0; };
+
+		template <class This, class Op>
+		friend void enumerate_from(This&, enum_iterator<CounterStart - 1>, Op&&) { }
+		template <class This, class Op>
+		friend void reflect_from(This*, enum_iterator<CounterStart - 1>, Op&&) { }
+	};
+
+	#define ENUMERABLE ::stdx::enumerable<__COUNTER__>
+	#define MAKE_ENUM_ITERATOR() enum_iterator<__COUNTER__>()
+	#define NEXT_ENUM_ITERATOR(i) enum_iterator<i.next_value>()
+
+	#define ENUMERABLE_MEMBER(basetype, memname, ...) \
+		struct _##memname##_type : basetype \
+		{ \
+			MOVE_BASE(_##memname##_type, basetype) \
+			static int const enum_counter = __COUNTER__; \
+			typedef enum_iterator<enum_counter> enum_iterator; \
+			typedef basetype enum_type; \
+			static char const* enum_name() { return #memname; } \
+			_##memname##_type() : basetype(__VA_ARGS__) { } \
+			_##memname##_type(basetype&& right) : basetype(std::move(right)) { } \
+			_##memname##_type(basetype const& right) : basetype(right) { } \
+			using basetype::operator =; \
+		} memname; \
+		template <class This, class Op> \
+		friend void enumerate_from(This& self, _##memname##_type::enum_iterator i, Op&& op) \
+		{ \
+			enumerate_from(self, NEXT_ENUM_ITERATOR(i), op); \
+			op(self.memname); \
+		} \
+		template <class This, class Op> \
+		friend void reflect_from(This *self, _##memname##_type::enum_iterator i, Op&& op) \
+		{ \
+			reflect_from(self, NEXT_ENUM_ITERATOR(i), op); \
+			op(&This::memname); \
+		}
+
+	#define ENUMERABLE_FINISH(type) \
+		typedef enum_iterator<__COUNTER__> enum_iterator_begin; \
+		template <class Op> \
+		void enumerate(Op&& op) { enumerate_from(*this, enum_iterator_begin(), op); } \
+		template <class Op> \
+		void enumerate(Op&& op) const { enumerate_from(*this, enum_iterator_begin(), op); } \
+		template <class Op> \
+		static void reflect(Op&& op) { reflect_from(static_cast<type*>(nullptr), enum_iterator_begin(), op); }
 
 } // namespace
 

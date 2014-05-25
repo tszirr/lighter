@@ -7,6 +7,14 @@
 #include "stdx"
 #include "mathx"
 
+#ifndef DEFAULT_ASSIGN_NULL_REFERENCE
+	#ifndef NO_DEFAULT_ASSIGN_NULL_REFERENCE
+		#define DEFAULT_ASSIGN_NULL_REFERENCE = nullptr
+	#else
+		#define DEFAULT_ASSIGN_NULL_REFERENCE
+	#endif
+#endif
+
 namespace text
 {
 
@@ -15,27 +23,38 @@ typedef stdx::error<freetype_tag> ft_error;
 
 #define THROW_FREETYPE_ERROR(error, ctx) do { auto _uniqueerrorval = error; if (_uniqueerrorval != 0) throwx( ::text::ft_error(ctx) ); } while (false)
 
-template <class Pointer, FT_Error (*Deleter)(Pointer)>
-struct ft_delete
+template <class RefClass, class Pointer, FT_Error (*Deleter)(Pointer)>
+struct ft_destroy : stdx::ref_base<Pointer>
 {
 	typedef Pointer pointer;
-	void operator ()(pointer ptr) const
+	typedef stdx::own<RefClass> owned;
+	void destroy() const
 	{
-		if (ptr)
-			(*Deleter)(ptr);
+		if (this->ref)
+			(*Deleter)(this->ref);
 	}
-
-	typedef std::unique_ptr< typename std::remove_pointer<Pointer>::type, ft_delete<Pointer, Deleter> > pointer_type;
-	typedef stdx::unique_handle< typename std::remove_pointer<Pointer>::type, ft_delete<Pointer, Deleter> > handle_type;
+	void forget()
+	{
+		this->ref = 0;
+	}
 };
 
-struct FreeType : ft_delete<FT_Library, FT_Done_FreeType>::handle_type
+struct FreeTypeRef : ft_destroy<FreeTypeRef, FT_Library, FT_Done_FreeType>
 {
-	MOVE_BASE(FreeType, unique_handle)
+	FreeTypeRef(FT_Library ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
+};
 
+struct FreeType : FreeTypeRef::owned
+{
+	MOVE_BASE(FreeType, owned)
+
+	FreeType(nullptr_t) : owned(nullptr) { }
+	explicit FreeType(FT_Library ref) : owned(ref) { }
+	
 	FreeType()
+		: owned(nullptr)
 	{
-		THROW_FREETYPE_ERROR(FT_Init_FreeType(rebind()), "FT_Init_FreeType");
+		THROW_FREETYPE_ERROR(FT_Init_FreeType(&ref), "FT_Init_FreeType");
 	}
 };
 
@@ -44,8 +63,13 @@ struct Bitmap : stdx::noncopyable, FT_Bitmap
 	MOVE_GENERATE(Bitmap, MOVE_2, BASE, FT_Bitmap, MEMBER, lib)
 	FT_Library lib;
 
-	Bitmap(std::nullptr_t) { }
-	Bitmap(FT_Library lib)
+	Bitmap(std::nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { }
+	explicit Bitmap(FT_Bitmap bmp, FT_Library lib)
+		: FT_Bitmap(bmp)
+		, lib(lib)
+	{
+	}
+	explicit Bitmap(FT_Library lib)
 		: lib(lib)
 	{
 		FT_Bitmap_New(this);
@@ -72,24 +96,27 @@ struct PxSize
 		: width(width), height(height) { }
 };
 
-struct Face : ft_delete<FT_Face, FT_Done_Face>::handle_type
+struct FaceRef : ft_destroy<FaceRef, FT_Face, FT_Done_Face>
 {
-	MOVE_BASE(Face, unique_handle)
+	FaceRef(FT_Face ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 
-	Face(std::nullptr_t) { }
-	Face(FT_Library library, char const* name, FT_Long faceIdx = 0)
+	static owned create(FT_Library library, char const* name, FT_Long faceIdx = 0)
 	{
-		THROW_FREETYPE_ERROR(FT_New_Face(library, name, faceIdx, rebind()), "FT_New_Face");
+		owned r = nullptr;
+		THROW_FREETYPE_ERROR(FT_New_Face(library, name, faceIdx, &r.ref), "FT_New_Face");
+		return r;
 	}
-	Face(FT_Library library, char const* name, PtSize size, FT_Long faceIdx = 0)
+	static owned create(FT_Library library, char const* name, PtSize size, FT_Long faceIdx = 0)
 	{
-		*this = Face(library, name, faceIdx);
-		this->size(size);
+		auto r = create(library, name, faceIdx);
+		r.size(size);
+		return r;
 	}
-	Face(FT_Library library, char const* name, PxSize size, FT_Long faceIdx = 0)
+	static owned create(FT_Library library, char const* name, PxSize size, FT_Long faceIdx = 0)
 	{
-		*this = Face(library, name, faceIdx);
-		this->size(size);
+		auto r = create(library, name, faceIdx);
+		r.size(size);
+		return r;
 	}
 
 	void size(PxSize size)
@@ -124,5 +151,6 @@ struct Face : ft_delete<FT_Face, FT_Done_Face>::handle_type
 		return glyth;
 	}
 };
+typedef FaceRef::owned Face;
 
 } // namespace

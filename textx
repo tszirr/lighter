@@ -178,7 +178,7 @@ struct GlyphCache
 		: auxBmp(lib)
 		, bmpCache(std::move(bmpCache)) { }
 
-	CachedGlyph const& get(FT_Library lib, Face& face, FT_ULong chr, bool &overflow, FT_Render_Mode renderMode)
+	CachedGlyph const& get(FT_Library lib, FaceRef& face, FT_ULong chr, bool &overflow, FT_Render_Mode renderMode)
 	{
 		overflow = false;
 		auto it = cache.find(chr);
@@ -190,7 +190,7 @@ struct GlyphCache
 	// todo: multiple cache bitmaps OR array?
 	// todo: discard on overflow
 
-	CachedGlyph const& add(FT_Library lib, Face& face, FT_ULong chr, bool &overflow, FT_Render_Mode renderMode)
+	CachedGlyph const& add(FT_Library lib, FaceRef& face, FT_ULong chr, bool &overflow, FT_Render_Mode renderMode)
 	{
 		overflow = false;
 
@@ -251,7 +251,7 @@ struct TextRenderer
 		}
 	};
 
-	ogl::Program* charProgram;
+	ogl::ProgramRef* charProgram;
 	ogl::VertexArrays charArrays;
 	unsigned charBatchCnt, charBatchSize;
 	std::unique_ptr<QueuedChar[]> charMem;
@@ -259,9 +259,9 @@ struct TextRenderer
 	GlyphCache glyphCache;
 	FT_Render_Mode renderMode;
 
-	TextRenderer(FT_Library lib, ogl::Program* program, unsigned charBatchSize, unsigned charHeight = 16, unsigned cacheRes = 1024)
-		: charProgram(move(program))
-		, charArrays()
+	TextRenderer(FT_Library lib, ogl::ProgramRef* program, unsigned charBatchSize, unsigned charHeight = 16, unsigned cacheRes = 1024)
+		: charProgram(program)
+		, charArrays(ogl::VertexArrays::create())
 		, charBatchCnt(0)
 		, charBatchSize(charBatchSize)
 		, charMem(new QueuedChar[charBatchSize])
@@ -278,7 +278,7 @@ struct TextRenderer
 	}
 	
 	template <class Char, class CharOp, class GlyphOp>
-	glm::aabb<glm::ivec2> layoutText(FT_Library lib, Face& face, glm::ivec2 textPos
+	glm::aabb<glm::ivec2> layoutText(FT_Library lib, FaceRef& face, glm::ivec2 textPos
 		, CharOp&& charToGlyphOp, GlyphOp&& glyphOp
 		, Char const* chars, size_t maxChars = ~0)
 	{
@@ -316,21 +316,21 @@ struct TextRenderer
 	}
 
 	template <class Char>
-	glm::aabb<glm::ivec2> boundText(FT_Library lib, Face& face, glm::ivec2 textPos, Char const* chars, size_t maxChars = ~0)
+	glm::aabb<glm::ivec2> boundText(FT_Library lib, FaceRef& face, glm::ivec2 textPos, Char const* chars, size_t maxChars = ~0)
 	{
 		using namespace std::placeholders;
 		return layoutText(lib, face, textPos, std::bind(&TextRenderer::getGlyph, this, _1, _2, _3, _4), stdx::noop(), chars, maxChars);
 	}
 
 	template <class Char>
-	glm::aabb<glm::ivec2> drawText(FT_Library lib, Face& face, glm::ivec2 textPos, Char const* chars, size_t maxChars = ~0, bool draw = true)
+	glm::aabb<glm::ivec2> drawText(FT_Library lib, FaceRef& face, glm::ivec2 textPos, Char const* chars, size_t maxChars = ~0, bool draw = true)
 	{
 		using namespace std::placeholders;
 		return layoutText(lib, face, textPos, std::bind(&TextRenderer::drawChar, this, _1, _2, _3, _4), stdx::noop(), chars, maxChars);
 	}
 	
 	template <class Char>
-	glm::aabb<glm::ivec2> selectChar(FT_Library lib, Face& face
+	glm::aabb<glm::ivec2> selectChar(FT_Library lib, FaceRef& face
 		, glm::ivec2 cursorPos, size_t& charIdx
 		, glm::ivec2 textPos, Char const* chars, size_t maxChars = ~0)
 	{
@@ -347,7 +347,7 @@ struct TextRenderer
 			descender -= deltaHeight / 2;
 		}
 
-		auto charSelect = [&](FT_Library lib, Face& face, glm::ivec2 pos, FT_ULong chr
+		auto charSelect = [&](FT_Library lib, FaceRef& face, glm::ivec2 pos, FT_ULong chr
 			, glm::aabb<glm::ivec2> const& glyphBox, GlyphCache::CachedGlyph const& glyph
 			, size_t textOffset)
 		{
@@ -373,7 +373,7 @@ struct TextRenderer
 		return charBox;
 	}
 
-	glm::aabb<glm::ivec2> boundChar(FT_Library lib, Face& face, glm::ivec2 charPos, FT_ULong chr)
+	glm::aabb<glm::ivec2> boundChar(FT_Library lib, FaceRef& face, glm::ivec2 charPos, FT_ULong chr)
 	{
 		glm::aabb<glm::ivec2> box;
 		auto const& glyph = getGlyph(lib, face, charPos, chr);
@@ -382,7 +382,7 @@ struct TextRenderer
 		return box;
 	}
 
-	GlyphCache::CachedGlyph const& getGlyph(FT_Library lib, Face& face, glm::ivec2 pos, FT_ULong chr)
+	GlyphCache::CachedGlyph const& getGlyph(FT_Library lib, FaceRef& face, glm::ivec2 pos, FT_ULong chr)
 	{
 		bool cacheOverflow;
 		auto& glyph = glyphCache.get(lib, face, chr, cacheOverflow, renderMode);
@@ -393,7 +393,7 @@ struct TextRenderer
 		return glyph;
 	}
 
-	GlyphCache::CachedGlyph const& drawChar(FT_Library lib, Face& face, glm::ivec2 pos, FT_ULong chr)
+	GlyphCache::CachedGlyph const& drawChar(FT_Library lib, FaceRef& face, glm::ivec2 pos, FT_ULong chr)
 	{
 		bool cacheOverflow;
 		auto& glyph = glyphCache.get(lib, face, chr, cacheOverflow, renderMode);

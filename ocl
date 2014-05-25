@@ -3,6 +3,14 @@
 #include "oglbase"
 #include "oclbase"
 
+#ifndef DEFAULT_ASSIGN_NULL_REFERENCE
+	#ifndef NO_DEFAULT_ASSIGN_NULL_REFERENCE
+		#define DEFAULT_ASSIGN_NULL_REFERENCE = nullptr
+	#else
+		#define DEFAULT_ASSIGN_NULL_REFERENCE
+	#endif
+#endif
+
 #define CL_MEM_WRITE_ACCESS_FLAG_MASK (CL_MEM_READ_WRITE | CL_MEM_WRITE_ONLY | CL_MEM_READ_ONLY)
 #define GL_SHARING_EXTENSION "cl_khr_gl_sharing"
 
@@ -16,6 +24,11 @@
 namespace ocl
 {
 
+struct ContextRef : cl_destroy<ContextRef, cl_context, clReleaseContext>
+{
+	ContextRef(cl_context ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
+};
+
 struct cl_context_with_device
 {
 	cl_context context;
@@ -24,14 +37,36 @@ struct cl_context_with_device
 	operator cl_context() const { return context; }
 };
 
-struct Context : cl_delete<cl_context, clReleaseContext>::handle_type
+struct ContextRefWithDevice : ContextRef
 {
-	MOVE_GENERATE(Context, MOVE_3, BASE, unique_handle, MEMBER, platform, MEMBER, device)
+	typedef stdx::own<ContextRefWithDevice> owned;
 
 	cl_platform_id platform;
 	cl_device_id device;
 
+	ContextRefWithDevice(ContextRef ref DEFAULT_ASSIGN_NULL_REFERENCE, cl_platform_id platform = nullptr, cl_device_id device = nullptr)
+		: ContextRef(ref)
+		, platform(platform)
+		, device(device) { }
+
+	operator cl_context_with_device() const
+	{
+		cl_context_with_device r = { ref, device };
+		return r;
+	}
+};
+
+struct Context : ContextRefWithDevice::owned
+{
+	MOVE_BASE(Context, owned)
+
+	Context(nullptr_t)
+		: owned( ContextRefWithDevice(nullptr) ) { }
+	explicit Context(cl_context ref, cl_platform_id platform = nullptr, cl_device_id device = nullptr)
+		: owned( ContextRefWithDevice(ref, platform, device) ) { }
+
 	explicit Context(cl_device_type deviceType = CL_DEVICE_TYPE_GPU, bool enableGLSharing = true)
+		: owned(nullptr)
 	{
 		{
 			cl_platform_id platformIDs[16];
@@ -88,7 +123,7 @@ struct Context : cl_delete<cl_context, clReleaseContext>::handle_type
 				0
 			};
 			cl_int error;
-			reset( clCreateContext(props, 1, &device, nullptr, nullptr, &error) );
+			ref = clCreateContext(props, 1, &device, nullptr, nullptr, &error);
 			THROW_OPENCL_ERROR( error, "Failed to create OpenCL context");
 		}
 		else
@@ -99,51 +134,62 @@ struct Context : cl_delete<cl_context, clReleaseContext>::handle_type
 				0
 			};
 			cl_int error;
-			reset( clCreateContext(props, 1, &device, nullptr, nullptr, &error) );
+			ref = clCreateContext(props, 1, &device, nullptr, nullptr, &error);
 			THROW_OPENCL_ERROR( error, "Failed to create OpenCL context");
 		}
 	}
-
-	operator cl_context_with_device() const
-	{
-		cl_context_with_device r = { get(), device };
-		return r;
-	}
 };
 
-struct CommandStream : cl_delete<cl_command_queue, clReleaseCommandQueue>::handle_type
+struct CommandStreamRef : cl_destroy<CommandStreamRef, cl_command_queue, clReleaseCommandQueue>
 {
-	MOVE_BASE(CommandStream, unique_handle)
+	CommandStreamRef(cl_command_queue ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
+};
 
-	CommandStream(cl_context_with_device context, bool profiling = true)
+struct CommandStream : CommandStreamRef::owned
+{
+	MOVE_BASE(CommandStream, owned)
+
+	CommandStream(nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) : owned(nullptr) { }
+	explicit CommandStream(cl_command_queue ref) : owned(ref) { }
+
+	explicit CommandStream(cl_context_with_device context, bool profiling = true)
+		: owned(nullptr)
 	{
 		cl_command_queue_properties const props = (profiling) ? CL_QUEUE_PROFILING_ENABLE : 0;
 
 		cl_int error;
-		reset( clCreateCommandQueue(context, context.device, props, &error) );
+		ref = clCreateCommandQueue(context, context.device, props, &error);
 		THROW_OPENCL_ERROR(error, "Failed to create the command queue in the OpenCL context");
 	}
 };
 
-struct Program : cl_delete<cl_program, clReleaseProgram>::handle_type
+struct ProgramRef : cl_destroy<ProgramRef, cl_program, clReleaseProgram>
 {
-	MOVE_BASE(Program, unique_handle)
+	ProgramRef(cl_program ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 
-	Program(std::nullptr_t) { }
-	Program(cl_context_with_device context, char const* source, char const* preamble = "")
+	static owned fromSource(cl_context_with_device context, char const* source, char const* preamble = "")
 	{
+		owned r = nullptr;
+
 		char const* sources[] = { preamble, source };
 
 		cl_int error;
-		reset( clCreateProgramWithSource(context, 2, sources, nullptr, &error) );
+		r.ref = clCreateProgramWithSource(context, 2, sources, nullptr, &error);
 		THROW_OPENCL_ERROR(error, "Failed to create OpenCL program");
 
-		error = clBuildProgram(*this, 1, &context.device, nullptr, nullptr, nullptr);
+		error = clBuildProgram(r, 1, &context.device, nullptr, nullptr, nullptr);
 		if(error != CL_SUCCESS)
 		{
-			printBuildLog(*this, context.device);
+			printBuildLog(r, context.device);
 			THROW_OPENCL_ERROR(error, "Failed to build OpenCL program");
 		}
+
+		return r;
+	}
+	
+	static owned fromFile(cl_context_with_device context, char const* file, char const* preamble = "")
+	{
+		return fromSource(context, stdx::load_file(file).c_str(), preamble);
 	}
 
 	static void printBuildLog(cl_program program, cl_device_id device)
@@ -161,32 +207,29 @@ struct Program : cl_delete<cl_program, clReleaseProgram>::handle_type
 		std::cout << "There were build errors:" << std::endl;
 		std::cout << log << std::endl;
 	}
-
-	static Program fromFile(cl_context_with_device context, char const* file, char const* preamble = "")
-	{
-		return ocl::Program(context, stdx::load_file(file).c_str(), preamble);
-	}
 };
+typedef ProgramRef::owned Program;
 
-struct Kernel : cl_delete<cl_kernel, clReleaseKernel>::handle_type
+struct KernelRef : cl_destroy<KernelRef, cl_kernel, clReleaseKernel>
 {
-	MOVE_BASE(Kernel, unique_handle)
+	KernelRef(cl_kernel ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 
-	Kernel(std::nullptr_t) { }
-	Kernel(cl_program program, char const* name)
+	static owned fromProgram(cl_program program, char const* name)
 	{
+		owned r = nullptr;
 		cl_int error;
-		reset( clCreateKernel(program, name, &error) );
+		r.ref = clCreateKernel(program, name, &error);
 		THROW_OPENCL_ERROR(error, "Failed to create OpenCL kernel");
+		return r;
 	}
 
-	static Kernel fromSource(cl_context_with_device context, char const* source, char const* name)
+	static owned fromSource(cl_context_with_device context, char const* source, char const* name)
 	{
-		return ocl::Kernel(ocl::Program(context, source), name);
+		return fromProgram(Program::fromSource(context, source), name);
 	}
-	static Kernel fromFile(cl_context_with_device context, char const* file, char const* name)
+	static owned fromFile(cl_context_with_device context, char const* file, char const* name)
 	{
-		return ocl::Kernel(ocl::Program::fromFile(context, file), name);
+		return fromProgram(Program::fromFile(context, file), name);
 	}
 
 	template <class T>
@@ -202,7 +245,7 @@ struct Kernel : cl_delete<cl_kernel, clReleaseKernel>::handle_type
 	}
 
 	template <class T>
-	Kernel& allocate(unsigned idx, size_t N = 1)
+	KernelRef& allocate(unsigned idx, size_t N = 1)
 	{
 		THROW_OPENCL_ERROR( clSetKernelArg(*this, idx, sizeof(T) * N, nullptr), "Failed to allocate OpenCl kernel argument");
 		return *this;
@@ -213,18 +256,18 @@ struct Kernel : cl_delete<cl_kernel, clReleaseKernel>::handle_type
 	template <class T>
 	static memory_arg memory(size_t count) { return memory_arg(sizeof(T) * count); }
 	template <class T>
-	Kernel& set(unsigned idx, T const& arg)
+	KernelRef& set(unsigned idx, T const& arg)
 	{
 		THROW_OPENCL_ERROR( clSetKernelArg(*this, idx, sizeof(T), &arg), "Failed to set OpenCl kernel argument");
 		return *this;
 	}
 	// trigger implicit cl_mem casts
-	Kernel& set(unsigned idx, cl_mem arg)
+	KernelRef& set(unsigned idx, cl_mem arg)
 	{
 		set<cl_mem>(idx, arg);
 		return *this;
 	}
-	Kernel& set(unsigned idx, memory_arg const& arg)
+	KernelRef& set(unsigned idx, memory_arg const& arg)
 	{
 		allocate<char>(idx, arg.bytes);
 		return *this;
@@ -232,7 +275,7 @@ struct Kernel : cl_delete<cl_kernel, clReleaseKernel>::handle_type
 	
 	struct arg_stream
 	{
-		Kernel *const k;
+		KernelRef *const k;
 		unsigned idx;
 
 		template <class T>
@@ -270,17 +313,17 @@ struct Kernel : cl_delete<cl_kernel, clReleaseKernel>::handle_type
 			"Failed to launch OpenCl kernel");
 	}
 };
+typedef KernelRef::owned Kernel;
 
-struct Event : cl_delete<cl_event, clReleaseEvent>::handle_type
+struct EventRef : cl_destroy<EventRef, cl_event, clReleaseEvent>
 {
-	MOVE_BASE(Event, unique_handle)
+	EventRef(cl_event ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 
-	Event(std::nullptr_t) { }
-	explicit Event(cl_event event)
-		: unique_handle(event) { }
-	explicit Event(cl_command_queue stream)
+	static owned create(cl_command_queue stream)
 	{
-		THROW_OPENCL_ERROR(clEnqueueMarker(stream, rebind()), "Failed to enqueue OpenCL event");
+		owned r = nullptr;
+		THROW_OPENCL_ERROR(clEnqueueMarker(stream, &r.ref), "Failed to enqueue OpenCL event");
+		return r;
 	}
 
 	cl_ulong timeNS()
@@ -290,7 +333,7 @@ struct Event : cl_delete<cl_event, clReleaseEvent>::handle_type
 		cl_int error = clGetEventProfilingInfo(*this, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &time, NULL);
 		if (error == CL_PROFILING_INFO_NOT_AVAILABLE)
 		{
-			error = clWaitForEvents(1, &get());
+			error = clWaitForEvents(1, &ref);
 			if (error == CL_SUCCESS)
 				error = clGetEventProfilingInfo(*this, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &time, NULL);
 		}
@@ -299,30 +342,32 @@ struct Event : cl_delete<cl_event, clReleaseEvent>::handle_type
 		return time;
 	}
 };
+typedef EventRef::owned Event;
 
-inline cl_ulong diffNS(Event &startEvent, Event &endEvent)
+inline cl_ulong diffNS(EventRef startEvent, EventRef endEvent)
 {
 	auto end = endEvent.timeNS();
 	auto start = startEvent.timeNS();
 	return end - start;
 }
 
-inline double diffMS(Event &startEvent, Event &endEvent)
+inline double diffMS(EventRef startEvent, EventRef endEvent)
 {
 	return diffNS(startEvent, endEvent) / 1000000.0;
 }
 
-struct Buffer : cl_delete<cl_mem, clReleaseMemObject>::handle_type
+struct BufferRef : cl_destroy<BufferRef, cl_mem, clReleaseMemObject>
 {
-	MOVE_BASE(Buffer, unique_handle)
+	BufferRef(cl_mem ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 
-	Buffer(std::nullptr_t) { }
-	Buffer(cl_context context, void const* data, size_t size, cl_mem_flags flags = CL_MEM_READ_WRITE)
+	static owned create(cl_context context, void const* data, size_t size, cl_mem_flags flags = CL_MEM_READ_WRITE)
 	{
+		owned r = nullptr;
 		cl_int error;
 		if (data && !(flags & CL_MEM_USE_HOST_PTR)) flags |= CL_MEM_COPY_HOST_PTR;
-		reset( clCreateBuffer(context, flags, size, (void*) data, &error) );
+		r.ref = clCreateBuffer(context, flags, size, (void*) data, &error);
 		THROW_OPENCL_ERROR(error, "Failed to create OpenCL buffer object");
+		return r;
 	}
 
 	void writeBytes(cl_command_queue stream, void const* data, size_t size)
@@ -346,49 +391,45 @@ struct Buffer : cl_delete<cl_mem, clReleaseMemObject>::handle_type
 	}
 
 	template <class T>
-	Buffer create(cl_context context, T* data, size_t count, cl_mem_flags flags = CL_MEM_READ_WRITE)
+	static owned init(cl_context context, T* data, size_t count, cl_mem_flags flags = CL_MEM_READ_WRITE)
 	{
-		return Buffer(context, data, sizeof(T) * count, flags);
+		return create(context, data, sizeof(T) * count, flags);
 	}
 
 	template <class Range>
-	Buffer create(cl_context context, Range const& range, cl_mem_flags flags = CL_MEM_READ_WRITE)
+	static owned init(cl_context context, Range const& range, cl_mem_flags flags = CL_MEM_READ_WRITE)
 	{
-		return Buffer(context, range.data(), sizeof(*range.data()) * range.size(), flags);
+		return create(context, range.data(), sizeof(*range.data()) * range.size(), flags);
 	}
 };
+typedef BufferRef::owned Buffer;
 
-struct Image : cl_delete<cl_mem, clReleaseMemObject>::handle_type
+struct ImageRef : cl_destroy<ImageRef, cl_mem, clReleaseMemObject>
 {
-	MOVE_BASE(Image, unique_handle)
+	ImageRef(cl_mem ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 
-	Image(std::nullptr_t) { }
-	Image(cl_context context, cl_channel_order channelOrder, cl_channel_type channelType, size_t w, size_t h, void const* data, cl_mem_flags flags)
+	static owned create2D(cl_context context, cl_channel_order channelOrder, cl_channel_type channelType, size_t w, size_t h, void const* data = nullptr, cl_mem_flags flags = CL_MEM_READ_WRITE)
 	{
+		owned r = nullptr;
 		cl_int error;
 		cl_image_format format = { channelOrder, channelType };
 		if (data && !(flags & CL_MEM_USE_HOST_PTR)) flags |= CL_MEM_COPY_HOST_PTR;
-		reset( clCreateImage2D(context, flags, &format, w, h, 0, (void*) data, &error) );
+		r.ref = clCreateImage2D(context, flags, &format, w, h, 0, (void*) data, &error);
 		THROW_OPENCL_ERROR(error, "Failed to create OpenCL image object");
+		return r;
 	}
-	Image(cl_context context, cl_channel_order channelOrder, cl_channel_type channelType, size_t w, size_t h, size_t d, void const* data, cl_mem_flags flags)
+	static owned create3D(cl_context context, cl_channel_order channelOrder, cl_channel_type channelType, size_t w, size_t h, size_t d, void const* data = nullptr, cl_mem_flags flags = CL_MEM_READ_WRITE)
 	{
+		owned r = nullptr;
 		cl_int error;
 		cl_image_format format = { channelOrder, channelType };
 		if (data && !(flags & CL_MEM_USE_HOST_PTR)) flags |= CL_MEM_COPY_HOST_PTR;
-		reset( clCreateImage3D(context, flags, &format, w, h, d, 0, 0, (void*) data, &error) );
+		r.ref = clCreateImage3D(context, flags, &format, w, h, d, 0, 0, (void*) data, &error);
 		THROW_OPENCL_ERROR(error, "Failed to create OpenCL volume object");
-	}
-
-	static Image create2D(cl_context context, cl_channel_order channelOrder, cl_channel_type channelType, size_t w, size_t h, void const* data = nullptr, cl_mem_flags flags = CL_MEM_READ_WRITE)
-	{
-		return Image(context, channelOrder, channelType, w, h, data, flags);
-	}
-	static Image create3D(cl_context context, cl_channel_order channelOrder, cl_channel_type channelType, size_t w, size_t h, size_t d, void const* data = nullptr, cl_mem_flags flags = CL_MEM_READ_WRITE)
-	{
-		return Image(context, channelOrder, channelType, w, h, d, data, flags);
+		return r;
 	}
 };
+typedef ImageRef::owned Image;
 
 inline size_t imageSizeInfo(cl_mem image, cl_image_info paramName)
 {
@@ -417,8 +458,8 @@ inline void bufferToImage(cl_command_queue stream, cl_mem buffer, cl_mem image,
 
 struct BufferedVolume
 {
-	ocl::Image volume;
-	ocl::Buffer buffer;
+	Image volume;
+	Buffer buffer;
 
 	MOVE_GENERATE(BufferedVolume, MOVE_2, MEMBER, volume, MEMBER, buffer)
 
@@ -426,62 +467,66 @@ struct BufferedVolume
 		: volume(nullptr)
 		, buffer(nullptr) { }
 	BufferedVolume(cl_context context, cl_channel_order channelOrder, cl_channel_type channelType, size_t w, size_t h, size_t d, void const* data, cl_mem_flags flags = 0)
-		: volume(context, channelOrder, channelType, w, h, d, data, (flags & CL_MEM_WRITE_ACCESS_FLAG_MASK) ? flags : flags | CL_MEM_READ_ONLY)
-		, buffer(context, nullptr, w * h * d * ocl::imageElementSize(volume), (flags & CL_MEM_WRITE_ACCESS_FLAG_MASK) ? flags : flags | CL_MEM_WRITE_ONLY)
+		: volume( Image::create3D(context, channelOrder, channelType, w, h, d, data, (flags & CL_MEM_WRITE_ACCESS_FLAG_MASK) ? flags : flags | CL_MEM_READ_ONLY) )
+		, buffer( Buffer::create(context, nullptr, w * h * d * ocl::imageElementSize(volume), (flags & CL_MEM_WRITE_ACCESS_FLAG_MASK) ? flags : flags | CL_MEM_WRITE_ONLY) )
 	{
 	}
 
-	void copyToVolume(cl_command_queue stream) { ocl::bufferToImage(stream, buffer, volume); }
+	void copyToVolume(cl_command_queue stream) { bufferToImage(stream, buffer, volume); }
 };
 
-struct GlBuffer : cl_delete<cl_mem, clReleaseMemObject>::handle_type
+struct GlBufferRef : cl_destroy<GlBufferRef, cl_mem, clReleaseMemObject>
 {
-	MOVE_BASE(GlBuffer, unique_handle)
+	GlBufferRef(cl_mem ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 
-	GlBuffer(std::nullptr_t) { }
-	GlBuffer(cl_context context, GLuint glBuffer, cl_mem_flags flags = CL_MEM_READ_WRITE)
+	static owned from(cl_context context, GLuint glBuffer, cl_mem_flags flags = CL_MEM_READ_WRITE)
 	{
+		owned r = nullptr;
 		cl_int error;
-		reset( clCreateFromGLBuffer(context, flags, glBuffer, &error) );
+		r.ref = clCreateFromGLBuffer(context, flags, glBuffer, &error);
 		THROW_OPENCL_ERROR(error, "Failed to create OpenCL buffer object");
+		return r;
 	}
 
 	void bind(cl_command_queue stream)
 	{
-		THROW_OPENCL_ERROR( clEnqueueAcquireGLObjects(stream, 1, &get(), 0, nullptr, nullptr), "clEnqueueAcquireGLObjects()" );
+		THROW_OPENCL_ERROR( clEnqueueAcquireGLObjects(stream, 1, &ref, 0, nullptr, nullptr), "clEnqueueAcquireGLObjects()" );
 	}
 
 	void unbind(cl_command_queue stream)
 	{
-		THROW_OPENCL_ERROR( clEnqueueReleaseGLObjects(stream, 1, &get(), 0, nullptr, nullptr), "clEnqueueReleaseGLObjects()" );
+		THROW_OPENCL_ERROR( clEnqueueReleaseGLObjects(stream, 1, &ref, 0, nullptr, nullptr), "clEnqueueReleaseGLObjects()" );
 	}
 };
+typedef GlBufferRef::owned GlBuffer;
 
-struct GlTexture : cl_delete<cl_mem, clReleaseMemObject>::handle_type
+struct GlTextureRef : cl_destroy<GlTextureRef, cl_mem, clReleaseMemObject>
 {
-	MOVE_BASE(GlTexture, unique_handle)
+	GlTextureRef(cl_mem ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 
-	GlTexture(std::nullptr_t) { }
-	GlTexture(cl_context context, GLenum glTextureType, GLuint glTexture, cl_mem_flags flags = CL_MEM_READ_WRITE, size_t mipLevel = 0)
+	static owned from(cl_context context, GLenum glTextureType, GLuint glTexture, cl_mem_flags flags = CL_MEM_READ_WRITE, size_t mipLevel = 0)
 	{
+		owned r = nullptr;
 		cl_int error;
 		if (glTextureType != GL_TEXTURE_3D && glTextureType != GL_TEXTURE_2D_ARRAY)
-			reset( clCreateFromGLTexture2D(context, flags, glTextureType, (GLint) mipLevel, glTexture, &error) );
+			r.ref = clCreateFromGLTexture2D(context, flags, glTextureType, (GLint) mipLevel, glTexture, &error);
 		else
-			reset( clCreateFromGLTexture3D(context, flags, glTextureType, (GLint) mipLevel, glTexture, &error) );
+			r.ref = clCreateFromGLTexture3D(context, flags, glTextureType, (GLint) mipLevel, glTexture, &error);
 		THROW_OPENCL_ERROR(error, "Failed to create OpenCL texture object");
+		return r;
 	}
 
 	void bind(cl_command_queue stream)
 	{
-		THROW_OPENCL_ERROR( clEnqueueAcquireGLObjects(stream, 1, &get(), 0, nullptr, nullptr), "clEnqueueAcquireGLObjects()" );
+		THROW_OPENCL_ERROR( clEnqueueAcquireGLObjects(stream, 1, &ref, 0, nullptr, nullptr), "clEnqueueAcquireGLObjects()" );
 	}
 
 	void unbind(cl_command_queue stream)
 	{
-		THROW_OPENCL_ERROR( clEnqueueReleaseGLObjects(stream, 1, &get(), 0, nullptr, nullptr), "clEnqueueReleaseGLObjects()" );
+		THROW_OPENCL_ERROR( clEnqueueReleaseGLObjects(stream, 1, &ref, 0, nullptr, nullptr), "clEnqueueReleaseGLObjects()" );
 	}
 };
+typedef GlTextureRef::owned GlTexture;
 
 struct GlGuard : stdx::noncopyable
 {
@@ -506,18 +551,20 @@ struct BindGuard
 	MOVE_GENERATE(BindGuard, MOVE_2, MEMBER, stream, MEMBER, bound)
 
 	cl_command_queue stream;
-	stdx::unique_handle<T*> bound;
+	T* bound;
 
+	BindGuard(nullptr_t)
+		: bound(nullptr) { }
 	BindGuard(cl_command_queue stream, T &bound)
-		: stream(stream),
-		bound(&bound)
+		: stream(stream)
+		, bound(&bound)
 	{
 		bound.bind(stream);
 	}
 	~BindGuard()
 	{
-		if (bound.valid())
-			bound.get()->unbind(stream);
+		if (bound)
+			bound->unbind(stream);
 	}
 
 	void disarm() { bound = nullptr; }
@@ -544,12 +591,12 @@ struct ProgramWithTime : Program
 	}
 	static std::string resolveIncludes(std::string const& include, bool local)
 	{
-		return stdx::process_includes(stdx::load_file(include.c_str()), include, resolveIncludes);
+		return stdx::process_includes(stdx::load_file(include.c_str()), include.c_str(), resolveIncludes);
 	}
 	void load(cl_context_with_device context)
 	{
-		std::string src = stdx::process_includes(stdx::load_file(file.c_str()), file, resolveIncludes);
-		*this = Program(context, src.c_str(), preamble);
+		std::string src = stdx::process_includes(stdx::load_file(file.c_str()), file.c_str(), resolveIncludes);
+		*this = Program::fromSource(context, src.c_str(), preamble);
 		time = stdx::file_time(file.c_str());
 	}
 	int maybeReload(cl_context_with_device context)
@@ -581,7 +628,7 @@ struct KernelWithTime : Kernel
 	}
 	void load()
 	{
-		*this = Kernel(*program, kernelName);
+		*this = Kernel::fromProgram(*program, kernelName);
 		time = program->time;
 	}
 	int maybeReload()

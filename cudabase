@@ -12,28 +12,24 @@ typedef stdx::error<cuda_tag> cuda_error;
 
 #define THROW_CUDA_ERROR(error, ctx) do { auto _uniqueerrorval = error; if (_uniqueerrorval != CUDA_SUCCESS) throwx( ::cuda::cuda_error(ctx) ); } while (false)
 
-template <class Pointer, CUresult (CUDAAPI* Deleter)(Pointer)>
-struct cuda_delete
+template <class RefClass, class Pointer, CUresult (CUDAAPI* Deleter)(Pointer)>
+struct cuda_destroy : stdx::ref_base<Pointer>
 {
 	typedef Pointer pointer;
-	void operator ()(pointer ptr) const
+	typedef stdx::own<RefClass> owned;
+	void destroy() const
 	{
-		if (ptr)
-			(*Deleter)(ptr);
+		if (this->ref)
+			(*Deleter)(this->ref);
 	}
-
-	typedef std::unique_ptr< Pointer, cuda_delete<Pointer, Deleter> > pointer_type;
-	typedef stdx::unique_handle< Pointer, cuda_delete<Pointer, Deleter> > handle_type;
-};
-
-template <class Pointer>
-struct cuda_no_delete
-{
-	typedef Pointer pointer;
-	void operator ()(pointer ptr) const { }
-
-	typedef std::unique_ptr< Pointer, cuda_no_delete<Pointer> > pointer_type;
-	typedef stdx::unique_handle< Pointer, cuda_no_delete<Pointer> > handle_type;
+	void forget()
+	{
+		this->ref = 0;
+	}
+	bool valid() const
+	{
+		return (this->ref != 0);
+	}
 };
 
 } // namespace
