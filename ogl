@@ -13,7 +13,11 @@
 #include <functional>
 
 #ifndef DEFAULT_ASSIGN_NULL_REFERENCE
-	#define DEFAULT_ASSIGN_NULL_REFERENCE = nullptr
+	#ifndef NO_DEFAULT_ASSIGN_NULL_REFERENCE
+		#define DEFAULT_ASSIGN_NULL_REFERENCE = nullptr
+	#else
+		#define DEFAULT_ASSIGN_NULL_REFERENCE
+	#endif
 #endif
 
 #ifndef OGL_COMPATIBILITY_PREPROCESSING

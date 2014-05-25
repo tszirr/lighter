@@ -8,7 +8,11 @@
 #include "mathx"
 
 #ifndef DEFAULT_ASSIGN_NULL_REFERENCE
-	#define DEFAULT_ASSIGN_NULL_REFERENCE = nullptr
+	#ifndef NO_DEFAULT_ASSIGN_NULL_REFERENCE
+		#define DEFAULT_ASSIGN_NULL_REFERENCE = nullptr
+	#else
+		#define DEFAULT_ASSIGN_NULL_REFERENCE
+	#endif
 #endif
 
 namespace text
@@ -37,14 +41,14 @@ struct ft_destroy : stdx::ref_base<Pointer>
 
 struct FreeTypeRef : ft_destroy<FreeTypeRef, FT_Library, FT_Done_FreeType>
 {
-	FreeTypeRef(FT_Library ref DEFAULT_ASSIGN_NULL_REFERENCE ) { this->ref = ref; }
+	FreeTypeRef(FT_Library ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 };
 
 struct FreeType : FreeTypeRef::owned
 {
 	MOVE_BASE(FreeType, owned)
 
-	FreeType(nullptr_t) : owned(nullptr) { }
+	FreeType(nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) : owned(nullptr) { }
 	explicit FreeType(FT_Library ref) : owned(ref) { }
 	
 	FreeType()
