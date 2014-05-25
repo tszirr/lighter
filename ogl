@@ -627,7 +627,34 @@ struct FramebufferRef : glew_destroy<FramebufferRef, GLuint, glDeleteFramebuffer
 		glBindFramebuffer(target, 0);
 	}
 
-	static owned create(GLuint const* textures, size_t textureCount, GLuint depthBuffer = 0)
+	static void copy(GLuint src, GLuint dest, size_t width, size_t height
+		, size_t srcX = 0, size_t srcY = 0, size_t destX = 0, size_t destY = 0
+		, GLbitfield mask = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)
+	{
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, src);
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dest);
+
+		glBlitFramebuffer(
+			  GLint(srcX), GLint(srcY), GLint(srcX + width), GLint(srcY + height)
+			, GLint(destX), GLint(destY), GLint(destX + width), GLint(destY + height)
+			, mask, GL_LINEAR
+			);
+		THROW_OPENGL_LASTERROR("glBlitFramebuffer()");
+	}
+
+	static void attachTextureToBound(GLenum attachment, GLuint texture, size_t level = 0)
+	{
+		glFramebufferTexture(GL_FRAMEBUFFER, attachment, texture, GLint(level));
+		THROW_OPENGL_LASTERROR("glFramebufferTexture()");
+	}
+	static void attachRenderbufferToBound(GLenum attachment, GLuint renderBuffer)
+	{
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, attachment, GL_RENDERBUFFER, renderBuffer);
+		THROW_OPENGL_LASTERROR("glFramebufferRenderbuffer()");
+	}
+
+	static owned create(GLuint const* textures, size_t textureCount, GLuint depthBuffer = 0
+		, GLenum depthBufferType = GL_RENDERBUFFER, GLenum colorBufferType = GL_TEXTURE_2D)
 	{
 		auto result = create();
 		result.bind();
@@ -637,8 +664,10 @@ struct FramebufferRef : glew_destroy<FramebufferRef, GLuint, glDeleteFramebuffer
 		for (size_t i = 0; i < textureCount; ++i)
 		{
 			GLenum attachment = (GLenum) (GL_COLOR_ATTACHMENT0 + i);
-			glFramebufferTexture(GL_FRAMEBUFFER, attachment, textures[i], 0);
-			THROW_OPENGL_LASTERROR("glFramebufferTexture()");
+			if (colorBufferType != GL_RENDERBUFFER)
+				attachTextureToBound(attachment, textures[i]);
+			else
+				attachRenderbufferToBound(attachment, textures[i]);
 			attachmentMapping[i] = attachment;
 		}
 
@@ -647,11 +676,18 @@ struct FramebufferRef : glew_destroy<FramebufferRef, GLuint, glDeleteFramebuffer
 
 		if (depthBuffer)
 		{
-			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthBuffer);
-			THROW_OPENGL_LASTERROR("glFramebufferRenderbuffer()");
+			if (depthBufferType == GL_RENDERBUFFER)
+				attachRenderbufferToBound(GL_DEPTH_ATTACHMENT, depthBuffer);
+			else
+				attachTextureToBound(GL_DEPTH_ATTACHMENT, depthBuffer);
 		}
 
 		return result;
+	}
+	static owned createFromRenderbuffers(GLuint const* buffers, size_t bufferCount, GLuint depthBuffer = 0
+		, GLenum depthBufferType = GL_RENDERBUFFER, GLenum colorBufferType = GL_RENDERBUFFER)
+	{
+		return create(buffers, bufferCount, depthBuffer, depthBufferType, colorBufferType);
 	}
 
 	static owned createEmpty(size_t width, size_t height, size_t samples = 1)
@@ -672,7 +708,7 @@ struct FramebufferRef : glew_destroy<FramebufferRef, GLuint, glDeleteFramebuffer
 		return FramebufferRef(0U);
 	}
 
-	static GLuint getAttachement(GLenum attachment, GLenum target = GL_FRAMEBUFFER)
+	static GLuint getAttachementFromBound(GLenum attachment, GLenum target = GL_FRAMEBUFFER)
 	{
 		GLint object;
 		glGetFramebufferAttachmentParameteriv(target, attachment, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &object);
