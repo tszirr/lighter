@@ -426,7 +426,7 @@ namespace stdx
 		own() : RefObj() { }
 		own(std::nullptr_t) : RefObj(nullptr) { }
 		explicit own(pointer&& value)
-			: RefObj(MOVE_T(value)) { }
+			: RefObj(MOVE_T(value)) { value.forget(); }
 		explicit own(pointer const& value)
 			: RefObj(value) { }
 		
@@ -438,6 +438,14 @@ namespace stdx
 			using std::swap;
 			swap(static_cast<RefObj&>(*this), static_cast<RefObj&>(right));
 			return *this;
+		}
+
+		pointer detach_ptr()
+		{
+			pointer r = *this;
+			// note: forget method is a requirement for RefObj type!
+			this->forget();
+			return r;
 		}
 
 		// deleter
