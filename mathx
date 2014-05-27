@@ -57,7 +57,11 @@ namespace glm
 			typename std::enable_if<std::is_same<typename vec_type<Vec>::component, T>::value && vec_type<Vec>::dimension == N>::type* = nullptr)
 			 : pod_vec<T, N>( reinterpret_cast<pod_vec<T, N> const&>(v) ) { }
 
-		using pod_vec::operator =;
+		MATHX_API vec& operator =(pod_vec<T, N> const& v)
+		{
+			pod_vec<T, N>::operator =(v);
+			return *this;
+		}
 	};
 	template <class T, size_t N> struct vec_type< vec<T, N> > { static size_t const dimension = N; typedef T component; };
 	
