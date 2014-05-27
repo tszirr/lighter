@@ -106,18 +106,23 @@ namespace stdx
 
 		iterator first, last;
 
+		static void assert_stride_compatible(iterator, iterator) { }
+		template <class Iterator>
+		static void assert_stride_compatible(iterator a, Iterator b) {
+			static_assert(sizeof(*a) == sizeof(*b), "Range iterator type or stride mismatch"); (void) a; (void) b; }
+		
 		range() : first(), last() { }
 		range(iterator f, iterator l) : first((iterator&&) f), last((iterator&&) l) { }
 		template <class Range>
-		explicit range(Range& r) : first(r.begin()), last(const_cast<iterator>(r.end())) { } // const_cast forbids implicit casting (don't lose strides!)
+		explicit range(Range& r) : first(r.begin()), last(r.end()) { assert_stride_compatible(r.begin(), r.begin()); }
 		template <class Range>
-		explicit range(Range const& r) : first(r.begin()), last(const_cast<iterator>(r.end())) { } // const_cast forbids implicit casting (don't lose strides!)
+		explicit range(Range const& r) : first(r.begin()), last(r.end()) { assert_stride_compatible(r.begin(), r.begin()); }
 		template <class T>
-		range(range<T> const& r) : first(r.first), last(const_cast<iterator>(r.last)) { } // const_cast forbids implicit casting (don't lose strides!)
+		range(range<T> const& r) : first(r.first), last(r.last) { assert_stride_compatible(r.first, r.first); }
 		
 		void assign(iterator begin, iterator end) { first = begin; last = end; }
 		template <class Range>
-		void assign(Range &range) { first = range.begin(); last = const_cast<iterator>(range.end()); }
+		void assign(Range &range) { first = range.begin(); last = range.end(); assert_stride_compatible(range.begin(), range.begin()); }
 
 		// const& to catch pre-POD usage
 		iterator const& begin() const { return first; }
@@ -153,11 +158,11 @@ namespace stdx
 		template <class Range>
 		data_range_param(Range& r
 			, typename enable_if_iterator_compatible<typename Range::pointer, Iterator>::type *enable_if_typematch = nullptr
-			) : range<Iterator>(r.data(), const_cast<Iterator>(r.data()) + r.size()) { } // const_cast forbids implicit casting (don't lose strides!)
+			) : range<Iterator>(r.data(), r.data() + r.size()) { assert_stride_compatible(r.data(), r.data()); }
 		template <class Range>
 		data_range_param(Range const& r
 			, typename enable_if_iterator_compatible<typename Range::const_pointer, Iterator>::type *enable_if_typematch = nullptr)
-			: range<Iterator>(r.data(), const_cast<Iterator>(r.data()) + r.size()) { } // const_cast forbids implicit casting (don't lose strides!)
+			: range<Iterator>(r.data(), r.data() + r.size()) { assert_stride_compatible(r.data(), r.data()); }
 	};
 
 	template <class Type> struct strided_ptr;
