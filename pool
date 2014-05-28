@@ -24,19 +24,22 @@ struct pooled_ref : RefObj
 	}
 
 	// "inherit" constructors
-	pool_ref_base()
+	pooled_ref()
 		: RefObj()
 		, pooled() { }
-	pool_ref_base(std::nullptr_t)
+	pooled_ref(std::nullptr_t)
 		: RefObj(nullptr)
 		, pooled() { }
-	pool_ref_base(RefObj&& value, PoolPtr pooled)
+	pooled_ref(RefObj&& value, PoolPtr pooled)
 		: RefObj(MOVE_T(value))
 		, pooled(pooled) { }
-	pool_ref_base(RefObj const& value, PoolPtr pooled)
+	pooled_ref(RefObj const& value, PoolPtr pooled)
 		: RefObj(value)
 		, pooled(pooled) { }
 };
+
+// template <class RefObj>
+// using own_pooled = stdx::own< pooled_ref<RefObj, pooled_interface*> >;
 
 template <class RefObj>
 class own_pooled : public stdx::own< pooled_ref<RefObj, pooled_interface*> >
@@ -53,7 +56,7 @@ public:
 	// movement
 	own_pooled(own_pooled&& right)
 		: typename own_pooled::own(MOVE_T(right)) { }
-	using own_pooled::own::operator =;
+	using own::operator =;
 	
 	own_pooled acquire() const
 	{
@@ -72,10 +75,48 @@ namespace detail
 		{
 			return memcmp(&a, &b, sizeof(a)) < 0;
 		}
+
+		enum no_context_t { no_context };
+
+		template <class Desc, class Context>
+		static auto create(Desc const& desc, Context&& ctx) -> decltype(desc.create(std::forward<Context>(ctx))) { return desc.create( FORWARD(Context, ctx) ); }
+		template <class Desc>
+		static auto create(Desc const& desc, no_context_t) -> decltype(desc.create()) { return desc.create(); }
+
+		template <class ResourceRef>
+		struct resource_ref_as_pointer { typedef ResourceRef pointer; };
 	}
 }
 
-template <class Desc, class ResourceRef>
+template <class Resource, class ID = void const volatile*, class ResourceFactory = Resource>
+struct id_resource_desc
+{
+	typedef Resource resource;
+
+	ID value;
+
+	id_resource_desc(ID value) : value(value) { }
+
+	bool operator ==(id_resource_desc const& r) const { return value == r.value; }
+	bool operator <(id_resource_desc const& r) const { return value < r.value; }
+
+	template <class Context>
+	static auto create(Context&& ctx) -> decltype(ResourceFactory::create(std::forward<Context>(ctx))) {
+		return ResourceFactory::create( FORWARD(Context, ctx) ); }
+	static auto create() -> decltype(ResourceFactory::create()) {
+		return ResourceFactory::create(); }
+};
+
+// template <class ResourceRef, class ID = void const volatile*>
+// using id_resource_ref_desc = id_resource_desc<detail::resource_pool::resource_ref_as_pointer<ResourceRef>, ID, ResourceRef>;
+
+template <class ResourceRef, class ID = void const volatile*>
+struct id_resource_ref_desc : id_resource_desc<detail::resource_pool::resource_ref_as_pointer<ResourceRef>, ID, ResourceRef>
+{
+	id_resource_ref_desc(ID value) : typename id_resource_ref_desc::id_resource_desc(value) { }
+};
+
+template <class Desc, class ResourceRef = typename Desc::resource::pointer>
 struct resource_pool
 {
 	typedef Desc description;
@@ -89,8 +130,10 @@ struct resource_pool
 		stdx::own<resource_ref> resource;
 		mutable int ref_count;
 
-		item()
-			: ref_count(0)
+		template <class Res>
+		item(Res&& res)
+			: resource(FORWARD(Res, res))
+			, ref_count(0)
 		{ }
 
 		void acquire() const { ++ref_count; }
@@ -110,11 +153,6 @@ struct resource_pool
 	items_t items;
 
 	template <class Context>
-	static stdx::own<resource_ref> create(description const& desc, Context&& ctx) { return desc.create( FORWARD(Context, ctx) ); }
-	enum no_context_t { no_context };
-	static stdx::own<resource_ref> create(description const& desc, no_context_t) { return desc.create(); }
-
-	template <class Context>
 	owned acquire(description const& desc, Context&& context)
 	{
 		auto range = items.equal_range(desc);
@@ -124,14 +162,13 @@ struct resource_pool
 				break;
 		if (it == range.second)
 		{
-			item newItem;
-			newItem.resource = create(desc, FORWARD(Context, context));
-			it = items.insert(items_t::value_type(desc, MOVE_T(newItem))).first;
+			using detail::resource_pool::create;
+			it = items.emplace( desc, create(desc, FORWARD(Context, context)) );
 		}
 		++it->second.ref_count;
 		return owned( owned::pointer(it->second.resource, &it->second) );
 	}
-	owned acquire(description const& desc) { return get(desc, no_context); }
+	owned acquire(description const& desc) { return acquire(desc, detail::resource_pool::no_context); }
 };
 
 } // namespace
