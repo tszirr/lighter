@@ -31,29 +31,51 @@ namespace glm
 	template <class T> struct vec_t<T, 3> { typedef glm::detail::tvec3<T> type; };
 	template <class T> struct vec_t<T, 4> { typedef glm::detail::tvec4<T> type; };
 
-	// POD vector (no default initialization)
+	template <class T, size_t N> struct vec;
+	// POD vector (no default initialization -> aggregate / value initialization)
 	template <class T, size_t N>
-	struct vec
+	struct pod_vec
 	{
 		T c[N];
 
 		MATHX_API typename vec_t<T, N>::type get() const { return reinterpret_cast<typename vec_t<T, N>::type const&>(*this); }
 		MATHX_API operator typename vec_t<T, N>::type() const { return reinterpret_cast<typename vec_t<T, N>::type const&>(*this); }
+
+		MATHX_API operator vec<T, N>&();
+		MATHX_API operator vec<T, N> const&() const;
+	};
+	template <class T, size_t N> struct vec_type< pod_vec<T, N> > { static size_t const dimension = N; typedef T component; };
+
+	// vector (no-op default initialization)
+	template <class T, size_t N>
+	struct vec : pod_vec<T, N>
+	{
+		MATHX_API vec() { }
+		MATHX_API vec(pod_vec<T, N> const& v) : pod_vec<T, N>(v) { }
+		template <class Vec> 
+		MATHX_API vec(Vec const& v,
+			typename std::enable_if<std::is_same<typename vec_type<Vec>::component, T>::value && vec_type<Vec>::dimension == N>::type* = nullptr)
+			 : pod_vec<T, N>( reinterpret_cast<pod_vec<T, N> const&>(v) ) { }
+
+		MATHX_API vec& operator =(pod_vec<T, N> const& v)
+		{
+			pod_vec<T, N>::operator =(v);
+			return *this;
+		}
 	};
 	template <class T, size_t N> struct vec_type< vec<T, N> > { static size_t const dimension = N; typedef T component; };
 	
-	// compatibility
-	#ifndef MATHX_NO_POD_VEC
-		// hurts, but no other way right now
-		#define pod_vec vec
-	#endif
+	template <class T, size_t N>
+	inline MATHX_API pod_vec<T, N>::operator vec<T, N>&() { return static_cast<vec<T, N>&>(*this); }
+	template <class T, size_t N>
+	inline MATHX_API pod_vec<T, N>::operator vec<T, N> const&() const { return static_cast<vec<T, N> const&>(*this); }
 
 	template <class Vec> MATHX_API inline vec<typename vec_type<Vec>::component, vec_type<Vec>::dimension> to_pod(Vec const& v)
 	{
 		return reinterpret_cast<vec<typename vec_type<Vec>::component, vec_type<Vec>::dimension> const&>(v);
 	}
 	template <class T, size_t N>
-	inline MATHX_API typename vec_t<T, N>::type to_vec(vec<T, N> const& v)
+	inline MATHX_API typename vec_t<T, N>::type to_vec(pod_vec<T, N> const& v)
 	{
 		return reinterpret_cast<typename vec_t<T, N>::type const&>(v);
 	}
