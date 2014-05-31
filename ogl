@@ -572,6 +572,27 @@ struct RenderBufferRef : glew_destroy<RenderBufferRef, GLuint, glDeleteRenderbuf
 };
 typedef RenderBufferRef::owned RenderBuffer;
 
+struct RenderBufferDesc
+{
+	typedef RenderBuffer resource;
+
+	GLenum internalFormat;
+	size_t width;
+	size_t height;
+	size_t samples;
+
+	static RenderBufferDesc make(GLenum internalFormat, size_t width, size_t height, size_t samples = 1)
+	{
+		RenderBufferDesc desc = { internalFormat, width, height, samples };
+		return desc;
+	}
+
+	RenderBuffer create() const
+	{
+		return RenderBuffer::create(internalFormat, width, height, samples);
+	}
+};
+
 template <class Resource>
 struct AutoTarget : Resource
 {
@@ -890,12 +911,12 @@ struct AutoViewport : Resource
 	GLint height;
 
 	AutoViewport(nullptr_t) : Resource(nullptr) { }
-	AutoViewport(Resource resource, GLint width, GLint height, GLint x = 0, GLint y = 0)
+	AutoViewport(Resource resource, size_t width, size_t height, int x = 0, int y = 0)
 		: Resource(std::move(resource))
-		, x(x)
-		, y(y)
-		, width(width)
-		, height(height)
+		, x(GLint(x))
+		, y(GLint(y))
+		, width(GLint(width))
+		, height(GLint(height))
 	{ }
 
 	void bind(GLenum target = GL_FRAMEBUFFER)
@@ -906,7 +927,7 @@ struct AutoViewport : Resource
 };
 
 template <class R>
-inline AutoViewport<R> auto_viewport(R resource, GLint width, GLint height, GLint x = 0, GLint y = 0) {
+inline AutoViewport<R> auto_viewport(R resource, size_t width, size_t height, int x = 0, int y = 0) {
 	return AutoViewport<R>(std::move(resource), width, height, x, y); }
 
 struct ShaderRef : glew_destroy_single<ShaderRef, GLuint, glDeleteShader>
