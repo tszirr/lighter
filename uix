@@ -445,19 +445,8 @@ struct TextUi : UserInterface, UniversalInterface
 		Button button = { id, { buttonPos, buttonPos + glm::ivec2(buttonSize) }, false };
 
 		auto& mouse = state.mouse;
-		if (mouse.primary && glm::in_aabb(mouse.pos, button.rect) && capturedOrAcquired(context.parentPath, button.id, mouse.primaryChanged))
-		{
-			button.pressed = true;
-
-			if (mouse.primaryChanged && interact)
-				interact->updateValue(ButtonEvent::Down);
-		}
-
-		if (!mouse.primary && mouse.primaryChanged && interact && wasCaptureReleased(context.parentPath, button.id))
-			interact->updateValue(
-				glm::in_aabb(mouse.pos, button.rect)
-					? ButtonEvent::UpAccept
-					: ButtonEvent::UpDismiss);
+		button.pressed = mouse.primary && glm::in_aabb(mouse.pos, button.rect)
+			&& capturedOrAcquired(context.parentPath, button.id, mouse.primaryChanged);
 
 		if (button.pressed != value)
 		{
@@ -470,6 +459,19 @@ struct TextUi : UserInterface, UniversalInterface
 		valPos.x += (buttonSize.x - valBox.max.x) / 2;
 		textRenderer->drawText(valPos, text);
 		
+		// order: text may change or become invalid after interaction!
+		if (mouse.primaryChanged && interact)
+		{
+			if (button.pressed)
+				interact->updateValue(ButtonEvent::Down);
+			else if (!mouse.primary && wasCaptureReleased(context.parentPath, button.id))
+				interact->updateValue(
+					glm::in_aabb(mouse.pos, button.rect)
+						? ButtonEvent::UpAccept
+						: ButtonEvent::UpDismiss);
+		}
+		// warning: text may be invalid from here on
+
 		nextLine();
 
 		if (control)
