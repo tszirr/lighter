@@ -24,6 +24,7 @@ set(LIGHTER_SRC
   cuda
   cudax
   pool
+  pool.cpp
   img
   text
   textx
