@@ -899,6 +899,8 @@ struct FramebufferAttachments<0, 0, 0> // : FramebufferAttachments<0, 0, GL_TEXT
 template <size_t MaxTextures = 4, GLuint DepthBufferType = 0, GLuint TextureType = GL_TEXTURE_2D>
 struct FramebufferDesc : FramebufferAttachments<MaxTextures, DepthBufferType, TextureType>
 {
+	typedef Framebuffer resource;
+
 	template <size_t MT>
 	Framebuffer create() const
 	{

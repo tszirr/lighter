@@ -128,26 +128,24 @@ namespace detail
 
 } // namespace
 
-template <class Resource, class ResourceRef = typename Resource::pointer>
 struct resource_pool
 {
-	typedef Resource resource;
-	typedef ResourceRef resource_ref;
-	typedef own_pooled<resource_ref> owned;
-	
-	template <class Desc, class Context>
-	owned acquire(Desc const& desc, Context&& context)
+	unsigned short usage_frame;
+
+	resource_pool()
+		: usage_frame(0) { }
+
+	template <class Res, class ResRef, class Desc, class Context>
+	own_pooled<ResRef> acquire(Desc const& desc, Context&& context)
 	{
-		auto it = findFree(desc);
+		auto it = findUnused<Res>(desc);
 		if (!it)
-			it = insertNew(desc, FORWARD(Context, context));
+			it = createAndInsert<Res>(desc, FORWARD(Context, context));
 		++it->ref_count;
 		it->last_use = usage_frame;
-		return owned( owned::pointer(it->resource, it) );
+		return own_pooled<ResRef>( typename own_pooled<ResRef>::pointer(it->resource, it) );
 	}
-	template <class Desc>
-	owned acquire(Desc const& desc) { return acquire(desc, detail::resource_pool::no_context); }
-
+	
 	void free_unused(unsigned short min_unused_frames = 0)
 	{
 		detail::resource_pool::erase_unused(items, usage_frame, min_unused_frames);
@@ -157,75 +155,89 @@ struct resource_pool
 		free_unused(min_unused_frames);
 		++usage_frame;
 	}
-
-	template <class Desc>
-	struct item : pool_item
-	{
-		Desc description;
-		resource resource;
-
-		template <class Res>
-		item(Desc const& desc, Res&& res)
-			: description(desc)
-			, resource(FORWARD(Res, res))
-		{ }
-	};
 	
+	// convenience overloads (normally simply pass desc, w/ or w/o context, no need to give additional resource type template args)
+	template <class Res, class Desc, class Context>
+	own_pooled<typename Res::pointer> acquire(Desc const& desc, Context&& context) {
+		return acquire<Res, typename Res::pointer>(desc, FORWARD(Context, context)); }
+	template <class Desc, class Context>
+	own_pooled<typename Desc::resource::pointer> acquire(Desc const& desc, Context&& context) {
+		return acquire<typename Desc::resource, typename Desc::resource::pointer>(desc, FORWARD(Context, context)); }
+
+	template <class Res, class ResRef, class Desc>
+	own_pooled<ResRef> acquire(Desc const& desc) { return acquire<Res, ResRef>(desc, detail::resource_pool::no_context); }
+	template <class Res, class Desc>
+	own_pooled<typename Res::pointer> acquire(Desc const& desc) { 
+		return acquire<Res, typename Res::pointer>(desc, detail::resource_pool::no_context); }
+	template <class Desc>
+	own_pooled<typename Desc::resource::pointer> acquire(Desc const& desc) { 
+		return acquire<typename Desc::resource, typename Desc::resource::pointer>(desc, detail::resource_pool::no_context); }
+	
+	// internals
 	typedef detail::resource_pool::pool_item pool_item;
 	typedef std::vector< std::unique_ptr<pool_item> > items_t;
 	items_t items;
-	unsigned short usage_frame;
-
-	resource_pool()
-		: usage_frame(0) { }
-
-	template <class Desc>
-	item<Desc>* findFree(Desc const& desc)
+	
+	template <class Desc, class Res>
+	struct item : pool_item
 	{
-		return static_cast<item<Desc>*>(
+		Desc description;
+		Res resource;
+
+		template <class RFW>
+		item(Desc const& desc, RFW&& res)
+			: description(desc)
+			, resource(FORWARD(RFW, res))
+		{ }
+	};
+	
+	template <class Res, class Desc>
+	item<Desc, Res>* findUnused(Desc const& desc)
+	{
+		return static_cast<item<Desc, Res>*>(
 			  detail::resource_pool::find(
 				  items.data(), items.data() + items.size(), &desc
-				, &lessThanDesc<Desc>, &greaterThanDesc<Desc>
+				, &lessThanDesc<Res, Desc>, &greaterThanDesc<Res, Desc>
 				)
 			);
 	}
-	template <class Desc, class Resource>
-	item<Desc>* insert(Desc const& desc, Resource&& resource)
+	template <class Res, class Desc, class RFW>
+	item<Desc, Res>* insert(Desc const& desc, RFW&& resource)
 	{
-		return static_cast<item<Desc>*>(
+		return static_cast<item<Desc, Res>*>(
 			  detail::resource_pool::insert(items
-				, new item<Desc>(desc, FORWARD(Resource, resource)), &desc
-				, &lessThanDesc<Desc>
+				, new item<Desc, Res>(desc, FORWARD(RFW, resource)), &desc
+				, &lessThanDesc<Res, Desc>
 				)
 			);
 	}
-	template <class Desc, class Context>
-	item<Desc>* insertNew(Desc const& desc, Context&& context)
+	template <class Res, class Desc, class Context>
+	item<Desc, Res>* createAndInsert(Desc const& desc, Context&& context)
 	{
 		using detail::resource_pool::create;
-		return insert(desc, create(desc, FORWARD(Context, context)));
+		return insert<Res>(desc, create(desc, FORWARD(Context, context)));
 	}
-	template <class Identity, class Context>
-	item<Identity*>* insertNew(Identity* identity, Context&& context)
+	template <class Res, class Identity, class Context>
+	item<Identity*, Res>* createAndInsert(Identity* identity, Context&& context)
 	{
 		using detail::resource_pool::create;
-		return insert(identity, create(detail::resource_pool::no_desc_t<resource>(), FORWARD(Context, context)));
+		return insert<Res>(identity, create(detail::resource_pool::no_desc_t<Res>(), FORWARD(Context, context)));
 	}
 	
-	template <class Desc>
+	template <class Res, class Desc>
 	static bool greaterThanDesc(void const* b, std::unique_ptr<pool_item> const& a)
 	{
 		using detail::resource_pool::generic_comparison::operator <;
-		auto &aType = typeid(*a), &bType = typeid(item<Desc>);
-		return aType == bType && *static_cast<Desc const*>(b) < static_cast<item<Desc> const&>(*a).description
+		auto &aType = typeid(*a), &bType = typeid(item<Desc, Res>);
+		return aType == bType && *static_cast<Desc const*>(b) < static_cast<item<Desc, Res> const&>(*a).description
 			|| &bType < &aType;
 	}
-	template <class Desc>
+	template <class Res, class Desc>
 	static bool lessThanDesc(std::unique_ptr<pool_item> const& a, void const* b)
 	{
 		using detail::resource_pool::generic_comparison::operator <;
-		auto &aType = typeid(*a), &bType = typeid(item<Desc>);
-		return aType == bType && static_cast<item<Desc> const&>(*a).description < *static_cast<Desc const*>(b)
+		auto &aType = typeid(*a), &bType = typeid(item<Desc, Res>);
+		return aType == bType && static_cast<item<Desc, Res> const&>(*a).description < *static_cast<Desc const*>(b)
 			|| &aType < &bType;
 	}
 };
