@@ -38,6 +38,16 @@ pool_item* insert(std::vector< std::unique_ptr<pool_item> >& items
 	return newItemPtr;
 }
 
+void erase_unused(std::vector< std::unique_ptr<pool_item> >& items, unsigned short usage_frame, unsigned short min_unused_frames)
+{
+	items.erase(
+		  std::remove_if(items.begin(), items.end(), [=](std::unique_ptr<pool_item> const& i)
+			{ return i->ref_count == 0 && usage_frame - i->last_use >= min_unused_frames; }
+		  )
+		, items.end()
+		);
+}
+
 } // namespace
 
 } // namespace

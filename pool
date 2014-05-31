@@ -92,11 +92,14 @@ namespace detail
 
 		struct pool_item : pooled_interface
 		{
-			mutable int ref_count;
+			mutable short ref_count;
+			unsigned short last_use;
 
 			pool_item()
 				: ref_count(0)
+				, last_use(0)
 			{ }
+			virtual ~pool_item() { }
 
 			void acquire() const override { ++ref_count; }
 			void release() const override { --ref_count; }
@@ -108,6 +111,7 @@ namespace detail
 		pool_item* insert(std::vector< std::unique_ptr<pool_item> >& items
 			, pool_item* newItemPtr, void const* desc
 			, bool (*lessThanDesc)(std::unique_ptr<pool_item> const&, void const*));
+		void erase_unused(std::vector< std::unique_ptr<pool_item> >& items, unsigned short usage_frame, unsigned short min_unused_frames);
 
 		// warning: needs own namespace, otherwise composite template types such as iterators accidentally redirect here via composite ADL
 		namespace generic_comparison
@@ -138,10 +142,21 @@ struct resource_pool
 		if (!it)
 			it = insertNew(desc, FORWARD(Context, context));
 		++it->ref_count;
+		it->last_use = usage_frame;
 		return owned( owned::pointer(it->resource, it) );
 	}
 	template <class Desc>
 	owned acquire(Desc const& desc) { return acquire(desc, detail::resource_pool::no_context); }
+
+	void free_unused(unsigned short min_unused_frames = 0)
+	{
+		detail::resource_pool::erase_unused(items, usage_frame, min_unused_frames);
+	}
+	void free_unused_and_next_frame(unsigned short min_unused_frames = 1)
+	{
+		free_unused(min_unused_frames);
+		++usage_frame;
+	}
 
 	template <class Desc>
 	struct item : pool_item
@@ -159,6 +174,10 @@ struct resource_pool
 	typedef detail::resource_pool::pool_item pool_item;
 	typedef std::vector< std::unique_ptr<pool_item> > items_t;
 	items_t items;
+	unsigned short usage_frame;
+
+	resource_pool()
+		: usage_frame(0) { }
 
 	template <class Desc>
 	item<Desc>* findFree(Desc const& desc)
