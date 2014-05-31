@@ -692,8 +692,13 @@ namespace stdx
 #define TOKEN_TO_STRING(x) #x
 #define VALUE_TO_STRING(x) TOKEN_TO_STRING(x)
 
+#define TOKEN_CONCAT(x, y) x##y
+#define VALUE_CONCAT(x, y) TOKEN_CONCAT(x, y)
+
 #define FILE_LINE __FILE__ "(" VALUE_TO_STRING(__LINE__) ")"
 #define FILE_LINE_PREFIX FILE_LINE ": "
+
+#define AUTO_VAR auto VALUE_CONCAT(autoVar, __COUNTER__)
 
 // MSVC 2013 shame
 #define MSVC_EXPAND(x) x

@@ -361,7 +361,7 @@ struct TextureRef : gl_destroy<TextureRef, GLuint, glDeleteTextures>
 
 		glTexParameteri(textureType, GL_TEXTURE_BASE_LEVEL, 0);
 		glTexParameteri(textureType, GL_TEXTURE_MAX_LEVEL, (int) levels - 1);
-		THROW_OPENGL_LASTERROR("glTexParameteri()");
+		THROW_OPENGL_LASTERROR("glTexParameteri(GL_TEXTURE_MAX_LEVEL | GL_TEXTURE_MAX_LEVEL)");
 
 		if (data)
 		{
@@ -379,7 +379,7 @@ struct TextureRef : gl_destroy<TextureRef, GLuint, glDeleteTextures>
 		bind(textureType);
 		glTexParameteri(textureType, GL_TEXTURE_MAG_FILTER, mag);
 		glTexParameteri(textureType, GL_TEXTURE_MIN_FILTER, min);
-		THROW_OPENGL_LASTERROR("glTexParameteri()");
+		THROW_OPENGL_LASTERROR("glTexParameteri(GL_TEXTURE_MAG_FILTER | GL_TEXTURE_MIN_FILTER)");
 	}
 	void filterNearest(GLenum textureType) { filterMode(textureType, GL_NEAREST_MIPMAP_NEAREST, GL_NEAREST); }
 	void filterLinear(GLenum textureType) { filterMode(textureType, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);  }
@@ -391,7 +391,7 @@ struct TextureRef : gl_destroy<TextureRef, GLuint, glDeleteTextures>
 		glTexParameteri(textureType, GL_TEXTURE_WRAP_T, mode);
 		if (is3DTexture(textureType))
 			glTexParameteri(textureType, GL_TEXTURE_WRAP_R, mode);
-		THROW_OPENGL_LASTERROR("glTexParameteri()");
+		THROW_OPENGL_LASTERROR("glTexParameteri(GL_TEXTURE_WRAP_*)");
 	}
 	void wrapRepeat(GLenum textureType) { wrapMode(textureType, GL_REPEAT); }
 	void wrapClamp(GLenum textureType) { wrapMode(textureType, GL_CLAMP_TO_EDGE); }
@@ -498,7 +498,7 @@ struct SamplerRef : glew_destroy<SamplerRef, GLuint, glDeleteSamplers>
 	{
 		glSamplerParameteri(*this, GL_TEXTURE_MAG_FILTER, mag);
 		glSamplerParameteri(*this, GL_TEXTURE_MIN_FILTER, min);
-		THROW_OPENGL_LASTERROR("glSamplerParameteri()");
+		THROW_OPENGL_LASTERROR("glSamplerParameteri(GL_TEXTURE_MAG_FILTER | GL_TEXTURE_MIN_FILTER)");
 	}
 	void filterNearest() { filterMode(GL_NEAREST_MIPMAP_NEAREST, GL_NEAREST); }
 	void filterLinear() { filterMode(GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);  }
@@ -508,7 +508,7 @@ struct SamplerRef : glew_destroy<SamplerRef, GLuint, glDeleteSamplers>
 		glSamplerParameteri(*this, GL_TEXTURE_WRAP_S, mode);
 		glSamplerParameteri(*this, GL_TEXTURE_WRAP_T, mode);
 		glSamplerParameteri(*this, GL_TEXTURE_WRAP_R, mode);
-		THROW_OPENGL_LASTERROR("glSamplerParameteri()");
+		THROW_OPENGL_LASTERROR("glSamplerParameteri(GL_TEXTURE_WRAP_*)");
 	}
 	void wrapRepeat() { wrapMode(GL_REPEAT); }
 	void wrapClamp() { wrapMode(GL_CLAMP_TO_EDGE); }
@@ -517,13 +517,13 @@ struct SamplerRef : glew_destroy<SamplerRef, GLuint, glDeleteSamplers>
 	{
 		glSamplerParameteri(*this, GL_TEXTURE_BASE_LEVEL, int(level));
 		glSamplerParameteri(*this, GL_TEXTURE_MAX_LEVEL, int(level + count - 1));
-		THROW_OPENGL_LASTERROR("glSamplerParameteri()");
+		THROW_OPENGL_LASTERROR("glSamplerParameteri(GL_TEXTURE_BASE_LEVEL | GL_TEXTURE_MAX_LEVEL)");
 	}
 
-	void anisotropy(size_t maxAnisotropy)
+	void anisotropy(float maxAnisotropy)
 	{
-		glSamplerParameteri(*this, GL_TEXTURE_MAX_ANISOTROPY_EXT, int(maxAnisotropy));
-		THROW_OPENGL_LASTERROR("glSamplerParameteri()");
+		glSamplerParameterf(*this, GL_TEXTURE_MAX_ANISOTROPY_EXT, maxAnisotropy);
+		THROW_OPENGL_LASTERROR("glSamplerParameterf(GL_TEXTURE_MAX_ANISOTROPY_EXT)");
 	}
 };
 typedef SamplerRef::owned Sampler;
@@ -629,6 +629,72 @@ struct AutoTarget : Resource
 
 template <class R>
 inline AutoTarget<R> auto_target(GLenum target, R resource) { return AutoTarget<R>(target, std::move(resource)); }
+
+template <class Target, class Slot>
+struct BindingInfo
+{
+	Target target;
+	Slot slot;
+
+	template <class Resource> void bind(Resource& res) { res.bind(target, slot); }
+	template <class Resource> void unbind(Resource& res) { res.unbind(target, slot); }
+};
+template <class Target>
+struct BindingInfo<Target, void>
+{
+	Target target;
+
+	template <class Resource> void bind(Resource& res) { res.bind(target); }
+	template <class Resource> void unbind(Resource& res) { res.unbind(target); }
+};
+template <class Slot>
+struct BindingInfo<void, Slot>
+{
+	Slot slot;
+
+	template <class Resource> void bind(Resource& res) { res.bind(slot); }
+	template <class Resource> void unbind(Resource& res) { res.unbind(slot); }
+};
+template <>
+struct BindingInfo<void, void>
+{
+	template <class Resource> static void bind(Resource& res) { res.bind(); }
+	template <class Resource> static void unbind(Resource& res) { res.unbind(); }
+};
+
+template <class T, class BindInfo>
+struct BindGuard
+{
+	MOVE_GENERATE(BindGuard, MOVE_2, MEMBER, bindInfo, MEMBER, bound)
+
+	BindInfo info;
+	T* bound;
+
+	BindGuard(nullptr_t)
+		: bound(nullptr) { }
+	BindGuard(BindInfo info, T &bound)
+		: info(info)
+		, bound(&bound)
+	{
+		info.bind(bound);
+	}
+	~BindGuard()
+	{
+		if (bound)
+			info.bind(*bound);
+	}
+
+	void disarm() { bound = nullptr; }
+};
+
+template <class T>
+inline BindGuard<T, BindingInfo<void, void>> bind_guarded(T &bound) { return BindGuard<T, BindingInfo<void, void>>(BindingInfo<void, void>(), bound); }
+template <class T>
+inline BindGuard<T, BindingInfo<void, unsigned>> bind_guarded(T &bound, unsigned slot) { BindingInfo<void, unsigned> info = { slot }; return BindGuard<T, decltype(info)>(info, bound); }
+template <class T>
+inline BindGuard<T, BindingInfo<GLenum, void>> bind_guarded(GLenum target, T &bound) { BindingInfo<GLenum, void> info = { target }; return BindGuard<T, decltype(info)>(info, bound); }
+template <class T>
+inline BindGuard<T, BindingInfo<GLenum, unsigned>> bind_guarded(GLenum target, T &bound, unsigned slot) { BindingInfo<GLenum, unsigned> info = { target, slot }; return BindGuard<T, decltype(info)>(info, bound); }
 
 struct VertexArraysRef : glew_destroy<VertexArraysRef, GLuint, glDeleteVertexArrays>
 {
