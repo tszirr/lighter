@@ -152,6 +152,11 @@ namespace glm
 
 	template <class T> MATHX_API inline T mipCount(T res) { T count(1); for (auto m = res; m > T(1); m /= T(2)) ++count; return count; }
 
+	template <class T> MATHX_API inline T signNZ(T v) { return (v < T(0)) ? T(-1) : T(1); }
+	template <class T> MATHX_API inline glm::tvec2<T> signNZ(glm::tvec2<T> v) { return glm::tvec2<T>(signNZ(v.x), signNZ(v.y)); }
+	template <class T> MATHX_API inline glm::tvec3<T> signNZ(glm::tvec3<T> v) { return glm::tvec3<T>(signNZ(v.x), signNZ(v.y), signNZ(v.z)); }
+	template <class T> MATHX_API inline glm::tvec4<T> signNZ(glm::tvec4<T> v) { return glm::tvec4<T>(signNZ(v.x), signNZ(v.y), signNZ(v.z), signNZ(v.w)); }
+
 	template <class T> MATHX_API inline T nextPO2(T res) { T po2(1); while (po2 < res) po2 *= T(2); return po2; }
 	template <class T> MATHX_API inline glm::tvec2<T> nextPO2(glm::tvec2<T> res) { return glm::tvec2<T>(nextPO2(res.x), nextPO2(res.y)); }
 	template <class T> MATHX_API inline glm::tvec3<T> nextPO2(glm::tvec3<T> res) { return glm::tvec3<T>(nextPO2(res.x), nextPO2(res.y), nextPO2(res.z)); }
