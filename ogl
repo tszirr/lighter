@@ -745,7 +745,8 @@ struct FramebufferRef : glew_destroy<FramebufferRef, GLuint, glDeleteFramebuffer
 
 	static void copy(GLuint src, GLuint dest, size_t width, size_t height
 		, size_t srcX = 0, size_t srcY = 0, size_t destX = 0, size_t destY = 0
-		, GLbitfield mask = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)
+		, GLbitfield mask = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT
+		, GLbitfield filter = GL_NEAREST)
 	{
 		glBindFramebuffer(GL_READ_FRAMEBUFFER, src);
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dest);
@@ -753,7 +754,7 @@ struct FramebufferRef : glew_destroy<FramebufferRef, GLuint, glDeleteFramebuffer
 		glBlitFramebuffer(
 			  GLint(srcX), GLint(srcY), GLint(srcX + width), GLint(srcY + height)
 			, GLint(destX), GLint(destY), GLint(destX + width), GLint(destY + height)
-			, mask, GL_LINEAR
+			, mask, filter
 			);
 		THROW_OPENGL_LASTERROR("glBlitFramebuffer()");
 	}
