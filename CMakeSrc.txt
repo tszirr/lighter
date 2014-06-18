@@ -28,6 +28,7 @@ set(LIGHTER_SRC
   textx
   text.glsl
   uii
+  uiix
   ui
   uix
   ui.glsl

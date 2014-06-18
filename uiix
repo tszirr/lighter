@@ -50,7 +50,7 @@ struct SortedKeyValueStore : ui::KeyValueStore
 		auto&& sectionCmp = [&](item_ref const& key, char const* section) -> bool
 		{
 			auto kc = key.first.data() + l;
-			auto o = strcmp(kc, section);
+			auto o = strncmp(kc, section, sl);
 			return o < 0 || o == 0 && unsigned(kc[sl]) < unsigned(sectionEndDelim);
 		};
 
@@ -74,10 +74,10 @@ struct SortedKeyValueStore : ui::KeyValueStore
 		typedef decltype(*r.first) item_ref;
 		auto&& sectionCmp = [&](item_ref const& key, char const* seek) -> bool
 		{
-			return strcmp(key.first.data(), seek) < 0;
+			return strcmp(key.first.data() + l, seek) < 0;
 		};
 		auto i = std::lower_bound(r.first, r.last, key, sectionCmp);
-		return (i != r.last && i->first == key)
+		return (i != r.last && strcmp(i->first.data() + l, key) == 0)
 			? i->second.data()
 			: nullptr;
 	}
