@@ -32,6 +32,7 @@ set(LIGHTER_SRC
   ui
   uix
   ui.glsl
+  uii.cpp
   scene
   scenex
 )

@@ -2,6 +2,7 @@
 
 #include "stdx"
 #include <iostream>
+#include <string>
 
 namespace appx
 {
@@ -36,6 +37,22 @@ struct Task
 	}
 };
 
+inline std::string exception_string()
+{
+	try
+	{
+		throw;
+	}
+	catch (std::exception const &excpt)
+	{
+		return excpt.what();
+	}
+	catch (...)
+	{
+		return "Unknown error";
+	}
+}
+
 inline void print_exception()
 {
 	try
@@ -48,7 +65,7 @@ inline void print_exception()
 	}
 	catch (...)
 	{
-		std::cout << "Unknown error: " << std::endl;
+		std::cout << "Unknown error" << std::endl;
 	}
 }
 

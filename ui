@@ -199,4 +199,6 @@ struct UserInterface
 	virtual void flushText() = 0;
 };
 
+void preset_user_interface(UniversalInterface& ui, stdx::fun_ref<void(UniversalInterface&)> target, char const* defaultFile = nullptr);
+
 } // namespace
