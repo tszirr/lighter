@@ -110,7 +110,8 @@ struct UiToText : UniversalInterface
 	{
 		if (groupLabelPending > 0)
 		{
-			groupPrefix.push_back('.');
+			if (!groupPrefix.empty())
+				groupPrefix.push_back('.');
 			groupPrefix.append(label);
 			groupPrefixLen.push_back(groupPrefix.size());
 			--groupLabelPending;
