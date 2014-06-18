@@ -901,6 +901,7 @@ template <size_t MaxTextures = 4, GLuint DepthBufferType = 0, GLuint TextureType
 struct FramebufferDesc : FramebufferAttachments<MaxTextures, DepthBufferType, TextureType>
 {
 	typedef Framebuffer resource;
+	typedef std::true_type is_shared;
 
 	template <size_t MT>
 	Framebuffer create() const

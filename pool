@@ -73,21 +73,30 @@ namespace detail
 	{
 		enum no_context_t { no_context };
 		
+		inline bool is_shared(...) { return false; }
+		template <class Desc>
+		inline bool is_shared(Desc const&, typename Desc::is_shared* = nullptr) { return Desc::is_shared::value; }
+//		template <class Desc>
+//		inline bool is_shared(Desc const&, typename Desc::resource::is_shared* = nullptr) { return Desc::resource::is_shared::value; }
+
 		template <class Desc, class Context>
-		static auto create(Desc const& desc, Context&& ctx) -> decltype(desc.create(std::forward<Context>(ctx))) {
+		inline auto create(Desc const& desc, Context&& ctx) -> decltype(desc.create(std::forward<Context>(ctx))) {
 			return desc.create( FORWARD(Context, ctx) ); }
 		template <class Desc>
-		static auto create(Desc const& desc, no_context_t) -> decltype(desc.create()) {
+		inline auto create(Desc const& desc, no_context_t) -> decltype(desc.create()) {
 			return desc.create(); }
 
 		template <class Resource>
 		struct no_desc_t { };
 
+		template <class Resource>
+		inline bool is_shared(no_desc_t<Resource> const&, typename Resource::is_shared* = nullptr) { return Resource::is_shared::value; }
+
 		template <class Resource, class Context>
-		static auto create(no_desc_t<Resource> const&, Context&& ctx) -> decltype(Resource::create(std::forward<Context>(ctx))) {
+		inline auto create(no_desc_t<Resource> const&, Context&& ctx) -> decltype(Resource::create(std::forward<Context>(ctx))) {
 			return Resource::create( FORWARD(Context, ctx) ); }
 		template <class Resource>
-		static auto create(no_desc_t<Resource> const&, no_context_t) -> decltype(Resource::create()) {
+		inline auto create(no_desc_t<Resource> const&, no_context_t) -> decltype(Resource::create()) {
 			return Resource::create(); }
 
 		struct pool_item : pooled_interface
@@ -141,7 +150,9 @@ struct resource_pool
 		auto it = findUnused<Res>(desc);
 		if (!it)
 			it = createAndInsert<Res>(desc, FORWARD(Context, context));
-		++it->ref_count;
+		using detail::resource_pool::is_shared;
+		if (!is_shared(desc))
+			++it->ref_count;
 		it->last_use = usage_frame;
 		return own_pooled<ResRef>( typename own_pooled<ResRef>::pointer(it->resource, it) );
 	}
