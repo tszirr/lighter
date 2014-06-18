@@ -341,7 +341,7 @@ struct TextUi : UserInterface, UniversalInterface
 		state.cursor.pos = cursorPos;
 	}
 
-	void addLabel(char const* label)
+	void prependLabel(char const* label)
 	{
 		auto treePos = context.insertPos;
 		treePos.x -= setup.options.labelDelta * 3 / 4;
@@ -401,7 +401,7 @@ struct TextUi : UserInterface, UniversalInterface
 
 	void addText(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact) override
 	{
-		addLabel(label);
+		prependLabel(label);
 
 		auto valBox = textRenderer->drawText(context.insertPos, text);
 		maybeDrawCursor(context.insertPos, text);
@@ -419,14 +419,14 @@ struct TextUi : UserInterface, UniversalInterface
 			}
 		}
 
+		nextLine();
+
 		if (interact)
 			maybeEditText(id, text, [&](char const* newText)
 			{
 				interact->updateValue(newText);
 			});
 		// warning: text may be invalid from here on
-
-		nextLine();
 	}
 
 	void addInteractiveButton(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<ButtonEvent::T> interact, InteractionParam<Button> control = nullptr) override
@@ -459,6 +459,11 @@ struct TextUi : UserInterface, UniversalInterface
 		valPos.x += (buttonSize.x - valBox.max.x) / 2;
 		textRenderer->drawText(valPos, text);
 		
+		nextLine();
+
+		if (control)
+			control->updateValue(button);
+
 		// order: text may change or become invalid after interaction!
 		if (mouse.primaryChanged && interact)
 		{
@@ -471,11 +476,6 @@ struct TextUi : UserInterface, UniversalInterface
 						: ButtonEvent::UpDismiss);
 		}
 		// warning: text may be invalid from here on
-
-		nextLine();
-
-		if (control)
-			control->updateValue(button);
 	}
 
 	void addButton(UniqueElementIdentifier id, char const* text, InteractionParam<void> interact, char const* fullText = nullptr, InteractionParam<Button> control = nullptr) override
@@ -492,7 +492,7 @@ struct TextUi : UserInterface, UniversalInterface
 	void addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks = 0.0f
 		, InteractionParam<Slider> control = nullptr) override
 	{
-		addLabel(label);
+		prependLabel(label);
 
 		char numBuf[32];
 		sprintf(numBuf, "%f", value);
@@ -528,7 +528,9 @@ struct TextUi : UserInterface, UniversalInterface
 			float tickDelta = ticks / range * (float) fullBarSize.x;
 			uiRenderer->drawWidget(tickPos, tickSize, ui::UiElement::Ticks, stdx::as_<unsigned>(tickDelta));
 		}
-
+		
+		Slider slider = { id, { barPos, barEnd }, value, range, relativeValueBase * range };
+		
 		auto valPos = context.insertPos;
 		valPos.x += (sliderSize.x - valBox.max.x) / 2;
 		valBox = textRenderer->drawText(valPos, num);
@@ -546,6 +548,11 @@ struct TextUi : UserInterface, UniversalInterface
 				state.cursor.column = (int) newCol;
 			}
 		}
+		
+		nextLine();
+
+		if (control)
+			control->updateValue(slider);
 
 		if (interact)
 			maybeEditText(id, num, [&](char const* newText)
@@ -555,10 +562,6 @@ struct TextUi : UserInterface, UniversalInterface
 					interact->updateValue(newVal);
 			});
 
-		nextLine();
-
-		Slider slider = { id, { barPos, barEnd }, value, range, relativeValueBase * range };
-		
 		if (interact)
 		{
 			if (mouse.primary && capturedOrAcquired(context.parentPath, slider.id, mouse.primaryChanged && glm::in_aabb(mouse.pos, slider.rect)))
@@ -576,9 +579,6 @@ struct TextUi : UserInterface, UniversalInterface
 					);
 			}
 		}
-		
-		if (control)
-			control->updateValue(slider);
 	}
 };
 

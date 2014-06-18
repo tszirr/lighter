@@ -165,7 +165,6 @@ struct UniversalInterface : UniversalInterfaceInteraction
 {
 	virtual bool pushGroup(UniqueElementIdentifier id, bool openByDefault = true) = 0;
 	virtual void popGroup(UniqueElementIdentifier id) = 0;
-	virtual void addLabel(char const* label) = 0;
 
 	virtual void beginUnion() = 0;
 	virtual void endUnion() = 0;
@@ -239,5 +238,8 @@ struct KeyValueStore
 	virtual char const* getValue(char const* key) = 0;
 };
 void read(KeyValueStore& in, stdx::fun_ref<void(UniversalInterface&)> ui);
+
+void load_ini_file(char const* file, stdx::fun_ref<void(UniversalInterface&)> ui);
+void save_ini_file(char const* file, stdx::fun_ref<void(UniversalInterface&)> ui);
 
 } // namespace

@@ -606,6 +606,28 @@ namespace stdx
 		return result;
 	}
 
+	int prompt(char const* message, char const* title, choice::t choice)
+	{
+		if (!title) title = "Prompt";
+		UINT style = MB_TASKMODAL;
+		
+		if (choice == stdx::choice::yesno)
+			style |= MB_ICONQUESTION | MB_YESNO;
+		else if (choice == stdx::choice::yesnocancel)
+			style |= MB_ICONQUESTION | MB_YESNOCANCEL;
+		else // if (choice == stdx::choice::ok)
+			style |= MB_ICONINFORMATION | MB_OK;
+		
+		auto result = ::MessageBoxA(NULL, message, title, style);
+		
+		if (result == IDYES)
+			return 1;
+		else if (result == IDNO)
+			return 0;
+		else
+			return -1;
+	}
+
 #else
 
 	void init_shell_on_startup()
