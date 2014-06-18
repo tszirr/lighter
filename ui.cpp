@@ -211,6 +211,7 @@ struct TextToUi : UniversalInterface
 		if (groupLabelPending > 0)
 		{
 			stream->enterSection(label);
+			--groupLabelPending;
 			return "$";
 		}
 		else
