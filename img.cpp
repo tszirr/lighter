@@ -290,12 +290,12 @@ namespace
 
 } // namespace
 
-size_t get_targa_size_rgba(size_t width, size_t height, size_t channels)
+size_t get_targa_size_8bpc(size_t width, size_t height, size_t channels)
 {
 	return sizeof(targa_header) + width * height * channels;
 }
 
-void* write_targa_header_rgba(void* writeTo, size_t width, size_t height, size_t channels)
+void* write_targa_header_8bpc(void* writeTo, size_t width, size_t height, size_t channels)
 {
 	targa_header header = { 0 };
 	header.image_type = 2; // uncompressed pixel array
