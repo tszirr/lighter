@@ -259,4 +259,52 @@ void load_image(void* destImage, ImageType::T destElementType, unsigned destChan
 	}
 }
 
+namespace
+{
+	#pragma pack(1)
+	struct targa_header
+	{
+		char id_length;
+		char color_map;
+		char image_type;
+
+		#pragma pack(1)
+		struct palette
+		{
+			unsigned short first_entry_index;
+			unsigned short length;
+			unsigned char entry_size;
+		} palette;
+
+		#pragma pack(1)
+		struct image
+		{
+			unsigned short x_origin;
+			unsigned short y_origin;
+			unsigned short width;
+			unsigned short height;
+			unsigned char bpp;
+			unsigned char descriptor;
+		} image;
+	};
+
 } // namespace
+
+size_t get_targa_size_rgba(size_t width, size_t height, size_t channels)
+{
+	return sizeof(targa_header) + width * height * channels;
+}
+
+void* write_targa_header_rgba(void* writeTo, size_t width, size_t height, size_t channels)
+{
+	targa_header header = { 0 };
+	header.image_type = 2; // uncompressed pixel array
+	header.image.width = static_cast<unsigned short>(width);
+	header.image.height = static_cast<unsigned short>(height);
+	header.image.bpp = static_cast<unsigned char>(8 * channels);
+	header.image.descriptor = 0; // no attribute bits, origin bottom left
+	memcpy(writeTo, &header, sizeof(header));
+	return static_cast<char*>(writeTo) + sizeof(header);
+}
+
+} // namepsace

@@ -70,4 +70,16 @@ Image<Element> load_image(stdx::data_range_param<const char> imageData)
 	return image;
 }
 
+// inline image writing
+size_t get_targa_size_8bpc(size_t width, size_t height, size_t channels = 4);
+void* write_targa_header_8bpc(void* writeTo, size_t width, size_t height, size_t channels = 4);
+
+struct TargaWriter
+{
+	size_t width, height, channels;
+	static TargaWriter make(size_t width, size_t height, size_t channels = 4) { TargaWriter t = { width, height, channels }; return t; }
+	size_t size() const { return get_targa_size_8bpc(width, height, channels); }
+	void* write_header_get_ptr(void* writeTo) const { return write_targa_header_8bpc(writeTo, width, height, channels); }
+};
+
 } // namespace
