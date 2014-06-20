@@ -116,7 +116,8 @@ namespace detail
 
 		pool_item* find(std::unique_ptr<pool_item> const* begin, std::unique_ptr<pool_item> const* end, void const* desc
 			, bool (*lessThanDesc)(std::unique_ptr<pool_item> const&, void const*)
-			, bool (*greaterThanDesc)(void const*, std::unique_ptr<pool_item> const&));
+			, bool (*greaterThanDesc)(void const*, std::unique_ptr<pool_item> const&)
+			, bool unusedOnly);
 		pool_item* insert(std::vector< std::unique_ptr<pool_item> >& items
 			, pool_item* newItemPtr, void const* desc
 			, bool (*lessThanDesc)(std::unique_ptr<pool_item> const&, void const*));
@@ -150,9 +151,7 @@ struct resource_pool
 		auto it = findUnused<Res>(desc);
 		if (!it)
 			it = createAndInsert<Res>(desc, FORWARD(Context, context));
-		using detail::resource_pool::is_shared;
-		if (!is_shared(desc))
-			++it->ref_count;
+		++it->ref_count;
 		it->last_use = usage_frame;
 		return own_pooled<ResRef>( typename own_pooled<ResRef>::pointer(it->resource, it) );
 	}
@@ -205,10 +204,12 @@ struct resource_pool
 	template <class Res, class Desc>
 	item<Desc, Res>* findUnused(Desc const& desc)
 	{
+		using detail::resource_pool::is_shared;
 		return static_cast<item<Desc, Res>*>(
 			  detail::resource_pool::find(
 				  items.data(), items.data() + items.size(), &desc
 				, &lessThanDesc<Res, Desc>, &greaterThanDesc<Res, Desc>
+				, !is_shared(desc)
 				)
 			);
 	}

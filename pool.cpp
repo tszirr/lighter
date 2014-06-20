@@ -13,15 +13,17 @@ namespace resource_pool
 
 pool_item* find(std::unique_ptr<pool_item> const* begin, std::unique_ptr<pool_item> const* end, void const* desc
 	, bool (*lessThanDesc)(std::unique_ptr<pool_item> const&, void const*)
-	, bool (*greaterThanDesc)(void const*, std::unique_ptr<pool_item> const&))
+	, bool (*greaterThanDesc)(void const*, std::unique_ptr<pool_item> const&)
+	, bool unusedOnly)
 {
 	auto first = std::lower_bound(begin, end, desc, lessThanDesc);
 	auto last = std::upper_bound(begin, end, desc, greaterThanDesc);
 	
 	auto it = first;
-	for (; it != last; ++it)
-		if ((*it)->ref_count == 0)
-			break;
+	if (unusedOnly)
+		for (; it != last; ++it)
+			if ((*it)->ref_count == 0)
+				break;
 
 	return (it != last)
 		? it->get()
