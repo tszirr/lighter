@@ -41,43 +41,45 @@ namespace glm
 		MATHX_API operator vec<T, N>&();
 		MATHX_API operator vec<T, N> const&() const;
 
-		MATHX_API operator typename vec_t<T, N>::type() const { return reinterpret_cast<typename vec_t<T, N>::type const&>(*this); }
+		MATHX_API operator typename vec_t<T, N>::type() const;
 	};
 	template <class T, size_t N> struct vec_type< pod_vec<T, N> > { static size_t const dimension = N; typedef T component; };
 
-	template <class T, size_t N>
-	struct vec_data
-	{
-		union
-		{
-			pod_vec<T, N> pod;
-			T c[N];
-		};
-	};
-	template <class T>
-	struct vec_data<T, 1> { union { pod_vec<T, 1> pod; T c[1]; struct { float x; }; }; };
-	template <class T>
-	struct vec_data<T, 2> { union { pod_vec<T, 2> pod; T c[2]; struct { float x, y; }; }; };
-	template <class T>
-	struct vec_data<T, 3> { union { pod_vec<T, 3> pod; T c[3]; struct { float x, y, z; }; }; };
-	template <class T>
-	struct vec_data<T, 4> { union { pod_vec<T, 4> pod; T c[4]; struct { float x, y, z, w; }; }; };
+	// provide named component attributes (x, y, z, w)
+	#define SPECIALIZE_POD_VEC(N, ...) \
+		template <class T> \
+		struct pod_vec<T, N> \
+		{ \
+			union \
+			{ \
+				T c[N]; \
+				struct { __VA_ARGS__; }; \
+			}; \
+			\
+			MATHX_API operator vec<T, N>&(); \
+			MATHX_API operator vec<T, N> const&() const; \
+			\
+			MATHX_API operator typename vec_t<T, N>::type() const; \
+		}
+	SPECIALIZE_POD_VEC(1, T x);
+	SPECIALIZE_POD_VEC(2, T x, y);
+	SPECIALIZE_POD_VEC(3, T x, y, z);
+	SPECIALIZE_POD_VEC(4, T x, y, z, w);
+	#undef SPECIALIZE_POD_VEC
 
 	// vector (no-op default initialization)
 	template <class T, size_t N>
-	struct vec : vec_data<T, N>
+	struct vec : pod_vec<T, N>
 	{
 		MATHX_API vec() { }
 		
-		MATHX_API vec(pod_vec<T, N> const& v) { this->pod = v; }
-		MATHX_API vec& operator =(pod_vec<T, N> const& v) { this->pod = v; return *this; }
+		MATHX_API vec(pod_vec<T, N> const& v): pod_vec<T, N>(v) { }
+		MATHX_API vec& operator =(pod_vec<T, N> const& v) { pod_vec<T, N>::operator =(v); return *this; }
 		
 		template <class Vec> 
 		MATHX_API vec(Vec const& v,
 			typename std::enable_if<std::is_same<typename vec_type<Vec>::component, T>::value && vec_type<Vec>::dimension == N>::type* = nullptr)
-			: vec_data<T, N>( reinterpret_cast<vec_data<T, N> const&>(v) ) { }
-
-		MATHX_API operator typename vec_t<T, N>::type() const { return reinterpret_cast<typename vec_t<T, N>::type const&>(*this->pod); }
+			: pod_vec<T, N>( reinterpret_cast<pod_vec<T, N> const&>(v) ) { }
 	};
 	template <class T, size_t N> struct vec_type< vec<T, N> > { static size_t const dimension = N; typedef T component; };
 	
@@ -85,11 +87,15 @@ namespace glm
 	inline MATHX_API pod_vec<T, N>::operator vec<T, N>&() { return reinterpret_cast<vec<T, N>&>(*this); }
 	template <class T, size_t N>
 	inline MATHX_API pod_vec<T, N>::operator vec<T, N> const&() const { return reinterpret_cast<vec<T, N> const&>(*this); }
+	
+	template <class T, size_t N>
+	inline MATHX_API pod_vec<T, N>::operator typename vec_t<T, N>::type() const
+	{	return reinterpret_cast<typename vec_t<T, N>::type const&>(*this); }
 
 	template <class Vec> MATHX_API inline vec<typename vec_type<Vec>::component, vec_type<Vec>::dimension> to_pod(Vec const& v)
 	{	return reinterpret_cast<vec<typename vec_type<Vec>::component, vec_type<Vec>::dimension> const&>(v); }
 	template <class T, size_t N>
-	inline MATHX_API typename vec_t<T, N>::type to_vec(vec<T, N> const& v)
+	inline MATHX_API typename vec_t<T, N>::type to_vec(pod_vec<T, N> const& v)
 	{	return reinterpret_cast<typename vec_t<T, N>::type const&>(v); }
 
 	// POD AABB (no default initialization)
