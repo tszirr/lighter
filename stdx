@@ -108,8 +108,8 @@ namespace stdx
 
 		static void assert_stride_compatible(iterator, iterator) { }
 		template <class Iterator>
-		static void assert_stride_compatible(iterator a, Iterator b) {
-			static_assert(sizeof(*a) == sizeof(*b), "Range iterator type or stride mismatch"); (void) a; (void) b; }
+		static void assert_stride_compatible(iterator a, Iterator b)
+		{	static_assert(sizeof(*a) == sizeof(*b), "Range iterator type or stride mismatch"); (void) a; (void) b; }
 		
 		range() : first(), last() { }
 		range(iterator f, iterator l) : first((iterator&&) f), last((iterator&&) l) { }
@@ -183,46 +183,46 @@ namespace stdx
 			: range<Iterator>(Iterator(r.data()), Iterator(r.data() + r.size())) { }
 
 		template <class Value2>
-		range<typename Iterator::template reinterpret_t<Value2>::t> reinterpret() const {
-			return range<typename Iterator::template reinterpret_t<Value2>::t>(this->first.reinterpret<Value2>(), this->last.reinterpret<Value2>()); }
+		range<typename Iterator::template reinterpret_t<Value2>::t> reinterpret() const
+		{	return range<typename Iterator::template reinterpret_t<Value2>::t>(this->first.reinterpret<Value2>(), this->last.reinterpret<Value2>()); }
 	};
 
 	template <class Iterator>
-	inline range<Iterator> make_range(Iterator begin, Iterator end) {
-		return range<Iterator>(begin, end); }
+	inline range<Iterator> make_range(Iterator begin, Iterator end)
+	{	return range<Iterator>(begin, end); }
 	template <class Iterator, class Size>
-	inline range<Iterator> make_range_n(Iterator begin, Size len) {
-		return range<Iterator>(begin, begin + len); }
+	inline range<Iterator> make_range_n(Iterator begin, Size len)
+	{	return range<Iterator>(begin, begin + len); }
 	template <class Range>
-	inline range<typename Range::iterator> make_range(Range &r) {
-		return range<typename Range::iterator>(r.begin(), r.end()); }
+	inline range<typename Range::iterator> make_range(Range &r)
+	{	return range<typename Range::iterator>(r.begin(), r.end()); }
 	template <class Range>
-	inline range<typename Range::const_iterator> make_range(Range const &r) {
-		return range<typename Range::const_iterator>(r.begin(), r.end()); }
+	inline range<typename Range::const_iterator> make_range(Range const &r)
+	{	return range<typename Range::const_iterator>(r.begin(), r.end()); }
 
 	template <class Iterator>
-	inline range<Iterator> str_range(Iterator cstr) {
-		Iterator end = cstr; [&end](){ while (*end) ++end; }();
+	inline range<Iterator> str_range(Iterator cstr)
+	{	Iterator end = cstr; [&end](){ while (*end) ++end; }();
 		return range<Iterator>(cstr, end); }
 	template <class Char, size_t Size>
-	inline range<Char*> strlit_range(Char (&cstr)[Size]) {
-		return range<Char*>(cstr, strend(cstr)); }
+	inline range<Char*> strlit_range(Char (&cstr)[Size])
+	{	return range<Char*>(cstr, strend(cstr)); }
 
 	template <class Range>
 	inline range<typename Range::pointer> data_range(Range &r
-		, typename enable_if_iterator_compatible<decltype(static_cast<Range*>(nullptr)->data()), typename Range::pointer>::type *enable_if_typematch = nullptr) {
-		return range<typename Range::pointer>(r.data(), r.data() + r.size()); }
+		, typename enable_if_iterator_compatible<decltype(static_cast<Range*>(nullptr)->data()), typename Range::pointer>::type *enable_if_typematch = nullptr)
+	{	return range<typename Range::pointer>(r.data(), r.data() + r.size()); }
 	template <class Range>
-	inline range<typename Range::const_pointer> data_range(Range const &r) {
-		return range<typename Range::const_pointer>(r.data(), r.data() + r.size()); }
+	inline range<typename Range::const_pointer> data_range(Range const &r)
+	{	return range<typename Range::const_pointer>(r.data(), r.data() + r.size()); }
 
 	template <class Range>
 	inline range<typename Range::pointer> data_range(Range &r, size_t len, size_t offset = 0
-		, typename enable_if_iterator_compatible<decltype(static_cast<Range*>(nullptr)->data()), typename Range::pointer>::type *enable_if_typematch = nullptr) {
-		return range<typename Range::pointer>(r.data() + offset, r.data() + offset + len); }
+		, typename enable_if_iterator_compatible<decltype(static_cast<Range*>(nullptr)->data()), typename Range::pointer>::type *enable_if_typematch = nullptr)
+	{	return range<typename Range::pointer>(r.data() + offset, r.data() + offset + len); }
 	template <class Range>
-	inline range<typename Range::const_pointer> data_range(Range const &r, size_t len, size_t offset = 0) {
-		return range<typename Range::const_pointer>(r.data() + offset, r.data() + offset + len); }
+	inline range<typename Range::const_pointer> data_range(Range const &r, size_t len, size_t offset = 0)
+	{	return range<typename Range::const_pointer>(r.data() + offset, r.data() + offset + len); }
 
 	template <class Type>
 	struct strided_ptr
@@ -254,34 +254,34 @@ namespace stdx
 			, stride( right.stride ) { }
 
 		template <class Type2>
-		strided_ptr& operator =(strided_ptr<Type2> const& right) {
-			ptr = right.ptr;
+		strided_ptr& operator =(strided_ptr<Type2> const& right)
+		{	ptr = right.ptr;
 			stride = right.stride;
 			return *this; }
 
 		template <class Type2>
 		struct reinterpret_t { typedef strided_ptr<Type2> t; };
 		template <class Type2>
-		strided_ptr<Type2> reinterpret() const {
-			return strided_ptr<Type2>( reinterpret_cast<Type2*>(ptr), stride ); }
+		strided_ptr<Type2> reinterpret() const
+		{	return strided_ptr<Type2>( reinterpret_cast<Type2*>(ptr), stride ); }
 
 		/// Increments the pointer.
-		strided_ptr& operator ++() {
-			ptr = (pointer) &(char&)((*this)[1]);
+		strided_ptr& operator ++()
+		{	ptr = (pointer) &(char&)((*this)[1]);
 			return *this; }
 		/// Decrements the pointer.
-		strided_ptr& operator --() {
-			ptr = (pointer) &(char&)((*this)[-1]);
+		strided_ptr& operator --()
+		{	ptr = (pointer) &(char&)((*this)[-1]);
 			return *this; }
 
 		/// Increments the pointer.
-		strided_ptr operator ++(int) {
-			strided_ptr old(*this);
+		strided_ptr operator ++(int)
+		{	strided_ptr old(*this);
 			++(*this);
 			return old; }
 		/// Decrements the pointer.
-		strided_ptr operator --(int) {
-			strided_ptr old(*this);
+		strided_ptr operator --(int)
+		{	strided_ptr old(*this);
 			--(*this);
 			return old; }
 
@@ -296,13 +296,13 @@ namespace stdx
 		pointer operator ->() const { return ptr; }
 
 		/// Gets the n-th object referenced by this strided pointer.
-		reference operator [](difference_type n) const {
-			return *pointer((char*) ptr + stride * n); }
+		reference operator [](difference_type n) const
+		{	return *pointer((char*) ptr + stride * n); }
 	
-		friend inline strided_ptr operator +(const strided_ptr &p, ptrdiff_t diff) {
-			return strided_ptr( (pointer) &(char&)(p[diff]), p.get_stride() ); }
-		friend inline strided_ptr operator -(const strided_ptr &p, ptrdiff_t diff) {
-			return strided_ptr( (pointer) &(char&)(p[-diff]), p.get_stride() ); }
+		friend inline strided_ptr operator +(const strided_ptr &p, ptrdiff_t diff)
+		{	return strided_ptr( (pointer) &(char&)(p[diff]), p.get_stride() ); }
+		friend inline strided_ptr operator -(const strided_ptr &p, ptrdiff_t diff)
+		{	return strided_ptr( (pointer) &(char&)(p[-diff]), p.get_stride() ); }
 
 		friend inline bool operator ==(const strided_ptr &l, const strided_ptr &r) { return l.get() == r.get(); }
 		friend inline bool operator !=(const strided_ptr &l, const strided_ptr &r) { return l.get() != r.get(); }
@@ -311,8 +311,8 @@ namespace stdx
 		friend inline bool operator <(const strided_ptr &l, const strided_ptr &r) { return l.get() < r.get(); }
 		friend inline bool operator >(const strided_ptr &l, const strided_ptr &r) { return l.get() > r.get(); }
 
-		friend inline ptrdiff_t operator -(const strided_ptr &p, const strided_ptr &q) {
-			assert(p.get_stride() == q.get_stride());
+		friend inline ptrdiff_t operator -(const strided_ptr &p, const strided_ptr &q)
+		{	assert(p.get_stride() == q.get_stride());
 			return ( (char*) p.get() - (char*) q.get() ) / p.get_stride(); }
 	};
 
@@ -480,8 +480,8 @@ namespace stdx
 	{ return strcasecmp(a, b) == 0; }
 #endif
 
-	inline bool check_flag(char const* arg, char const* flag) {
-		return (arg[0] == '/' || arg[0] == '-') && strieq(arg + 1, flag); }
+	inline bool check_flag(char const* arg, char const* flag)
+	{	return (arg[0] == '/' || arg[0] == '-') && strieq(arg + 1, flag); }
 	
 	template <class S>
 	struct signature { typedef S type; };
@@ -524,33 +524,33 @@ namespace stdx
 
 			template <class R>
 			struct dispatcher<R()> {
-				static R call(fun_ref_data ref) {
-					return static_cast<R>( (*static_cast<Callable*>(ref.self))() ); }
+				static R call(fun_ref_data ref)
+				{	return static_cast<R>( (*static_cast<Callable*>(ref.self))() ); }
 			};
 			template <class R, class A1>
 			struct dispatcher<R(A1)> {
-				static R call(fun_ref_data ref, A1 a1) {
-					return static_cast<R>( (*static_cast<Callable*>(ref.self))(FORWARD(A1, a1)) ); }
+				static R call(fun_ref_data ref, A1 a1)
+				{	return static_cast<R>( (*static_cast<Callable*>(ref.self))(FORWARD(A1, a1)) ); }
 			};
 			template <class R, class A1, class A2>
 			struct dispatcher<R(A1, A2)> {
-				static R call(fun_ref_data ref, A1 a1, A2 a2) {
-					return static_cast<R>( (*static_cast<Callable*>(ref.self))(FORWARD(A1, a1), FORWARD(A2, a2)) ); }
+				static R call(fun_ref_data ref, A1 a1, A2 a2)
+				{	return static_cast<R>( (*static_cast<Callable*>(ref.self))(FORWARD(A1, a1), FORWARD(A2, a2)) ); }
 			};
 			template <class R, class A1, class A2, class A3>
 			struct dispatcher<R(A1, A2, A3)> {
-				static R call(fun_ref_data ref, A1 a1, A2 a2, A3 a3) {
-					return static_cast<R>( (*static_cast<Callable*>(ref.self))(FORWARD(A1, a1), FORWARD(A2, a2), FORWARD(A3, a3)) ); }
+				static R call(fun_ref_data ref, A1 a1, A2 a2, A3 a3)
+				{	return static_cast<R>( (*static_cast<Callable*>(ref.self))(FORWARD(A1, a1), FORWARD(A2, a2), FORWARD(A3, a3)) ); }
 			};
 			template <class R, class A1, class A2, class A3, class A4>
 			struct dispatcher<R(A1, A2, A3, A4)> {
-				static R call(fun_ref_data ref, A1 a1, A2 a2, A3 a3, A4 a4) {
-					return static_cast<R>( (*static_cast<Callable*>(ref.self))(FORWARD(A1, a1), FORWARD(A2, a2), FORWARD(A3, a3), FORWARD(A4, a4)) ); }
+				static R call(fun_ref_data ref, A1 a1, A2 a2, A3 a3, A4 a4)
+				{	return static_cast<R>( (*static_cast<Callable*>(ref.self))(FORWARD(A1, a1), FORWARD(A2, a2), FORWARD(A3, a3), FORWARD(A4, a4)) ); }
 			};
 			template <class R, class A1, class A2, class A3, class A4, class A5>
 			struct dispatcher<R(A1, A2, A3, A4, A5)> {
-				static R call(fun_ref_data ref, A1 a1, A2 a2, A3 a3, A4 a4, A5 a5) {
-					return static_cast<R>( (*static_cast<Callable*>(ref.self))(FORWARD(A1, a1), FORWARD(A2, a2), FORWARD(A3, a3), FORWARD(A4, a4), FORWARD(A5, a5)) ); }
+				static R call(fun_ref_data ref, A1 a1, A2 a2, A3 a3, A4 a4, A5 a5)
+				{	return static_cast<R>( (*static_cast<Callable*>(ref.self))(FORWARD(A1, a1), FORWARD(A2, a2), FORWARD(A3, a3), FORWARD(A4, a4), FORWARD(A5, a5)) ); }
 			};
 		};
 
@@ -562,33 +562,33 @@ namespace stdx
 
 			template <class R>
 			struct dispatcher<R()> {
-				static R call(fun_ref_data ref) {
-					return static_cast<R>( (static_cast<Class*>(ref.self)->*Callable)() ); }
+				static R call(fun_ref_data ref)
+				{	return static_cast<R>( (static_cast<Class*>(ref.self)->*Callable)() ); }
 			};
 			template <class R, class A1>
 			struct dispatcher<R(A1)> {
-				static R call(fun_ref_data ref, A1 a1) {
-					return static_cast<R>( (static_cast<Class*>(ref.self)->*Callable)(FORWARD(A1, a1)) ); }
+				static R call(fun_ref_data ref, A1 a1)
+				{	return static_cast<R>( (static_cast<Class*>(ref.self)->*Callable)(FORWARD(A1, a1)) ); }
 			};
 			template <class R, class A1, class A2>
 			struct dispatcher<R(A1, A2)> {
-				static R call(fun_ref_data ref, A1 a1, A2 a2) {
-					return static_cast<R>( (static_cast<Class*>(ref.self)->*Callable)(FORWARD(A1, a1), FORWARD(A2, a2)) ); }
+				static R call(fun_ref_data ref, A1 a1, A2 a2)
+				{	return static_cast<R>( (static_cast<Class*>(ref.self)->*Callable)(FORWARD(A1, a1), FORWARD(A2, a2)) ); }
 			};
 			template <class R, class A1, class A2, class A3>
 			struct dispatcher<R(A1, A2, A3)> {
-				static R call(fun_ref_data ref, A1 a1, A2 a2, A3 a3) {
-					return static_cast<R>( (static_cast<Class*>(ref.self)->*Callable)(FORWARD(A1, a1), FORWARD(A2, a2), FORWARD(A3, a3)) ); }
+				static R call(fun_ref_data ref, A1 a1, A2 a2, A3 a3)
+				{	return static_cast<R>( (static_cast<Class*>(ref.self)->*Callable)(FORWARD(A1, a1), FORWARD(A2, a2), FORWARD(A3, a3)) ); }
 			};
 			template <class R, class A1, class A2, class A3, class A4>
 			struct dispatcher<R(A1, A2, A3, A4)> {
-				static R call(fun_ref_data ref, A1 a1, A2 a2, A3 a3, A4 a4) {
-					return static_cast<R>( (static_cast<Class*>(ref.self)->*Callable)(FORWARD(A1, a1), FORWARD(A2, a2), FORWARD(A3, a3), FORWARD(A4, a4)) ); }
+				static R call(fun_ref_data ref, A1 a1, A2 a2, A3 a3, A4 a4)
+				{	return static_cast<R>( (static_cast<Class*>(ref.self)->*Callable)(FORWARD(A1, a1), FORWARD(A2, a2), FORWARD(A3, a3), FORWARD(A4, a4)) ); }
 			};
 			template <class R, class A1, class A2, class A3, class A4, class A5>
 			struct dispatcher<R(A1, A2, A3, A4, A5)> {
-				static R call(fun_ref_data ref, A1 a1, A2 a2, A3 a3, A4 a4, A5 a5) {
-					return static_cast<R>( (static_cast<Class*>(ref.self)->*Callable)(FORWARD(A1, a1), FORWARD(A2, a2), FORWARD(A3, a3), FORWARD(A4, a4), FORWARD(A5, a5)) ); }
+				static R call(fun_ref_data ref, A1 a1, A2 a2, A3 a3, A4 a4, A5 a5)
+				{	return static_cast<R>( (static_cast<Class*>(ref.self)->*Callable)(FORWARD(A1, a1), FORWARD(A2, a2), FORWARD(A3, a3), FORWARD(A4, a4), FORWARD(A5, a5)) ); }
 			};
 		};
 
@@ -600,15 +600,11 @@ namespace stdx
 		fun_ref(Callable&& callable
 			, typename std::enable_if<!std::is_same<typename std::decay<Callable>::type, fun_ref>::value>::type *enable_if_not_copy = nullptr)
 			: dispatch(&callable_dispatcher<typename std::remove_reference<Callable>::type>::template dispatcher<signature_type>::call)
-		{
-			this->self = &callable;
-		}
+		{	this->self = &callable; }
 		template <class Class>
 		fun_ref(Class&& obj, dispatch_ptr dispatch)
 			: dispatch(dispatch)
-		{
-			this->self = &callable;
-		}
+		{	this->self = &callable; }
 	};
 
 	template <class MemFunT, MemFunT MemFun, class Class>

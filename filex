@@ -43,19 +43,21 @@ namespace stdx
 	}
 
 	template <class T>
-	inline void serialize_binary(std::ostream& stream, T const& val) {
-		stream.write(&reinterpret_cast<char const&>(val), sizeof(val)); }
+	inline void serialize_binary(std::ostream& stream, T const& val)
+	{	stream.write(&reinterpret_cast<char const&>(val), sizeof(val)); }
 	template <class T>
-	inline void serialize_binary(std::istream& stream, T& val) {
-		stream.read(&reinterpret_cast<char&>(val), sizeof(val)); }
+	inline void serialize_binary(std::istream& stream, T& val)
+	{	stream.read(&reinterpret_cast<char&>(val), sizeof(val)); }
 
 	template <class Range>
-	inline void serialize_container_binary(std::ostream& stream, Range const& range) {
+	inline void serialize_container_binary(std::ostream& stream, Range const& range)
+	{
 		serialize_binary(stream, range.size());
 		stream.write(reinterpret_cast<char const*>(range.data()), sizeof(*range.data()) * range.size());
 	}
 	template <class Range>
-	inline void serialize_container_binary(std::istream& stream, Range& range) {
+	inline void serialize_container_binary(std::istream& stream, Range& range)
+	{
 		size_t size = 0;
 		serialize_binary(stream, size);
 		range.resize(size);

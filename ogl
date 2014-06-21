@@ -299,8 +299,8 @@ inline size_t computeMipLevelCount(size_t dim)
 	return c;
 }
 
-inline bool is3DTexture(GLenum textureType) {
-	return (textureType == GL_TEXTURE_3D); }
+inline bool is3DTexture(GLenum textureType)
+{	return (textureType == GL_TEXTURE_3D); }
 
 struct TextureRef : gl_destroy<TextureRef, GLuint, glDeleteTextures>
 {
@@ -997,8 +997,8 @@ struct AutoViewport : Resource
 };
 
 template <class R>
-inline AutoViewport<R> auto_viewport(R resource, size_t width, size_t height, int x = 0, int y = 0) {
-	return AutoViewport<R>(std::move(resource), width, height, x, y); }
+inline AutoViewport<R> auto_viewport(R resource, size_t width, size_t height, int x = 0, int y = 0)
+{	return AutoViewport<R>(std::move(resource), width, height, x, y); }
 
 struct ShaderRef : glew_destroy_single<ShaderRef, GLuint, glDeleteShader>
 {
