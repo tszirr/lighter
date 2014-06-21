@@ -35,16 +35,16 @@ struct TextRenderer
 
 	virtual glm::aabb<glm::ivec2> selectChar(glm::ivec2 cursorPos, size_t& charIdx, glm::ivec2 insertPos, char const* text, size_t maxChars, CharType type) = 0;
 	template <class Char>
-	inline glm::aabb<glm::ivec2> selectChar(glm::ivec2 cursorPos, size_t& charIdx, glm::ivec2 insertPos, Char const* text, size_t maxChars = ~0, CharType type = CharTypeFromChar<Char>::value) {
-		return selectChar(cursorPos, charIdx, insertPos, reinterpret_cast<char const*>(text), maxChars, type); }
+	inline glm::aabb<glm::ivec2> selectChar(glm::ivec2 cursorPos, size_t& charIdx, glm::ivec2 insertPos, Char const* text, size_t maxChars = ~0, CharType type = CharTypeFromChar<Char>::value)
+	{	return selectChar(cursorPos, charIdx, insertPos, reinterpret_cast<char const*>(text), maxChars, type); }
 	virtual glm::aabb<glm::ivec2> boundText(char const* text, size_t maxChars, glm::ivec2 insertPos, CharType type) = 0;
 	template <class Char>
-	inline glm::aabb<glm::ivec2> boundText(Char const* text, size_t maxChars = ~0, glm::ivec2 insertPos = glm::ivec2(0), CharType type = CharTypeFromChar<Char>::value) {
-		return boundText(reinterpret_cast<char const*>(text), maxChars, insertPos, type); }
+	inline glm::aabb<glm::ivec2> boundText(Char const* text, size_t maxChars = ~0, glm::ivec2 insertPos = glm::ivec2(0), CharType type = CharTypeFromChar<Char>::value)
+	{	return boundText(reinterpret_cast<char const*>(text), maxChars, insertPos, type); }
 	virtual glm::aabb<glm::ivec2> drawText(glm::ivec2 insertPos, char const* text, size_t maxChars, CharType type) = 0;
 	template <class Char>
-	inline glm::aabb<glm::ivec2> drawText(glm::ivec2 insertPos, Char const* text, size_t maxChars = ~0, CharType type = CharTypeFromChar<Char>::value) {
-		return drawText(insertPos, reinterpret_cast<char const*>(text), maxChars, type); }
+	inline glm::aabb<glm::ivec2> drawText(glm::ivec2 insertPos, Char const* text, size_t maxChars = ~0, CharType type = CharTypeFromChar<Char>::value)
+	{	return drawText(insertPos, reinterpret_cast<char const*>(text), maxChars, type); }
 };
 
 struct UiTextRenderer : TextRenderer

@@ -150,8 +150,8 @@ namespace glm
 		typedef vec<typename Uniform::result_type, N> result_type;
 		Uniform c[N];
 		MATHX_API rand_box() { }
-		MATHX_API rand_box(Uniform u) {
-			for (size_t i = 0; i < N; ++i) c[i] = u; }
+		MATHX_API rand_box(Uniform u)
+		{	for (size_t i = 0; i < N; ++i) c[i] = u; }
 		template <class E>
 		MATHX_API result_type operator ()(E& e) const
 		{

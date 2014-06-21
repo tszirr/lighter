@@ -84,7 +84,7 @@ struct SortedKeyValueStore : ui::KeyValueStore
 };
 
 template <class Range>
-SortedKeyValueStore<typename Range::iterator> make_SortedKeyValueStore(Range& range) {
-	return SortedKeyValueStore<typename Range::iterator>(stdx::make_range(range)); }
+SortedKeyValueStore<typename Range::iterator> make_SortedKeyValueStore(Range& range)
+{	return SortedKeyValueStore<typename Range::iterator>(stdx::make_range(range)); }
 
 } // namespace

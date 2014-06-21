@@ -71,8 +71,8 @@ struct UniversalInterfaceInteraction
 			ValueInteraction(std::nullptr_t) { }
 			ValueInteraction(ModifiedValue& value)
 				: value(&value) { }
-			void updateValue(Value const& value) override {
-				*this->value = value; }
+			void updateValue(Value const& value) override
+			{	*this->value = value; }
 		};
 		template <class Value, class Function>
 		struct FunctionInteraction : Interaction<Value>
@@ -81,8 +81,8 @@ struct UniversalInterfaceInteraction
 			FunctionInteraction(std::nullptr_t) { }
 			FunctionInteraction(Function& fun)
 				: fun(&fun) { }
-			void updateValue(Value const& value) override {
-				(*this->fun)(value); }
+			void updateValue(Value const& value) override
+			{	(*this->fun)(value); }
 		};
 		template <class Function>
 		struct FunctionInteraction<void, Function> : Interaction<void>
@@ -91,8 +91,8 @@ struct UniversalInterfaceInteraction
 			FunctionInteraction(std::nullptr_t) { }
 			FunctionInteraction(Function& fun)
 				: fun(&fun) { }
-			void trigger() override {
-				(*this->fun)(); }
+			void trigger() override
+			{	(*this->fun)(); }
 		};
 
 		template <class IA = void>

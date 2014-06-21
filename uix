@@ -274,10 +274,10 @@ struct TextUi : UserInterface, UniversalInterface
 			std::vector<UniqueElementIdentifier> const& parentPath;
 
 			enum parent_t { parent };
-			bool operator ()(HiddenContext::edit_ctx_mapping const& elem, parent_t) {
-				return std::lexicographical_compare(elem.first.begin(), --elem.first.end(), parentPath.begin(), parentPath.end()); }
-			bool operator ()(parent_t, HiddenContext::edit_ctx_mapping const& elem) {
-				return std::lexicographical_compare(parentPath.begin(), parentPath.end(), elem.first.begin(), --elem.first.end()); }
+			bool operator ()(HiddenContext::edit_ctx_mapping const& elem, parent_t)
+			{	return std::lexicographical_compare(elem.first.begin(), --elem.first.end(), parentPath.begin(), parentPath.end()); }
+			bool operator ()(parent_t, HiddenContext::edit_ctx_mapping const& elem)
+			{	return std::lexicographical_compare(parentPath.begin(), parentPath.end(), elem.first.begin(), --elem.first.end()); }
 		};
 
 		ParentCompare parentCompare = { context.parentPath };
