@@ -71,7 +71,7 @@ std::unique_ptr<UserInterface> UserInterface::create(text::FreeTypeRef* freeType
 
 void preset_user_interface(UniversalInterface& ui, stdx::fun_ref<void(UniversalInterface&)> target, char const* defaultFile)
 {
-	if (auto presetGroup = ui::Group(ui, nullptr))
+	if (auto presetGroup = ui::Group(ui, UEI(preset_user_interface)))
 	{
 		uintptr_t controlIdentifier = 0;
 
@@ -93,7 +93,7 @@ void preset_user_interface(UniversalInterface& ui, stdx::fun_ref<void(UniversalI
 			for (auto&&f : mf)
 			{
 				try { load_ini_file(f.c_str(), target); }
-				catch(...) { stdx::prompt(appx::exception_string().c_str(), "Error saving preset"); }
+				catch(...) { stdx::prompt(appx::exception_string().c_str(), "Error applying preset"); }
 			}
 		});
 	}
