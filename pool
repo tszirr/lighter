@@ -241,7 +241,7 @@ struct resource_pool
 	{
 		using detail::resource_pool::generic_comparison::operator <;
 		auto &aType = typeid(*a), &bType = typeid(item<Desc, Res>);
-		return aType == bType && *static_cast<Desc const*>(b) < static_cast<item<Desc, Res> const&>(*a).description
+		return &aType == &bType && *static_cast<Desc const*>(b) < static_cast<item<Desc, Res> const&>(*a).description
 			|| &bType < &aType;
 	}
 	template <class Res, class Desc>
@@ -249,7 +249,7 @@ struct resource_pool
 	{
 		using detail::resource_pool::generic_comparison::operator <;
 		auto &aType = typeid(*a), &bType = typeid(item<Desc, Res>);
-		return aType == bType && static_cast<item<Desc, Res> const&>(*a).description < *static_cast<Desc const*>(b)
+		return &aType == &bType && static_cast<item<Desc, Res> const&>(*a).description < *static_cast<Desc const*>(b)
 			|| &aType < &bType;
 	}
 };
