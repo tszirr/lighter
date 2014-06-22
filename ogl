@@ -291,6 +291,26 @@ struct BufferRef : glew_destroy<BufferRef, GLuint, glDeleteBuffers>
 };
 typedef BufferRef::owned Buffer;
 
+struct BufferDesc
+{
+	typedef Buffer resource;
+
+	GLenum bufferType;
+	size_t size;
+	GLenum usage;
+
+	static BufferDesc make(GLenum bufferType, size_t size, GLenum usage = GL_STATIC_DRAW)
+	{
+		BufferDesc desc = { bufferType, size, usage };
+		return desc;
+	}
+
+	Buffer create() const
+	{
+		return Buffer::create(bufferType, size, nullptr, usage);
+	}
+};
+
 inline size_t computeMipLevelCount(size_t dim)
 {
 	size_t c = 1;
