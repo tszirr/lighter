@@ -335,6 +335,24 @@ struct BufferRef : cuda_destroy<BufferRef, CUdeviceptr, cuMemFree>
 };
 typedef BufferRef::owned Buffer;
 
+struct BufferDesc
+{
+	typedef Buffer resource;
+
+	size_t size;
+
+	static BufferDesc make(size_t size)
+	{
+		BufferDesc desc = { size };
+		return desc;
+	}
+
+	Buffer create(CUcontext context) const
+	{
+		return Buffer::create(context, size);
+	}
+};
+
 inline size_t format_bytes(CUarray_format format)
 {
 	switch (format)

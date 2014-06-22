@@ -291,6 +291,26 @@ struct BufferRef : glew_destroy<BufferRef, GLuint, glDeleteBuffers>
 };
 typedef BufferRef::owned Buffer;
 
+struct BufferDesc
+{
+	typedef Buffer resource;
+
+	GLenum bufferType;
+	size_t size;
+	GLenum usage;
+
+	static BufferDesc make(GLenum bufferType, size_t size, GLenum usage = GL_STATIC_DRAW)
+	{
+		BufferDesc desc = { bufferType, size, usage };
+		return desc;
+	}
+
+	Buffer create() const
+	{
+		return Buffer::create(bufferType, size, nullptr, usage);
+	}
+};
+
 inline size_t computeMipLevelCount(size_t dim)
 {
 	size_t c = 1;
@@ -426,6 +446,35 @@ struct TextureRef : gl_destroy<TextureRef, GLuint, glDeleteTextures>
 };
 typedef TextureRef::owned Texture;
 
+struct TextureDesc
+{
+	typedef Texture resource;
+
+	GLenum textureType;
+	GLenum internalFormat;
+	size_t width;
+	size_t height;
+	size_t depth;
+	size_t levelsOrGen;
+
+	static TextureDesc make2D(GLenum textureType, GLenum internalFormat, size_t width, size_t height, size_t levelsOrGen = 1)
+	{
+		return make3D(textureType, internalFormat, width, height, 0, levelsOrGen);
+	}
+
+	static TextureDesc make3D(GLenum textureType, GLenum internalFormat, size_t width, size_t height, size_t depth, size_t levelsOrGen = 1)
+	{
+		TextureDesc desc = { textureType, internalFormat, width, height, depth, levelsOrGen };
+		return desc;
+	}
+
+	Texture create(void const* data = nullptr, GLenum dataType = GL_FLOAT, GLenum dataFormat = GL_RED) const
+	{
+		return Texture::create3D(textureType, internalFormat, width, height, depth, levelsOrGen
+			, data, dataType, dataFormat);
+	}
+};
+
 struct SamplerRef : glew_destroy<SamplerRef, GLuint, glDeleteSamplers>
 {
 	SamplerRef(std::nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
@@ -542,6 +591,27 @@ struct RenderBufferRef : glew_destroy<RenderBufferRef, GLuint, glDeleteRenderbuf
 	}
 };
 typedef RenderBufferRef::owned RenderBuffer;
+
+struct RenderBufferDesc
+{
+	typedef RenderBuffer resource;
+
+	GLenum internalFormat;
+	size_t width;
+	size_t height;
+	size_t samples;
+
+	static RenderBufferDesc make(GLenum internalFormat, size_t width, size_t height, size_t samples = 1)
+	{
+		RenderBufferDesc desc = { internalFormat, width, height, samples };
+		return desc;
+	}
+
+	RenderBuffer create() const
+	{
+		return RenderBuffer::create(internalFormat, width, height, samples);
+	}
+};
 
 template <class Resource>
 struct AutoTarget : Resource
@@ -785,6 +855,139 @@ struct FramebufferRef : glew_destroy<FramebufferRef, GLuint, glDeleteFramebuffer
 };
 typedef FramebufferRef::owned Framebuffer;
 
+template <size_t MaxTextures = 4, GLuint DepthBufferType = 0, GLuint TextureType = GL_TEXTURE_2D>
+struct FramebufferAttachments;
+
+template <GLuint TextureType>
+struct FramebufferAttachments<0, 0, TextureType>
+{
+	typedef FramebufferAttachments without_depth;
+
+	static size_t const maxTextures = 0;
+	static GLuint const textureType = TextureType;
+	static GLuint const textures[1];
+	static GLuint const depthType = GL_RENDERBUFFER;
+	static GLuint const depth = 0;
+
+	void assign(FramebufferAttachments const& other) { }
+};
+template <GLuint TextureType>
+GLuint const FramebufferAttachments<0, 0, TextureType>::textures[1] = { 0 };
+
+template <size_t MaxTextures, GLuint TextureType>
+struct FramebufferAttachments<MaxTextures, 0, TextureType>
+{
+	typedef FramebufferAttachments without_depth;
+
+	static size_t const maxTextures = MaxTextures;
+	static GLuint const textureType = TextureType;
+	GLuint textures[maxTextures];
+	static GLuint const depthType = GL_RENDERBUFFER;
+	static GLuint const depth = 0;
+
+	template <size_t MT>
+	void assign(FramebufferAttachments<MT, 0, TextureType> const& other)
+	{
+		static_assert(MT <= MaxTextures, "Texture storage mismatch");
+		for (size_t i = 0; i < MT; ++i) this->textures[i] = other.textures[i];
+		for (size_t i = MT; i < MaxTextures; ++i) this->textures[i] = 0;
+	}
+};
+
+template <size_t MaxTextures, GLuint DepthBufferType, GLuint TextureType>
+struct FramebufferAttachments : FramebufferAttachments<MaxTextures, 0, TextureType>
+{
+	static GLuint const depthType = DepthBufferType;
+	GLuint depth;
+
+	template <size_t MT, GLuint DBT>
+	void assign(FramebufferAttachments<MT, DBT, TextureType> const& other)
+	{
+		this->without_depth::assign(other);
+		static_assert(DBT == 0 || DBT == DepthBufferType, "Depth buffer type mismatch");
+		this->depth = other.depth;
+	}
+};
+
+template <>
+struct FramebufferAttachments<0, 0, 0> // : FramebufferAttachments<0, 0, GL_TEXTURE_2D>
+{
+	size_t width;
+	size_t height;
+	size_t samples;
+};
+
+template <size_t MaxTextures = 4, GLuint DepthBufferType = 0, GLuint TextureType = GL_TEXTURE_2D>
+struct FramebufferDesc : FramebufferAttachments<MaxTextures, DepthBufferType, TextureType>
+{
+	typedef Framebuffer resource;
+	typedef std::true_type is_shared;
+
+	template <size_t MT>
+	Framebuffer create() const
+	{
+		return Framebuffer::create(this->textures, this->maxTextures, this->depth, this->depthType, this->textureType);
+	}
+	template <>
+	Framebuffer create<0>() const
+	{
+		return Framebuffer::createEmpty(this->width, this->height, this->samples);
+	}
+
+	Framebuffer create() const
+	{
+		return create<MaxTextures>();
+	}
+};
+
+struct MakeFramebufferDesc
+{
+	template <size_t MaxTextures, GLuint DepthBufferType, GLuint TextureType>
+	struct State : FramebufferDesc<MaxTextures, DepthBufferType, TextureType>
+	{
+		State<MaxTextures + 1, DepthBufferType, TextureType> color(GLuint att)
+		{
+			State<MaxTextures + 1, DepthBufferType, TextureType> next;
+			next.assign(*this);
+			next.textures[MaxTextures] = att;
+			return next;
+		}
+
+		State<MaxTextures, GL_RENDERBUFFER, TextureType> depthBuffer(GLuint att)
+		{
+			State<MaxTextures, GL_RENDERBUFFER, TextureType> next;
+			next.without_depth::assign(*this);
+			next.depth = att;
+			return next;
+		}
+
+		State<MaxTextures, GL_TEXTURE_2D, TextureType> depthTexture(GLuint att)
+		{
+			State<MaxTextures, GL_TEXTURE_2D, TextureType> next;
+			next.without_depth::assign(*this);
+			next.depth = att;
+			return next;
+		}
+	};
+
+	static FramebufferDesc<0, 0, 0> empty(size_t width, size_t height, size_t samples = 1)
+	{
+		FramebufferDesc<0, 0, 0> r;
+		r.width = width;
+		r.height = height;
+		r.samples = samples;
+		return r;
+	}
+	static State<0, 0, GL_TEXTURE_2D> textures()
+	{
+		return State<0, 0, GL_TEXTURE_2D>();
+	}
+	static State<0, 0, GL_RENDERBUFFER> renderBuffers()
+	{
+		return State<0, 0, GL_RENDERBUFFER>();
+	}
+};
+
 template <class Resource>
 struct AutoViewport : Resource
 {
@@ -798,12 +1001,12 @@ struct AutoViewport : Resource
 	GLint height;
 
 	AutoViewport(nullptr_t) : Resource(nullptr) { }
-	AutoViewport(Resource resource, GLint width, GLint height, GLint x = 0, GLint y = 0)
+	AutoViewport(Resource resource, size_t width, size_t height, int x = 0, int y = 0)
 		: Resource(std::move(resource))
-		, x(x)
-		, y(y)
-		, width(width)
-		, height(height)
+		, x(GLint(x))
+		, y(GLint(y))
+		, width(GLint(width))
+		, height(GLint(height))
 	{ }
 
 	void bind(GLenum target = GL_FRAMEBUFFER)
@@ -814,7 +1017,7 @@ struct AutoViewport : Resource
 };
 
 template <class R>
-inline AutoViewport<R> auto_viewport(R resource, GLint width, GLint height, GLint x = 0, GLint y = 0)
+inline AutoViewport<R> auto_viewport(R resource, size_t width, size_t height, int x = 0, int y = 0)
 {	return AutoViewport<R>(std::move(resource), width, height, x, y); }
 
 struct ShaderRef : glew_destroy_single<ShaderRef, GLuint, glDeleteShader>

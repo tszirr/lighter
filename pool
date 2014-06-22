@@ -1,0 +1,260 @@
+#pragma once
+
+#include "stdx"
+#include <vector>
+#include <typeinfo>
+
+namespace appx
+{
+
+struct pooled_interface
+{
+	virtual void acquire() const = 0;
+	virtual void release() const = 0;
+};
+
+template <class RefObj, class PoolPtr>
+struct pooled_ref : RefObj
+{
+	PoolPtr pooled;
+
+	void destroy() const
+	{
+		if (this->ref)
+			pooled->release();
+	}
+
+	// "inherit" constructors
+	pooled_ref()
+		: RefObj()
+		, pooled() { }
+	pooled_ref(std::nullptr_t)
+		: RefObj(nullptr)
+		, pooled() { }
+	pooled_ref(RefObj&& value, PoolPtr pooled)
+		: RefObj(MOVE_T(value))
+		, pooled(pooled) { }
+	pooled_ref(RefObj const& value, PoolPtr pooled)
+		: RefObj(value)
+		, pooled(pooled) { }
+};
+
+// template <class RefObj>
+// using own_pooled = stdx::own< pooled_ref<RefObj, pooled_interface*> >;
+
+template <class RefObj>
+class own_pooled : public stdx::own< pooled_ref<RefObj, pooled_interface*> >
+{
+public:
+	// "inherit" constructors
+	own_pooled() : typename own_pooled::own() { }
+	own_pooled(std::nullptr_t) : typename own_pooled::own(nullptr) { }
+	explicit own_pooled(typename own_pooled::pointer&& value)
+		: typename own_pooled::own(MOVE_T(value)) { }
+	explicit own_pooled(typename own_pooled::pointer const& value)
+		: typename own_pooled::own(value) { }
+
+	// movement
+	own_pooled(own_pooled&& right)
+		: typename own_pooled::own(MOVE_T(right)) { }
+	using own::operator =;
+	
+	own_pooled acquire() const
+	{
+		if (this->ref)
+			this->pooled->acquire();
+		return own_pooled(*this);
+	}
+};
+
+namespace detail
+{
+	namespace resource_pool
+	{
+		template <class Resource>
+		struct no_desc_t { };
+
+		inline bool is_shared(...) { return false; }
+		template <class Desc>
+		inline bool is_shared(Desc const&, typename Desc::is_shared* = nullptr) { return Desc::is_shared::value; }
+		// ambiguous if both defined
+//		template <class Desc>
+//		inline bool is_shared(Desc const&, typename Desc::resource::is_shared* = nullptr) { return Desc::resource::is_shared::value; }
+		template <class Resource>
+		inline bool is_shared(no_desc_t<Resource> const&, typename Resource::is_shared* = nullptr) { return Resource::is_shared::value; }
+
+		enum no_context_t { no_context };
+
+		template <class Desc, class Context>
+		inline auto create(Desc const& desc, Context&& ctx) -> decltype(desc.create(std::forward<Context>(ctx)))
+		{	return desc.create( FORWARD(Context, ctx) ); }
+		template <class Desc>
+		inline auto create(Desc const& desc, no_context_t) -> decltype(desc.create())
+		{	return desc.create(); }
+		template <class Resource, class Context>
+		inline auto create(no_desc_t<Resource> const&, Context&& ctx) -> decltype(Resource::create(std::forward<Context>(ctx)))
+		{	return Resource::create( FORWARD(Context, ctx) ); }
+		template <class Resource>
+		inline auto create(no_desc_t<Resource> const&, no_context_t) -> decltype(Resource::create())
+		{	return Resource::create(); }
+
+		struct pool_item : pooled_interface
+		{
+			mutable short ref_count;
+			unsigned short last_use;
+
+			pool_item()
+				: ref_count(0)
+				, last_use(0)
+			{ }
+			virtual ~pool_item() { }
+
+			void acquire() const override { ++ref_count; }
+			void release() const override { --ref_count; }
+		};
+
+		pool_item* find(std::unique_ptr<pool_item> const* begin, std::unique_ptr<pool_item> const* end, void const* desc
+			, bool (*lessThanDesc)(std::unique_ptr<pool_item> const&, void const*)
+			, bool (*greaterThanDesc)(void const*, std::unique_ptr<pool_item> const&)
+			, bool unusedOnly);
+		pool_item* insert(std::vector< std::unique_ptr<pool_item> >& items
+			, pool_item* newItemPtr, void const* desc
+			, bool (*lessThanDesc)(std::unique_ptr<pool_item> const&, void const*));
+		void erase_unused(std::vector< std::unique_ptr<pool_item> >& items, unsigned short usage_frame, unsigned short min_unused_frames);
+
+		// warning: needs own namespace, otherwise composite template types such as iterators accidentally redirect here via composite ADL
+		namespace generic_comparison
+		{
+			template <class T>
+			inline bool operator <(T const& a, T const& b)
+			{
+				return memcmp(&a, &b, sizeof(a)) < 0;
+			}
+
+		} // namespace
+
+	} // namespace
+
+} // namespace
+
+struct resource_pool
+{
+	unsigned short usage_frame;
+
+	resource_pool()
+		: usage_frame(0) { }
+
+	template <class Res, class ResRef, class Desc, class Context>
+	own_pooled<ResRef> acquire(Desc const& desc, Context&& context)
+	{
+		auto it = findUnused<Res>(desc);
+		
+		if (!it)
+			it = createAndInsert<Res>(desc, FORWARD(Context, context));
+		
+		++it->ref_count;
+		it->last_use = usage_frame;
+		
+		return own_pooled<ResRef>( typename own_pooled<ResRef>::pointer(it->resource, it) );
+	}
+	
+	void free_unused(unsigned short min_unused_frames = 0)
+	{
+		detail::resource_pool::erase_unused(items, usage_frame, min_unused_frames);
+	}
+	void free_unused_and_next_frame(unsigned short min_unused_frames = 1)
+	{
+		free_unused(min_unused_frames);
+		++usage_frame;
+	}
+	
+	// convenience overloads (normally simply pass desc, w/ or w/o context, no need to give additional resource type template args)
+	template <class Res, class Desc, class Context>
+	own_pooled<typename Res::pointer> acquire(Desc const& desc, Context&& context)
+	{	return acquire<Res, typename Res::pointer>(desc, FORWARD(Context, context)); }
+	template <class Desc, class Context>
+	own_pooled<typename Desc::resource::pointer> acquire(Desc const& desc, Context&& context)
+	{	return acquire<typename Desc::resource, typename Desc::resource::pointer>(desc, FORWARD(Context, context)); }
+
+	template <class Res, class ResRef, class Desc>
+	own_pooled<ResRef> acquire(Desc const& desc)
+	{ return acquire<Res, ResRef>(desc, detail::resource_pool::no_context); }
+	template <class Res, class Desc>
+	own_pooled<typename Res::pointer> acquire(Desc const& desc)
+	{	return acquire<Res, typename Res::pointer>(desc, detail::resource_pool::no_context); }
+	template <class Desc>
+	own_pooled<typename Desc::resource::pointer> acquire(Desc const& desc)
+	{	return acquire<typename Desc::resource, typename Desc::resource::pointer>(desc, detail::resource_pool::no_context); }
+	
+	// internals
+	typedef detail::resource_pool::pool_item pool_item;
+	typedef std::vector< std::unique_ptr<pool_item> > items_t;
+	items_t items;
+	
+	template <class Desc, class Res>
+	struct item : pool_item
+	{
+		Desc description;
+		Res resource;
+
+		template <class RFW>
+		item(Desc const& desc, RFW&& res)
+			: description(desc)
+			, resource(FORWARD(RFW, res))
+		{ }
+	};
+	
+	template <class Res, class Desc>
+	item<Desc, Res>* findUnused(Desc const& desc)
+	{
+		using detail::resource_pool::is_shared;
+		return static_cast<item<Desc, Res>*>(
+			  detail::resource_pool::find(
+				  items.data(), items.data() + items.size(), &desc
+				, &lessThanDesc<Res, Desc>, &greaterThanDesc<Res, Desc>
+				, !is_shared(desc)
+				)
+			);
+	}
+	template <class Res, class Desc, class RFW>
+	item<Desc, Res>* insert(Desc const& desc, RFW&& resource)
+	{
+		return static_cast<item<Desc, Res>*>(
+			  detail::resource_pool::insert(items
+				, new item<Desc, Res>(desc, FORWARD(RFW, resource)), &desc
+				, &lessThanDesc<Res, Desc>
+				)
+			);
+	}
+	template <class Res, class Desc, class Context>
+	item<Desc, Res>* createAndInsert(Desc const& desc, Context&& context)
+	{
+		using detail::resource_pool::create;
+		return insert<Res>(desc, create(desc, FORWARD(Context, context)));
+	}
+	template <class Res, class Identity, class Context>
+	item<Identity*, Res>* createAndInsert(Identity* identity, Context&& context)
+	{
+		using detail::resource_pool::create;
+		return insert<Res>(identity, create(detail::resource_pool::no_desc_t<Res>(), FORWARD(Context, context)));
+	}
+	
+	template <class Res, class Desc>
+	static bool greaterThanDesc(void const* b, std::unique_ptr<pool_item> const& a)
+	{
+		using detail::resource_pool::generic_comparison::operator <;
+		auto &aType = typeid(*a), &bType = typeid(item<Desc, Res>);
+		return &aType == &bType && *static_cast<Desc const*>(b) < static_cast<item<Desc, Res> const&>(*a).description
+			|| &bType < &aType;
+	}
+	template <class Res, class Desc>
+	static bool lessThanDesc(std::unique_ptr<pool_item> const& a, void const* b)
+	{
+		using detail::resource_pool::generic_comparison::operator <;
+		auto &aType = typeid(*a), &bType = typeid(item<Desc, Res>);
+		return &aType == &bType && static_cast<item<Desc, Res> const&>(*a).description < *static_cast<Desc const*>(b)
+			|| &aType < &bType;
+	}
+};
+
+} // namespace
