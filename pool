@@ -71,33 +71,32 @@ namespace detail
 {
 	namespace resource_pool
 	{
-		enum no_context_t { no_context };
-		
-		inline bool is_shared(...) { return false; }
-		template <class Desc>
-		inline bool is_shared(Desc const&, typename Desc::is_shared* = nullptr) { return Desc::is_shared::value; }
-//		template <class Desc>
-//		inline bool is_shared(Desc const&, typename Desc::resource::is_shared* = nullptr) { return Desc::resource::is_shared::value; }
-
-		template <class Desc, class Context>
-		inline auto create(Desc const& desc, Context&& ctx) -> decltype(desc.create(std::forward<Context>(ctx))) {
-			return desc.create( FORWARD(Context, ctx) ); }
-		template <class Desc>
-		inline auto create(Desc const& desc, no_context_t) -> decltype(desc.create()) {
-			return desc.create(); }
-
 		template <class Resource>
 		struct no_desc_t { };
 
+		inline bool is_shared(...) { return false; }
+		template <class Desc>
+		inline bool is_shared(Desc const&, typename Desc::is_shared* = nullptr) { return Desc::is_shared::value; }
+		// ambiguous if both defined
+//		template <class Desc>
+//		inline bool is_shared(Desc const&, typename Desc::resource::is_shared* = nullptr) { return Desc::resource::is_shared::value; }
 		template <class Resource>
 		inline bool is_shared(no_desc_t<Resource> const&, typename Resource::is_shared* = nullptr) { return Resource::is_shared::value; }
 
+		enum no_context_t { no_context };
+
+		template <class Desc, class Context>
+		inline auto create(Desc const& desc, Context&& ctx) -> decltype(desc.create(std::forward<Context>(ctx)))
+		{	return desc.create( FORWARD(Context, ctx) ); }
+		template <class Desc>
+		inline auto create(Desc const& desc, no_context_t) -> decltype(desc.create())
+		{	return desc.create(); }
 		template <class Resource, class Context>
-		inline auto create(no_desc_t<Resource> const&, Context&& ctx) -> decltype(Resource::create(std::forward<Context>(ctx))) {
-			return Resource::create( FORWARD(Context, ctx) ); }
+		inline auto create(no_desc_t<Resource> const&, Context&& ctx) -> decltype(Resource::create(std::forward<Context>(ctx)))
+		{	return Resource::create( FORWARD(Context, ctx) ); }
 		template <class Resource>
-		inline auto create(no_desc_t<Resource> const&, no_context_t) -> decltype(Resource::create()) {
-			return Resource::create(); }
+		inline auto create(no_desc_t<Resource> const&, no_context_t) -> decltype(Resource::create())
+		{	return Resource::create(); }
 
 		struct pool_item : pooled_interface
 		{
@@ -149,10 +148,13 @@ struct resource_pool
 	own_pooled<ResRef> acquire(Desc const& desc, Context&& context)
 	{
 		auto it = findUnused<Res>(desc);
+		
 		if (!it)
 			it = createAndInsert<Res>(desc, FORWARD(Context, context));
+		
 		++it->ref_count;
 		it->last_use = usage_frame;
+		
 		return own_pooled<ResRef>( typename own_pooled<ResRef>::pointer(it->resource, it) );
 	}
 	
@@ -168,20 +170,21 @@ struct resource_pool
 	
 	// convenience overloads (normally simply pass desc, w/ or w/o context, no need to give additional resource type template args)
 	template <class Res, class Desc, class Context>
-	own_pooled<typename Res::pointer> acquire(Desc const& desc, Context&& context) {
-		return acquire<Res, typename Res::pointer>(desc, FORWARD(Context, context)); }
+	own_pooled<typename Res::pointer> acquire(Desc const& desc, Context&& context)
+	{	return acquire<Res, typename Res::pointer>(desc, FORWARD(Context, context)); }
 	template <class Desc, class Context>
-	own_pooled<typename Desc::resource::pointer> acquire(Desc const& desc, Context&& context) {
-		return acquire<typename Desc::resource, typename Desc::resource::pointer>(desc, FORWARD(Context, context)); }
+	own_pooled<typename Desc::resource::pointer> acquire(Desc const& desc, Context&& context)
+	{	return acquire<typename Desc::resource, typename Desc::resource::pointer>(desc, FORWARD(Context, context)); }
 
 	template <class Res, class ResRef, class Desc>
-	own_pooled<ResRef> acquire(Desc const& desc) { return acquire<Res, ResRef>(desc, detail::resource_pool::no_context); }
+	own_pooled<ResRef> acquire(Desc const& desc)
+	{ return acquire<Res, ResRef>(desc, detail::resource_pool::no_context); }
 	template <class Res, class Desc>
-	own_pooled<typename Res::pointer> acquire(Desc const& desc) { 
-		return acquire<Res, typename Res::pointer>(desc, detail::resource_pool::no_context); }
+	own_pooled<typename Res::pointer> acquire(Desc const& desc)
+	{	return acquire<Res, typename Res::pointer>(desc, detail::resource_pool::no_context); }
 	template <class Desc>
-	own_pooled<typename Desc::resource::pointer> acquire(Desc const& desc) { 
-		return acquire<typename Desc::resource, typename Desc::resource::pointer>(desc, detail::resource_pool::no_context); }
+	own_pooled<typename Desc::resource::pointer> acquire(Desc const& desc)
+	{	return acquire<typename Desc::resource, typename Desc::resource::pointer>(desc, detail::resource_pool::no_context); }
 	
 	// internals
 	typedef detail::resource_pool::pool_item pool_item;
