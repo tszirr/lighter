@@ -69,13 +69,38 @@ std::unique_ptr<UserInterface> UserInterface::create(text::FreeTypeRef* freeType
 	return std::unique_ptr<UserInterface>(new DefaultUserInterface(freeTypeLib, font, textProgram, widgetProgram));
 }
 
-void preset_user_interface(UniversalInterface& ui, stdx::fun_ref<void(UniversalInterface&)> target, char const* defaultFile)
+void preset_user_interface(UniversalInterface& ui, stdx::fun_ref<void(UniversalInterface&)> target, char const* defaultFile, std::string* activeFile, char const* groupName)
 {
+	std::string activeFileName;
+	if (activeFile)
+	{
+		activeFileName = stdx::basename(activeFile->c_str());
+		if (!defaultFile) defaultFile = activeFileName.c_str();
+	}
+
+	if (!groupName) groupName = "Preset";
+
 	if (auto presetGroup = ui::Group(ui, UEI(preset_user_interface)))
 	{
 		uintptr_t controlIdentifier = 0;
 
-		ui.addText(controlIdentifier++, "Presets", "", nullptr);
+		ui.addText(controlIdentifier++, groupName, "", nullptr);
+
+		auto&& loadPreset = [&](char const* file)
+		{
+			try { load_ini_file(file, target); *activeFile = file; }
+			catch(...) { stdx::prompt(appx::exception_string().c_str(), "Error applying preset"); }
+		};
+		ui.addButton(controlIdentifier++, (!activeFileName.empty()) ? activeFileName.c_str() : "load", [&]()
+		{
+			auto mf = stdx::prompt_file_compat(defaultFile, "Ini files=*.ini|All files=*.*", stdx::dialog::open, true);
+			for (auto&&f : mf) loadPreset(f.c_str());
+		});
+		if (activeFile)
+		{
+			auto hiddenIdentifier = controlIdentifier++;
+			if (!activeFile->empty()) ui.addHidden(hiddenIdentifier, "active", activeFile->c_str(), loadPreset);
+		}
 
 		ui.addButton(controlIdentifier++, "save", [&]()
 		{
@@ -84,16 +109,6 @@ void preset_user_interface(UniversalInterface& ui, stdx::fun_ref<void(UniversalI
 			{
 				try { save_ini_file(f.c_str(), target); }
 				catch(...) { stdx::prompt(appx::exception_string().c_str(), "Error saving preset"); }
-			}
-		});
-
-		ui.addButton(controlIdentifier++, "load", [&]()
-		{
-			auto mf = stdx::prompt_file_compat(defaultFile, "Ini files=*.ini|All files=*.*", stdx::dialog::open, true);
-			for (auto&&f : mf)
-			{
-				try { load_ini_file(f.c_str(), target); }
-				catch(...) { stdx::prompt(appx::exception_string().c_str(), "Error applying preset"); }
 			}
 		});
 	}
