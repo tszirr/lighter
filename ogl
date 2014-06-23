@@ -291,6 +291,7 @@ struct BufferRef : glew_destroy<BufferRef, GLuint, glDeleteBuffers>
 };
 typedef BufferRef::owned Buffer;
 
+#pragma pack(push, 1)
 struct BufferDesc
 {
 	typedef Buffer resource;
@@ -310,6 +311,7 @@ struct BufferDesc
 		return Buffer::create(bufferType, size, nullptr, usage);
 	}
 };
+#pragma pack(pop)
 
 inline size_t computeMipLevelCount(size_t dim)
 {
@@ -446,6 +448,7 @@ struct TextureRef : gl_destroy<TextureRef, GLuint, glDeleteTextures>
 };
 typedef TextureRef::owned Texture;
 
+#pragma pack(push, 1)
 struct TextureDesc
 {
 	typedef Texture resource;
@@ -474,6 +477,7 @@ struct TextureDesc
 			, data, dataType, dataFormat);
 	}
 };
+#pragma pack(pop)
 
 struct SamplerRef : glew_destroy<SamplerRef, GLuint, glDeleteSamplers>
 {
@@ -592,6 +596,7 @@ struct RenderBufferRef : glew_destroy<RenderBufferRef, GLuint, glDeleteRenderbuf
 };
 typedef RenderBufferRef::owned RenderBuffer;
 
+#pragma pack(push, 1)
 struct RenderBufferDesc
 {
 	typedef RenderBuffer resource;
@@ -612,6 +617,7 @@ struct RenderBufferDesc
 		return RenderBuffer::create(internalFormat, width, height, samples);
 	}
 };
+#pragma pack(pop)
 
 template <class Resource>
 struct AutoTarget : Resource
@@ -855,6 +861,8 @@ struct FramebufferRef : glew_destroy<FramebufferRef, GLuint, glDeleteFramebuffer
 };
 typedef FramebufferRef::owned Framebuffer;
 
+#pragma pack(push, 1)
+
 template <size_t MaxTextures = 4, GLuint DepthBufferType = 0, GLuint TextureType = GL_TEXTURE_2D>
 struct FramebufferAttachments;
 
@@ -939,6 +947,8 @@ struct FramebufferDesc : FramebufferAttachments<MaxTextures, DepthBufferType, Te
 		return create<MaxTextures>();
 	}
 };
+
+#pragma pack(pop)
 
 struct MakeFramebufferDesc
 {

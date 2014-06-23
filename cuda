@@ -335,6 +335,7 @@ struct BufferRef : cuda_destroy<BufferRef, CUdeviceptr, cuMemFree>
 };
 typedef BufferRef::owned Buffer;
 
+#pragma pack(push, 1)
 struct BufferDesc
 {
 	typedef Buffer resource;
@@ -353,6 +354,7 @@ struct BufferDesc
 		return Buffer::create(context, size);
 	}
 };
+#pragma pack(pop)
 
 inline size_t format_bytes(CUarray_format format)
 {
@@ -419,12 +421,13 @@ struct ImageRef : cuda_destroy<ImageRef, CUarray, cuArrayDestroy>
 };
 typedef ImageRef::owned Image;
 
+#pragma pack(push, 1)
 struct ImageDesc
 {
 	typedef Image resource;
 
 	CUcontext context;
-	unsigned short numChannels;
+	unsigned char numChannels;
 	CUarray_format format;
 	size_t width;
 	size_t height;
@@ -438,7 +441,7 @@ struct ImageDesc
 
 	static ImageDesc make3D(CUcontext context, size_t numChannels, CUarray_format format, size_t width, size_t height, size_t depth, unsigned flags = 0)
 	{
-		ImageDesc desc = { context, (unsigned short)(numChannels), format, width, height, depth, flags };
+		ImageDesc desc = { context, (unsigned char)(numChannels), format, width, height, depth, flags };
 		return desc;
 	}
 
@@ -447,6 +450,7 @@ struct ImageDesc
 		return Image::create3D(context, numChannels, format, width, height, depth, data, flags);
 	}
 };
+#pragma pack(pop)
 
 struct MippedImageRef : cuda_destroy<MippedImageRef, CUmipmappedArray, cuMipmappedArrayDestroy>
 {
@@ -486,6 +490,7 @@ struct MippedImageRef : cuda_destroy<MippedImageRef, CUmipmappedArray, cuMipmapp
 };
 typedef MippedImageRef::owned MippedImage;
 
+#pragma pack(push, 1)
 struct MippedImageDesc
 {
 	typedef MippedImage resource;
@@ -509,6 +514,7 @@ struct MippedImageDesc
 		return MippedImage::create3D(level0.context, level0.numChannels, level0.format, level0.width, level0.height, level0.depth, levelsOrGen, data, level0.flags);
 	}
 };
+#pragma pack(pop)
 
 inline CUDA_RESOURCE_DESC resource_desc(CUdeviceptr res, size_t size, unsigned numChannels, CUarray_format format)
 {
@@ -727,6 +733,7 @@ struct GlBufferRef : ref_base<GlBufferRef, CUgraphicsResource>
 };
 typedef GlBufferRef GlBuffer;
 
+#pragma pack(push, 1)
 struct GlBufferDesc
 {
 	typedef GlBuffer resource;
@@ -747,6 +754,7 @@ struct GlBufferDesc
 		return GlBuffer::from(context, original, flags);
 	}
 };
+#pragma pack(pop)
 
 struct GlTextureRef : ref_base<GlTextureRef, CUgraphicsResource>
 {
@@ -783,6 +791,7 @@ struct GlTextureRef : ref_base<GlTextureRef, CUgraphicsResource>
 };
 typedef GlTextureRef GlTexture;
 
+#pragma pack(push, 1)
 struct GlTextureDesc
 {
 	typedef GlTexture resource;
@@ -804,6 +813,7 @@ struct GlTextureDesc
 		return GlTexture::from(context, glTextureType, original, flags);
 	}
 };
+#pragma pack(pop)
 
 inline CUDA_RESOURCE_DESC resource_desc(GlTexture& res)
 {
