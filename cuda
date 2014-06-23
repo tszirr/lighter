@@ -116,7 +116,7 @@ struct ProgramRef : cuda_destroy<ProgramRef, CUmodule, cuModuleUnload>
 };
 typedef ProgramRef::owned Program;
 
-struct KernelRef : stdx::ref_base<CUfunction>
+struct KernelRef : ref_base<KernelRef, CUfunction>
 {
 	KernelRef(CUfunction ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 
@@ -198,7 +198,7 @@ struct KernelRef : stdx::ref_base<CUfunction>
 };
 typedef KernelRef Kernel;
 
-struct VariableRef : stdx::ref_base<CUdeviceptr>
+struct VariableRef : ref_base<VariableRef, CUdeviceptr>
 {
 	VariableRef(nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
 	VariableRef(CUdeviceptr ref) { this->ref = ref; }
@@ -212,7 +212,7 @@ struct VariableRef : stdx::ref_base<CUdeviceptr>
 };
 typedef VariableRef Variable;
 
-struct TextureVariableRef : stdx::ref_base<CUtexref>
+struct TextureVariableRef : ref_base<TextureVariableRef, CUtexref>
 {
 	TextureVariableRef(CUtexref ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 
@@ -225,7 +225,7 @@ struct TextureVariableRef : stdx::ref_base<CUtexref>
 };
 typedef TextureVariableRef TextureVariable;
 
-struct SurfaceVariableRef : stdx::ref_base<CUsurfref>
+struct SurfaceVariableRef : ref_base<SurfaceVariableRef, CUsurfref>
 {
 	SurfaceVariableRef(CUsurfref ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 
@@ -339,15 +339,16 @@ struct BufferDesc
 {
 	typedef Buffer resource;
 
+	CUcontext context;
 	size_t size;
 
-	static BufferDesc make(size_t size)
+	static BufferDesc make(CUcontext context, size_t size)
 	{
-		BufferDesc desc = { size };
+		BufferDesc desc = { context, size };
 		return desc;
 	}
 
-	Buffer create(CUcontext context) const
+	Buffer create() const
 	{
 		return Buffer::create(context, size);
 	}
@@ -418,6 +419,35 @@ struct ImageRef : cuda_destroy<ImageRef, CUarray, cuArrayDestroy>
 };
 typedef ImageRef::owned Image;
 
+struct ImageDesc
+{
+	typedef Image resource;
+
+	CUcontext context;
+	unsigned short numChannels;
+	CUarray_format format;
+	size_t width;
+	size_t height;
+	size_t depth;
+	unsigned flags;
+
+	static ImageDesc make2D(CUcontext context, size_t numChannels, CUarray_format format, size_t width, size_t height, unsigned flags = 0)
+	{
+		return make3D(context, numChannels, format, width, height, 0, flags);
+	}
+
+	static ImageDesc make3D(CUcontext context, size_t numChannels, CUarray_format format, size_t width, size_t height, size_t depth, unsigned flags = 0)
+	{
+		ImageDesc desc = { context, (unsigned short)(numChannels), format, width, height, depth, flags };
+		return desc;
+	}
+
+	Image create(void const* data = nullptr) const
+	{
+		return Image::create3D(context, numChannels, format, width, height, depth, data, flags);
+	}
+};
+
 struct MippedImageRef : cuda_destroy<MippedImageRef, CUmipmappedArray, cuMipmappedArrayDestroy>
 {
 	MippedImageRef(CUmipmappedArray ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
@@ -455,6 +485,30 @@ struct MippedImageRef : cuda_destroy<MippedImageRef, CUmipmappedArray, cuMipmapp
 	}
 };
 typedef MippedImageRef::owned MippedImage;
+
+struct MippedImageDesc
+{
+	typedef MippedImage resource;
+
+	ImageDesc level0;
+	size_t levelsOrGen;
+	
+	static MippedImageDesc make2D(CUcontext context, size_t numChannels, CUarray_format format, size_t width, size_t height, size_t levelsOrGen = 1, unsigned flags = 0)
+	{
+		return make3D(context, numChannels, format, width, height, 0, levelsOrGen, flags);
+	}
+
+	static MippedImageDesc make3D(CUcontext context, size_t numChannels, CUarray_format format, size_t width, size_t height, size_t depth, size_t levelsOrGen = 1, unsigned flags = 0)
+	{
+		MippedImageDesc desc = { ImageDesc::make3D(context, numChannels, format, width, height, depth, flags), levelsOrGen };
+		return desc;
+	}
+
+	MippedImage create(void const* data = nullptr) const
+	{
+		return MippedImage::create3D(level0.context, level0.numChannels, level0.format, level0.width, level0.height, level0.depth, levelsOrGen, data, level0.flags);
+	}
+};
 
 inline CUDA_RESOURCE_DESC resource_desc(CUdeviceptr res, size_t size, unsigned numChannels, CUarray_format format)
 {
@@ -644,7 +698,7 @@ struct WithTextureAndSurface : WithSurface<WithTexture<Resource>>
 		, surface(move(surface)) { }
 };
 
-struct GlBufferRef : stdx::ref_base<CUgraphicsResource>
+struct GlBufferRef : ref_base<GlBufferRef, CUgraphicsResource>
 {
 	GlBufferRef(CUgraphicsResource ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 	
@@ -664,7 +718,7 @@ struct GlBufferRef : stdx::ref_base<CUgraphicsResource>
 		THROW_CUDA_ERROR( cuGraphicsUnmapResources(1, (CUgraphicsResource*) &get(), stream), "cuGraphicsMapResources" );
 	}
 
-	CUdeviceptr pointer(size_t *pSize = nullptr)
+	CUdeviceptr devicePointer(size_t *pSize = nullptr)
 	{
 		CUdeviceptr result;
 		THROW_CUDA_ERROR( cuGraphicsResourceGetMappedPointer(&result, pSize, *this), "cuGraphicsResourceGetMappedPointer" );
@@ -678,22 +732,23 @@ struct GlBufferDesc
 	typedef GlBuffer resource;
 	typedef std::true_type is_shared;
 
+	CUcontext context;
 	GLuint original;
 	unsigned int flags;
 
-	static GlBufferDesc make(GLuint original, unsigned int flags = CU_GRAPHICS_REGISTER_FLAGS_NONE)
+	static GlBufferDesc make(CUcontext context, GLuint original, unsigned int flags = CU_GRAPHICS_REGISTER_FLAGS_NONE)
 	{
-		GlBufferDesc desc = { original, flags };
+		GlBufferDesc desc = { context, original, flags };
 		return desc;
 	}
 
-	GlBuffer create(CUcontext context) const
+	GlBuffer create() const
 	{
 		return GlBuffer::from(context, original, flags);
 	}
 };
 
-struct GlTextureRef : stdx::ref_base<CUgraphicsResource>
+struct GlTextureRef : ref_base<GlTextureRef, CUgraphicsResource>
 {
 	GlTextureRef(CUgraphicsResource ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 
@@ -733,17 +788,18 @@ struct GlTextureDesc
 	typedef GlTexture resource;
 	typedef std::true_type is_shared;
 
+	CUcontext context;
 	GLuint original;
 	GLenum glTextureType;
 	unsigned int flags;
 
-	static GlTextureDesc make(GLenum glTextureType, GLuint original, unsigned int flags = CU_GRAPHICS_REGISTER_FLAGS_NONE)
+	static GlTextureDesc make(CUcontext context, GLenum glTextureType, GLuint original, unsigned int flags = CU_GRAPHICS_REGISTER_FLAGS_NONE)
 	{
-		GlTextureDesc desc = { original, glTextureType, flags };
+		GlTextureDesc desc = { context, original, glTextureType, flags };
 		return desc;
 	}
 
-	GlTexture create(CUcontext context) const
+	GlTexture create() const
 	{
 		return GlTexture::from(context, glTextureType, original, flags);
 	}

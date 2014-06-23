@@ -24,7 +24,7 @@ typedef stdx::error<ogl_tag> ogl_error;
 template <class RefClass, class Pointer>
 struct ref_base : stdx::ref_base<Pointer>
 {
-	typedef Pointer pointer;
+	typedef RefClass pointer;
 	typedef stdx::own<RefClass> owned;
 	void forget()
 	{
