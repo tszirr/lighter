@@ -261,14 +261,13 @@ void load_image(void* destImage, ImageType::T destElementType, unsigned destChan
 
 namespace
 {
-	#pragma pack(1)
+	#pragma pack(push, 1)
 	struct targa_header
 	{
 		char id_length;
 		char color_map;
 		char image_type;
 
-		#pragma pack(1)
 		struct palette
 		{
 			unsigned short first_entry_index;
@@ -276,7 +275,6 @@ namespace
 			unsigned char entry_size;
 		} palette;
 
-		#pragma pack(1)
 		struct image
 		{
 			unsigned short x_origin;
@@ -287,6 +285,7 @@ namespace
 			unsigned char descriptor;
 		} image;
 	};
+	#pragma pack(pop)
 
 } // namespace
 
