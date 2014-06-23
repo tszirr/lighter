@@ -673,6 +673,26 @@ struct GlBufferRef : stdx::ref_base<CUgraphicsResource>
 };
 typedef GlBufferRef GlBuffer;
 
+struct GlBufferDesc
+{
+	typedef GlBuffer resource;
+	typedef std::true_type is_shared;
+
+	GLuint original;
+	unsigned int flags;
+
+	static GlBufferDesc make(GLuint original, unsigned int flags = CU_GRAPHICS_REGISTER_FLAGS_NONE)
+	{
+		GlBufferDesc desc = { original, flags };
+		return desc;
+	}
+
+	GlBuffer create(CUcontext context) const
+	{
+		return GlBuffer::from(context, original, flags);
+	}
+};
+
 struct GlTextureRef : stdx::ref_base<CUgraphicsResource>
 {
 	GlTextureRef(CUgraphicsResource ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
@@ -708,6 +728,27 @@ struct GlTextureRef : stdx::ref_base<CUgraphicsResource>
 };
 typedef GlTextureRef GlTexture;
 
+struct GlTextureDesc
+{
+	typedef GlTexture resource;
+	typedef std::true_type is_shared;
+
+	GLuint original;
+	GLenum glTextureType;
+	unsigned int flags;
+
+	static GlTextureDesc make(GLenum glTextureType, GLuint original, unsigned int flags = CU_GRAPHICS_REGISTER_FLAGS_NONE)
+	{
+		GlTextureDesc desc = { original, glTextureType, flags };
+		return desc;
+	}
+
+	GlTexture create(CUcontext context) const
+	{
+		return GlTexture::from(context, glTextureType, original, flags);
+	}
+};
+
 inline CUDA_RESOURCE_DESC resource_desc(GlTexture& res)
 {
 	return resource_desc(res.mippedImage());
@@ -720,34 +761,12 @@ inline CUDA_RESOURCE_DESC surface_resource_desc(GlTexture& res)
 template <class Resource, class CudaResource>
 struct WithInterop : Resource
 {
-	MOVE_GENERATE(WithTexture, MOVE_2, BASE, Resource, MEMBER, cuda)
+	MOVE_GENERATE(WithInterop, MOVE_2, BASE, Resource, MEMBER, cuda)
 	using Resource::operator =;
 	CudaResource cuda;
 	WithInterop(Resource resource, CudaResource cuda = nullptr)
 		: Resource(move(resource))
 		, cuda(move(cuda)) { }
-};
-
-template <class BufferDesc, class CudaResource>
-struct WithInteropDesc
-{
-	typedef WithInterop<typename BufferDesc::resource, CudaResource> resource;
-
-	BufferDesc original;
-	unsigned int flags;
-
-	static WithInteropDesc make(BufferDesc const& original, unsigned int flags = CU_GRAPHICS_REGISTER_FLAGS_NONE)
-	{
-		WithInteropDesc desc = { original, flags };
-		return desc;
-	}
-
-	resource create(CUcontext context) const
-	{
-		auto r = resource(original.create());
-		r.cuda = CudaResource::from(context, r, flags);
-		return r;
-	}
 };
 
 template <class T>
