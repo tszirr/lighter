@@ -199,8 +199,8 @@ struct UserInterface
 	virtual void flushText() = 0;
 };
 
-void preset_user_interface(UniversalInterface& ui, stdx::fun_ref<void(UniversalInterface&)> target, 
+void preset_user_interface(UniversalInterface& ui, stdx::fun_ref<void(UniversalInterface&)> target,
 						   char const* defaultFile = nullptr, std::string* activeFile = nullptr,
-						   char const* groupName = nullptr);
+						   char const* groupName = nullptr, UniqueElementIdentifier id = nullptr);
 
 } // namespace

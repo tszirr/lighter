@@ -69,7 +69,8 @@ std::unique_ptr<UserInterface> UserInterface::create(text::FreeTypeRef* freeType
 	return std::unique_ptr<UserInterface>(new DefaultUserInterface(freeTypeLib, font, textProgram, widgetProgram));
 }
 
-void preset_user_interface(UniversalInterface& ui, stdx::fun_ref<void(UniversalInterface&)> target, char const* defaultFile, std::string* activeFile, char const* groupName)
+void preset_user_interface(UniversalInterface& ui, stdx::fun_ref<void(UniversalInterface&)> target, char const* defaultFile, std::string* activeFile
+                         , char const* groupName, UniqueElementIdentifier id)
 {
 	std::string activeFileName;
 	if (activeFile)
@@ -80,7 +81,9 @@ void preset_user_interface(UniversalInterface& ui, stdx::fun_ref<void(UniversalI
 
 	if (!groupName) groupName = "Preset";
 
-	if (auto presetGroup = ui::Group(ui, UEI(preset_user_interface)))
+	if (!id.value) id = UEI(preset_user_interface);
+
+	if (auto presetGroup = ui::Group(ui, id))
 	{
 		uintptr_t controlIdentifier = 0;
 
