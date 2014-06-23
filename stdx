@@ -35,6 +35,11 @@
 	#pragma warning(disable : 4610)
 #endif
 
+// Forward & move w/o function call
+#define FORWARD(T, x) static_cast<T&&>(x)
+#define MOVE(x) static_cast<std::remove_reference<decltype(x)>::type&&>(x)
+#define MOVE_T(x) static_cast<typename std::remove_reference<decltype(x)>::type&&>(x)
+
 namespace std { struct random_access_iterator_tag; }
 
 namespace stdx
@@ -349,11 +354,6 @@ namespace stdx
 	template <class... Args> inline bool break_on_error(Args&&...) { return false; }
 	#endif
 	
-	// Forward & move w/o function call
-	#define FORWARD(T, x) static_cast<T&&>(x)
-	#define MOVE(x) static_cast<std::remove_reference<decltype(x)>::type&&>(x)
-	#define MOVE_T(x) static_cast<typename std::remove_reference<decltype(x)>::type&&>(x)
-
 	template <class Pointer>
 	struct no_delete
 	{
