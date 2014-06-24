@@ -37,50 +37,7 @@ namespace stdx
 	{
 		return utime(name, nullptr) == 0;
 	}
-
-	std::string dirname(char const* path)
-	{
-		std::string r(path);
-#ifdef WIN32
-		_splitpath(path, nullptr, &r[0], nullptr, nullptr);
-#else
-		auto n = ::dirname(&r[0]);
-		assert (n == &r[0]);
-		if (n != &r[0]) strcpy(&r[0], n);
-#endif
-		r.resize(strlen(r.data()));
-		return r;
-	}
-
-	std::string basename(char const* path)
-	{
-		std::string r(path);
-		std::string e(path);
-#ifdef WIN32
-		_splitpath(path, nullptr, nullptr, &r[0], &e[0]);
-		strcpy(&r[strlen(r.data())], e.data());
-#else
-		auto n = ::basename(&r[0]);
-		assert (n == &r[0]);
-		if (n != &r[0]) strcpy(&r[0], n);
-#endif
-		r.resize(strlen(r.data()));
-		return r;
-	}
-
-	std::string realpath(char const* path)
-	{
-		struct default_free { void operator ()(void* p) const { free(p); } };
-		std::unique_ptr<char, default_free> absolutePath(
-#ifdef WIN32
-				_fullpath(nullptr, path, 0)
-#else
-				::realpath(path, nullptr)
-#endif
-			);
-		return absolutePath.get();
-	}
-
+	
 	namespace detail
 	{
 		namespace relative_path
@@ -102,6 +59,56 @@ namespace stdx
 				return r;
 			}
 		}
+	}
+
+	std::string dirname(char const* path)
+	{
+		
+#ifdef WIN32
+		auto lastSeparator = path;
+		for (auto it = path; *it; ++it)
+			if (detail::relative_path::is_separator(*it))
+				lastSeparator = it;
+		return std::string(path, lastSeparator);
+#else
+		std::string r(path);
+		auto n = ::dirname(&r[0]);
+		assert (n == &r[0]);
+		if (n != &r[0]) strcpy(&r[0], n);
+		r.resize(strlen(r.c_str()));
+		return r;
+#endif
+	}
+
+	std::string basename(char const* path)
+	{
+#ifdef WIN32
+		auto lastSeparator = path;
+		for (auto it = path; *it; ++it)
+			if (detail::relative_path::is_separator(*it))
+				lastSeparator = it;
+		return std::string(lastSeparator + 1);
+#else
+		std::string r(path);
+		auto n = ::basename(&r[0]);
+		assert (n == &r[0]);
+		if (n != &r[0]) strcpy(&r[0], n);
+		r.resize(strlen(r.c_str()));
+		return r;
+#endif
+	}
+
+	std::string realpath(char const* path)
+	{
+		struct default_free { void operator ()(void* p) const { free(p); } };
+		std::unique_ptr<char, default_free> absolutePath(
+#ifdef WIN32
+				_fullpath(nullptr, path, 0)
+#else
+				::realpath(path, nullptr)
+#endif
+			);
+		return absolutePath.get();
 	}
 
 	std::string concat_path(char const* tail, char const* head)
@@ -153,6 +160,8 @@ namespace stdx
 			}
 			break;
 		}
+
+		while (is_separator(*toCursor)) ++toCursor;
 
 		std::string relative;
 		relative.resize(numBackout * backout_size + strlen(toCursor));
