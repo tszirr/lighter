@@ -170,7 +170,7 @@ struct UniversalInterface : UniversalInterfaceInteraction
 	virtual void endUnion() = 0;
 
 	virtual void addText(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact) = 0;
-	virtual void addHidden(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact) { };
+	virtual void addHidden(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact, InteractionParam<std::string&> onDemand = nullptr) { };
 	
 	struct Button;
 	struct ButtonEvent { enum T { Down, UpAccept, UpDismiss }; };

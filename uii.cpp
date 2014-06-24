@@ -69,8 +69,10 @@ struct UiToText : UniversalInterface
 			stream->addItem(key, text);
 	}
 
-	void addHidden(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact) override
+	void addHidden(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact, InteractionParam<std::string&> onDemand = nullptr) override
 	{
+		std::string onDemandStorage;
+		if (onDemand) { onDemandStorage = text; onDemand->updateValue(onDemandStorage); text = onDemandStorage.c_str(); }
 		stream->addItem(label, text);
 	}
 
@@ -162,7 +164,7 @@ struct TextToUi : UniversalInterface
 				interact->updateValue(val);
 	}
 
-	void addHidden(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact) override
+	void addHidden(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact, InteractionParam<std::string&> onDemand = nullptr) override
 	{
 		if (interact)
 			if (auto val = stream->getValue(label))
