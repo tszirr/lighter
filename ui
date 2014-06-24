@@ -200,7 +200,7 @@ struct UserInterface
 };
 
 void preset_user_interface(UniversalInterface& ui, stdx::fun_ref<void(UniversalInterface&)> target,
-						   char const* defaultFile = nullptr, std::string* activeFile = nullptr,
+						   char const* defaultFile = nullptr, char const* activeFilePath = nullptr, ui::UniversalInterface::InteractionParam<char const*> activeFileChange = nullptr,
 						   char const* groupName = nullptr, UniqueElementIdentifier id = nullptr);
 
 } // namespace
