@@ -68,6 +68,101 @@ namespace stdx
 		return r;
 	}
 
+	std::string realpath(char const* path)
+	{
+		struct default_free { void operator ()(void* p) const { free(p); } };
+		std::unique_ptr<char, default_free> absolutePath(
+#ifdef WIN32
+				_fullpath(nullptr, path, 0)
+#else
+				::realpath(path, nullptr)
+#endif
+			);
+		return absolutePath.get();
+	}
+
+	namespace detail
+	{
+		namespace relative_path
+		{
+			inline bool is_separator(char c) { return c == '\\' || c == '/'; }
+			inline bool is_separator_or_null(char c) { return c == 0 || is_separator(c); }
+
+			size_t const backout_size = 3;
+			inline char* append_backout(char* cursor) { *cursor++ = '.'; *cursor++ = '.'; *cursor++ = '\\'; return cursor; }
+
+			size_t const separator_size = 1;
+			inline char* append_separator(char* cursor) { *cursor++ = '\\'; return cursor; }
+
+			stdx::range<char const*> next_dir(char const* cursor)
+			{
+				while (is_separator(*cursor)) ++cursor;
+				stdx::range<char const*> r(cursor, cursor);
+				while (!is_separator_or_null(*r.last)) ++r.last;
+				return r;
+			}
+		}
+	}
+
+	std::string concat_path(char const* tail, char const* head)
+	{
+		using namespace detail::relative_path;
+
+		auto tailEnd = tail + strlen(tail);
+		bool addSeparator = (tail != tailEnd && !is_separator(tailEnd[-1]));
+
+		std::string concat;
+		concat.resize(tailEnd - tail + addSeparator + strlen(head));
+		auto concatCursor = &concat[0];
+		strcpy(concatCursor, tail);
+		concatCursor += tailEnd - tail;
+		if (addSeparator) concatCursor = append_separator(concatCursor);
+		strcpy(concatCursor, head);
+		return concat;
+	}
+
+	std::string relative_path(char const* from, char const* to)
+	{
+		using namespace detail::relative_path;
+
+		auto fromCursor = from, toCursor = to;
+
+		while (true)
+		{
+			auto fromDir = next_dir(fromCursor);
+			auto toDir = next_dir(toCursor);
+			if (!fromDir.empty() && fromDir.size() == toDir.size() && strncmp(fromDir.first, toDir.first, fromDir.size()) == 0)
+			{
+				fromCursor = fromDir.last;
+				toCursor = toDir.last;
+				continue;
+			}
+			break;
+		}
+
+		size_t numBackout = 0;
+
+		while (true)
+		{
+			auto fromDir = next_dir(fromCursor);
+			if (!fromDir.empty())
+			{
+				++numBackout;
+				fromCursor = fromDir.last;
+				continue;
+			}
+			break;
+		}
+
+		std::string relative;
+		relative.resize(numBackout * backout_size + strlen(toCursor));
+		auto relativeCursor = &relative[0];
+		for (size_t i = 0; i < numBackout; ++i)
+			relativeCursor = append_backout(relativeCursor);
+		strcpy(relativeCursor, toCursor);
+		return relative;
+	}
+
 	std::string load_file(char const* name)
 	{
 		std::string str;
