@@ -431,7 +431,10 @@ struct TextUi : UserInterface, UniversalInterface
 
 	void addText(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact) override
 	{
-		prependLabel(label);
+		if (text[0] || interact)
+			prependLabel(label);
+		else
+			text = label;
 
 		auto valBox = textRenderer->drawText(context.insertPos, text);
 		maybeDrawCursor(context.insertPos, text);
