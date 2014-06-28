@@ -126,7 +126,7 @@ struct UserInterface
 		unsigned indent, lineHeight;
 		int labelDelta, controlBaseline;
 
-		explicit Options(unsigned lineHeight = 24, unsigned indent = 3, int labelDelta = 24, int controlBaseline = -3) 
+		explicit Options(unsigned lineHeight = 24, unsigned indent = 3, int labelDelta = 12, int controlBaseline = -3) 
 			: indent(indent)
 			, lineHeight(lineHeight)
 			, labelDelta(labelDelta)

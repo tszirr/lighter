@@ -16,6 +16,8 @@ struct UiElement
 		Frame,
 		Bar,
 		Ticks,
+		OutlineBranch,
+		Outline,
 	};
 };
 
@@ -71,6 +73,19 @@ struct UiRenderer
 		++widgetBatchCnt;
 	}
 
+	void drawLine(glm::ivec2 start, glm::ivec2 end, int lineWidth, UiElement::T clazz, unsigned ex = 0)
+	{
+		if (widgetBatchCnt >= widgetBatchSize)
+			flushWidgets();
+
+		QueuedWidget qc = { QueuedWidget::build_tuple( (short) start.x, (short) start.y )
+			, QueuedWidget::build_tuple( (short) end.x, (short) end.y )
+			, (unsigned) clazz | ((unsigned) (unsigned char) lineWidth << 24U)
+		  , ex };
+		widgetMem[widgetBatchCnt] = qc;
+		++widgetBatchCnt;
+	}
+
 	void flushWidgets()
 	{
 		if (widgetBatchCnt > 0)
@@ -114,6 +129,8 @@ struct TextUi : UserInterface, UniversalInterface
 		unsigned pendingIndent;
 		bool horizontalGroup;
 
+		glm::ivec2 lastOutlinePos;
+
 		typedef std::pair< std::vector<UniqueElementIdentifier>, std::unique_ptr<AbstractContext> > edit_ctx_mapping;
 		std::vector<edit_ctx_mapping> editContext;
 
@@ -154,6 +171,7 @@ struct TextUi : UserInterface, UniversalInterface
 		hiddenCtx.insertLine = 0;
 		hiddenCtx.pendingIndent = 0;
 		hiddenCtx.horizontalGroup = false;
+		hiddenCtx.lastOutlinePos = context.insertPos;
 
 		if ( (state.mouse.primary && state.mouse.primaryChanged || state.mouse.secondary && state.mouse.secondaryChanged)
 			&& state.capturePath.empty())
@@ -246,6 +264,26 @@ struct TextUi : UserInterface, UniversalInterface
 	{
 		if (hiddenCtx.horizontalGroup)
 			return;
+
+		// tree outline
+		{
+			auto start = hiddenCtx.lastOutlinePos;
+			auto end = context.insertPos;
+			auto outlineClass = UiElement::Outline;
+			if (hiddenCtx.pendingIndent > 0)
+			{
+				start = end;
+				start.y -= setup.options.lineHeight / 4;
+				end.x += hiddenCtx.pendingIndent;
+				outlineClass = UiElement::OutlineBranch;
+			}
+			hiddenCtx.lastOutlinePos = end;
+
+			start.x -= setup.options.labelDelta / 2;
+			end.x -= setup.options.labelDelta / 2;
+
+			uiRenderer->drawLine(start, end, 1, outlineClass);
+		}
 
 		context.insertPos.x += hiddenCtx.pendingIndent;
 		hiddenCtx.pendingIndent = 0;
@@ -343,14 +381,6 @@ struct TextUi : UserInterface, UniversalInterface
 
 	void prependLabel(char const* label)
 	{
-		auto treePos = context.insertPos;
-		treePos.x -= setup.options.labelDelta * 3 / 4;
-//		treePos.y -= setup.options.lineHeight / 4;
-
-		static unsigned short const arrow[3] = { '\\', '-' };
-		static unsigned short const entry[3] = { '|', '-' };
-		textRenderer->drawText(treePos, (hiddenCtx.pendingIndent) ? arrow : entry);
-		
 		auto labelPos = context.insertPos;
 		labelPos.x -= textRenderer->boundText(label).max.x + setup.options.labelDelta;
 		textRenderer->drawText(labelPos, label);
