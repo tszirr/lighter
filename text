@@ -140,12 +140,17 @@ struct FaceRef : ft_destroy<FaceRef, FT_Face, FT_Done_Face>
 		FT_Get_Kerning(*this, prevGlyph, nextGlyph, FT_KERNING_DEFAULT, &delta);
 		return delta;
 	}
-
-	FT_GlyphSlot& render_glyph(FT_UInt glyphIdx, FT_Render_Mode renderMode = FT_RENDER_MODE_NORMAL)
+	
+	FT_GlyphSlot& load_glyph(FT_UInt glyphIdx, FT_Render_Mode renderMode = FT_RENDER_MODE_NORMAL)
 	{
 		auto loadFlags = FT_LOAD_COLOR | (renderMode == FT_RENDER_MODE_LCD ? FT_LOAD_TARGET_LCD : 0);
 		THROW_FREETYPE_ERROR(FT_Load_Glyph(*this, glyphIdx, loadFlags), "FT_Load_Glyph");
-		auto& glyth = get()->glyph;
+		return get()->glyph;
+	}
+
+	FT_GlyphSlot& render_glyph(FT_UInt glyphIdx, FT_Render_Mode renderMode = FT_RENDER_MODE_NORMAL)
+	{
+		auto& glyth = load_glyph(glyphIdx, renderMode);
 		if (glyth->format != FT_GLYPH_FORMAT_BITMAP)
 			THROW_FREETYPE_ERROR(FT_Render_Glyph(glyth, renderMode), "FT_Render_Glyph");
 		return glyth;
