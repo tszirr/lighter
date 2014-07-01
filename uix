@@ -415,10 +415,10 @@ struct TextUi : UserInterface, UniversalInterface
 		return newText;
 	}
 	template <class Func>
-	void maybeEditText(UniqueElementIdentifier id, char const* text, Func&& func)
+	void maybeEditText(UniqueElementIdentifier id, int currentLine, char const* text, Func&& func)
 	{
 		auto& cursor = state.cursor;
-		if (!context.pendingInput.empty() && cursor.row == hiddenCtx.insertLine && cursor.column >= 0)
+		if (!context.pendingInput.empty() && cursor.row == currentLine && cursor.column >= 0)
 		{
 			unsigned newCursor = cursor.column;
 			
@@ -427,6 +427,36 @@ struct TextUi : UserInterface, UniversalInterface
 			
 			cursor.column = (int) newCursor;
 		}
+	}
+	struct OnOffToggleText
+	{
+		enum T
+		{
+			Keep,
+			Toggle,
+			On,
+			Off
+		};
+	};
+	OnOffToggleText::T onOffToggleText(UniqueElementIdentifier id, int currentLine)
+	{
+		OnOffToggleText::T effect = OnOffToggleText::Keep;
+		auto& cursor = state.cursor;
+		if (cursor.row == currentLine && cursor.column >= 0)
+		{
+			for (auto chr : context.pendingInput)
+			{
+				if (chr == ' ' || chr == 'a' || chr == 'c' || chr == '\n') // todo: Enter working?
+					effect = (effect == OnOffToggleText::On) ? OnOffToggleText::Off
+						: (effect == OnOffToggleText::Off) ? OnOffToggleText::On
+						: (effect == OnOffToggleText::Keep) ? OnOffToggleText::Toggle : OnOffToggleText::Keep;
+				else if (chr == '1' || chr == 't' || chr == 'y')
+					effect = OnOffToggleText::On;
+				else if (chr == '0' || chr == 'f' || chr == 'n')
+					effect = OnOffToggleText::Off;
+			}
+		}
+		return effect;
 	}
 
 	void addText(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact) override
@@ -452,10 +482,11 @@ struct TextUi : UserInterface, UniversalInterface
 			}
 		}
 
+		auto currentLine = hiddenCtx.insertLine;
 		nextLine();
 
 		if (interact)
-			maybeEditText(id, text, [&](char const* newText)
+			maybeEditText(id, currentLine, text, [&](char const* newText)
 			{
 				interact->updateValue(newText);
 			});
@@ -491,7 +522,9 @@ struct TextUi : UserInterface, UniversalInterface
 		auto valPos = context.insertPos;
 		valPos.x += (buttonSize.x - valBox.max.x) / 2;
 		textRenderer->drawText(valPos, text);
-		
+		maybeDrawCursor(valPos, text);
+
+		auto currentLine = hiddenCtx.insertLine;
 		nextLine();
 
 		if (control)
@@ -504,11 +537,22 @@ struct TextUi : UserInterface, UniversalInterface
 				interact->updateValue(ButtonEvent::Down);
 			else if (!mouse.primary && wasCaptureReleased(context.parentPath, button.id))
 				interact->updateValue(
-					glm::in_aabb(mouse.pos, button.rect)
+					  glm::in_aabb(mouse.pos, button.rect)
 						? ButtonEvent::UpAccept
-						: ButtonEvent::UpDismiss);
+						: ButtonEvent::UpDismiss
+					);
 		}
 		// warning: text may be invalid from here on
+
+		if (interact)
+		{
+			auto effect = onOffToggleText(id, currentLine);
+			if (effect == OnOffToggleText::Toggle || value && effect == OnOffToggleText::Off || !value && effect == OnOffToggleText::On)
+			{
+				interact->updateValue(ButtonEvent::Down);
+				interact->updateValue(ButtonEvent::UpAccept);
+			}
+		}
 	}
 
 	void addButton(UniqueElementIdentifier id, char const* text, InteractionParam<void> interact, char const* fullText = nullptr, InteractionParam<Button> control = nullptr) override
@@ -582,13 +626,14 @@ struct TextUi : UserInterface, UniversalInterface
 			}
 		}
 		
+		auto currentLine = hiddenCtx.insertLine;
 		nextLine();
 
 		if (control)
 			control->updateValue(slider);
 
 		if (interact)
-			maybeEditText(id, num, [&](char const* newText)
+			maybeEditText(id, currentLine, num, [&](char const* newText)
 			{
 				float newVal = value;
 				if (sscanf(newText, "%f", &newVal) == 1)
