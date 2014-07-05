@@ -33,7 +33,7 @@ namespace glm
 
 	template <class T, size_t N> struct vec;
 	// POD vector (no default initialization -> aggregate / value initialization)
-	template <class T, size_t N>
+	template <class T, size_t N, bool NamedComponents = std::is_trivial<T>::value>
 	struct pod_vec
 	{
 		T c[N];
@@ -48,10 +48,11 @@ namespace glm
 
 	DEFINE_POD_VEC_METHODS(N)
 	};
-	template <class T, size_t N> struct vec_type< pod_vec<T, N> > { static size_t const dimension = N; typedef T component; };
+	template <class T, size_t N, bool NamedComponents>
+	struct vec_type< pod_vec<T, N, NamedComponents> > { static size_t const dimension = N; typedef T component; };
 
 	// provide named component attributes (x, y, z, w)
-	#define SPECIALIZE_POD_VEC(N, ...) template <class T> struct pod_vec<T, N> { union { __VA_ARGS__; T c[N]; }; DEFINE_POD_VEC_METHODS(N) }
+	#define SPECIALIZE_POD_VEC(N, ...) template <class T> struct pod_vec<T, N, true> { union { __VA_ARGS__; T c[N]; }; DEFINE_POD_VEC_METHODS(N) }
 	SPECIALIZE_POD_VEC(1, struct { T x; });
 	SPECIALIZE_POD_VEC(2, struct { T x, y; });
 	SPECIALIZE_POD_VEC(3, struct { T x, y, z; });
