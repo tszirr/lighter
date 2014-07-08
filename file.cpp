@@ -1,5 +1,3 @@
-#pragma once
-
 #include "filex"
 #include <algorithm>
 #include <iostream>

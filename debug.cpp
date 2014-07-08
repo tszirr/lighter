@@ -1,5 +1,3 @@
-#pragma once
-
 #include <iostream>
 
 #ifdef WIN32
