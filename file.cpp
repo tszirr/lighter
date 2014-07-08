@@ -735,6 +735,73 @@ namespace stdx
 	void init_shell_on_startup()
 	{
 	}
+	
+	std::vector<std::string> prompt_file(char const* current, char const* extensions
+		, dialog::t mode, bool multi)
+	{
+		std::vector<std::string> result;
+
+		if (!current) current = "$PWD";
+
+		std::stringstream dialog;
+		dialog << "dialog --stdout --fselect \"" << current << "\" 0 0";
+
+		struct process_close {
+			void operator ()(FILE* ptr) const {
+				if (ptr)
+					pclose(ptr);
+			}
+		};
+		stdx::unique_handle<FILE, process_close> pipe( popen(dialog.str().c_str(), "r") );
+		if (!pipe) throwx(std::runtime_error("Error opening file dialog"));
+
+		std::string resultPath;
+		do
+		{
+			char buffer[2048];
+			while (fgets(buffer, arraylen(buffer), pipe) != nullptr)
+				resultPath += buffer;
+
+			if (!resultPath.empty())
+				result.push_back(resultPath);
+			else
+				break;
+		}
+		while (multi);
+
+		return result;
+	}
+
+	std::vector<std::string> prompt_file_compat(char const* current, char const* extensions
+		, dialog::t mode, bool multi)
+	{
+		return prompt_file(current, extensions, mode, multi);
+	}
+
+	int prompt(char const* message, char const* title, choice::t choice)
+	{
+		std::stringstream xmessage;
+		xmessage << "xmessage -buttons ";
+
+		enum ButtonValues { OK = 0x10, Yes, No, Cancel };
+		if (choice == stdx::choice::yesno || choice == stdx::choice::yesnocancel)
+		{
+			xmessage << "Yes:" << Yes << ",No:" << No;
+			if (choice == stdx::choice::yesnocancel)
+				xmessage << ",Cancel:" << Cancel;
+		} else // if (choice == stdx::choice::ok)
+			xmessage << "OK:" << OK;
+
+		xmessage << " \"" << message << '"';
+		auto result = ::system(xmessage.str().c_str());
+		
+		if (result == Yes)
+			return 1;
+		else if (result == No)
+			return 0;
+		else
+			return -1;
+	}
 
 #endif
 	
