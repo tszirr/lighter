@@ -932,19 +932,18 @@ struct FramebufferDesc : FramebufferAttachments<MaxTextures, DepthBufferType, Te
 	typedef std::true_type is_shared;
 
 	template <size_t MT>
-	Framebuffer create() const
+	Framebuffer _create(std::integral_constant<size_t, MT>) const
 	{
 		return Framebuffer::create(this->textures, this->maxTextures, this->depth, this->depthType, this->textureType);
 	}
-	template <>
-	Framebuffer create<0>() const
+	Framebuffer _create(std::integral_constant<size_t, 0>) const
 	{
 		return Framebuffer::createEmpty(this->width, this->height, this->samples);
 	}
 
 	Framebuffer create() const
 	{
-		return create<MaxTextures>();
+		return _create(std::integral_constant<size_t, MaxTextures>());
 	}
 };
 

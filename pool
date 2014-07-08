@@ -46,17 +46,19 @@ template <class RefObj>
 class own_pooled : public stdx::own< pooled_ref<RefObj, pooled_interface*> >
 {
 public:
+	typedef typename own_pooled::own own; // workaround: clang does not allow typename expression in member initializer list
+
 	// "inherit" constructors
-	own_pooled() : typename own_pooled::own() { }
-	own_pooled(std::nullptr_t) : typename own_pooled::own(nullptr) { }
+	own_pooled() : own() { }
+	own_pooled(std::nullptr_t) : own(nullptr) { }
 	explicit own_pooled(typename own_pooled::pointer&& value)
-		: typename own_pooled::own(MOVE_T(value)) { }
+		: own(MOVE_T(value)) { }
 	explicit own_pooled(typename own_pooled::pointer const& value)
-		: typename own_pooled::own(value) { }
+		: own(value) { }
 
 	// movement
 	own_pooled(own_pooled&& right)
-		: typename own_pooled::own(MOVE_T(right)) { }
+		: own(MOVE_T(right)) { }
 	using own::operator =;
 	
 	own_pooled acquire() const
@@ -74,7 +76,8 @@ namespace detail
 		template <class Resource>
 		struct no_desc_t { };
 
-		inline bool is_shared(...) { return false; }
+		CPP11_IF_VARIADIC_TEMPLATES(template <class... Args>)
+		inline bool is_shared(CPP11_IF_VARIADIC_TEMPLATES(Args&&)...) { return false; }
 		template <class Desc>
 		inline bool is_shared(Desc const&, typename Desc::is_shared* = nullptr) { return Desc::is_shared::value; }
 		// ambiguous if both defined

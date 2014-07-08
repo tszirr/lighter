@@ -49,116 +49,123 @@ struct UniqueElementIdentifier
 struct UniversalInterfaceInteraction
 {
 	template <class Value>
-	struct Interaction
-	{
-		virtual void updateValue(Value const& value) = 0;
-	};
-	template <>
-	struct Interaction<void>
-	{
-		virtual void trigger() = 0;
-	};
+	struct Interaction;
 
+	struct InteractionParamHelper;
 	template <class Value>
 	struct InteractionParam;
+};
 
-	struct InteractionParamHelper
+template <class Value>
+struct UniversalInterfaceInteraction::Interaction
+{
+	virtual void updateValue(Value const& value) = 0;
+};
+template <>
+struct UniversalInterfaceInteraction::Interaction<void>
+{
+	virtual void trigger() = 0;
+};
+
+struct UniversalInterfaceInteraction::InteractionParamHelper
+{
+	template <class Value, class ModifiedValue = Value>
+	struct ValueInteraction : Interaction<Value>
 	{
-		template <class Value, class ModifiedValue = Value>
-		struct ValueInteraction : Interaction<Value>
-		{
-			ModifiedValue* value;
-			ValueInteraction(std::nullptr_t) { }
-			ValueInteraction(ModifiedValue& value)
-				: value(&value) { }
-			void updateValue(Value const& value) override
-			{	*this->value = value; }
-		};
-		template <class Value, class Function>
-		struct FunctionInteraction : Interaction<Value>
-		{
-			Function* fun;
-			FunctionInteraction(std::nullptr_t) { }
-			FunctionInteraction(Function& fun)
-				: fun(&fun) { }
-			void updateValue(Value const& value) override
-			{	(*this->fun)(value); }
-		};
-		template <class Function>
-		struct FunctionInteraction<void, Function> : Interaction<void>
-		{
-			Function* fun;
-			FunctionInteraction(std::nullptr_t) { }
-			FunctionInteraction(Function& fun)
-				: fun(&fun) { }
-			void trigger() override
-			{	(*this->fun)(); }
-		};
-
-		template <class IA = void>
-		struct ParamStorage
-		{
-			char buffer[sizeof(IA)];
-		};
-		template <>
-		struct ParamStorage<void>
-		{
-			char* buffer;
-			template <class T>
-			ParamStorage(ParamStorage<T>&& s)
-				: buffer(s.buffer) { }
-		};
-
-		template <class ModifiedValue, class Value>
-		struct enable_if_value : std::enable_if<
-			!std::is_same< typename std::decay<ModifiedValue>::type, InteractionParam<Value> >::value && std::is_assignable<ModifiedValue, Value>::value
-		> { };
-		template <class Function, class Value>
-		struct enable_if_function : std::enable_if<
-			!std::is_same< typename std::decay<Function>::type, InteractionParam<Value> >::value && !std::is_assignable<Function, Value>::value
-		> { };
+		typename std::remove_reference<ModifiedValue>::type* value;
+		ValueInteraction(std::nullptr_t) { }
+		ValueInteraction(ModifiedValue& value)
+			: value(&value) { }
+		void updateValue(Value const& value) override
+		{	*this->value = value; }
+	};
+	template <class Value, class Function>
+	struct FunctionInteraction : Interaction<Value>
+	{
+		Function* fun;
+		FunctionInteraction(std::nullptr_t) { }
+		FunctionInteraction(Function& fun)
+			: fun(&fun) { }
+		void updateValue(Value const& value) override
+		{	(*this->fun)(value); }
+	};
+	template <class Function>
+	struct FunctionInteraction<void, Function> : Interaction<void>
+	{
+		Function* fun;
+		FunctionInteraction(std::nullptr_t) { }
+		FunctionInteraction(Function& fun)
+			: fun(&fun) { }
+		void trigger() override
+		{	(*this->fun)(); }
 	};
 
-	template <class Value>
-	struct InteractionParam : InteractionParamHelper
-	{
-		Interaction<Value>* ptr;
-		InteractionParam(std::nullptr_t) : ptr() { }
-		InteractionParam(Value& value, ValueInteraction<Value>&& interaction = nullptr)
-			: ptr(&interaction) { interaction = ValueInteraction<Value>(value); }
-		template <class ModifiedValue>
-		InteractionParam(ModifiedValue& value, ParamStorage<> interaction = ParamStorage< ValueInteraction<Value, ModifiedValue> >()
-			, typename enable_if_value<ModifiedValue, Value>::type* enable_if_var = nullptr)
-			: ptr( new(interaction.buffer) ValueInteraction<Value, ModifiedValue>(value) ) { }
-		template <class Function>
-		InteractionParam(Function&& fun, ParamStorage<> interaction = ParamStorage< FunctionInteraction<Value, typename std::remove_reference<Function>::type> >()
-			, typename enable_if_function<Function, Value>::type* enable_if_not_var = nullptr)
-			: ptr( new(interaction.buffer) FunctionInteraction<Value, typename std::remove_reference<Function>::type>(fun) ) { }
-		template <class Function>
-		InteractionParam(Function* fun, ParamStorage<> interaction = ParamStorage< FunctionInteraction<Value, Function> >() 
-			, typename enable_if_function<Function, Value>::type* enable_if_not_var = nullptr)
-			: ptr( new(interaction.buffer) FunctionInteraction<Value, Function>(*fun) ) { }
+	template <class IA>
+	struct ParamStorage;
 
-		Interaction<Value>* operator ->() const { return ptr; }
-		operator bool() const { return ptr != nullptr; }
-	};
-	template <>
-	struct InteractionParam<void> : InteractionParamHelper
-	{
-		Interaction<void>* ptr;
-		InteractionParam(std::nullptr_t) : ptr() { }
-		template <class Function>
-		InteractionParam(Function&& fun, ParamStorage<> interaction = ParamStorage< FunctionInteraction<void, typename std::remove_reference<Function>::type> >()
-			, typename enable_if_function<Function, void>::type* enable_if_not_var = nullptr)
-			: ptr( new(interaction.buffer) FunctionInteraction<void, typename std::remove_reference<Function>::type>(fun) ) { }
-		template <class Function>
-		InteractionParam(Function* fun, ParamStorage<> interaction = ParamStorage< FunctionInteraction<void, Function> >()
-			, typename enable_if_function<Function, void>::type* enable_if_not_var = nullptr)
-			: ptr( new(interaction.buffer) FunctionInteraction<void, Function>(*fun) ) { }
+	template <class ModifiedValue, class Value>
+	struct enable_if_value : std::enable_if<
+		!std::is_same< typename std::decay<ModifiedValue>::type, InteractionParam<Value> >::value && std::is_assignable<ModifiedValue, Value>::value
+	> { };
+	template <class Function, class Value>
+	struct enable_if_function : std::enable_if<
+		!std::is_same< typename std::decay<Function>::type, InteractionParam<Value> >::value && !std::is_assignable<Function, Value>::value
+	> { };
+};
 
-		Interaction<void>* operator ->() const { return ptr; }
-		operator bool() const { return ptr != nullptr; }
-	};
+template <class IA = void>
+struct UniversalInterfaceInteraction::InteractionParamHelper::ParamStorage
+{
+	char buffer[sizeof(IA)];
+};
+template <>
+struct UniversalInterfaceInteraction::InteractionParamHelper::ParamStorage<void>
+{
+	char* buffer;
+	template <class T>
+	ParamStorage(ParamStorage<T>&& s)
+		: buffer(s.buffer) { }
+};
+
+template <class Value>
+struct UniversalInterfaceInteraction::InteractionParam : UniversalInterfaceInteraction::InteractionParamHelper
+{
+	Interaction<Value>* ptr;
+	InteractionParam(std::nullptr_t) : ptr() { }
+	InteractionParam(Value& value, ValueInteraction<Value>&& interaction = nullptr)
+		: ptr(&interaction) { interaction = ValueInteraction<Value>(value); }
+	template <class ModifiedValue>
+	InteractionParam(ModifiedValue& value, ParamStorage<> interaction = ParamStorage< ValueInteraction<Value, ModifiedValue> >()
+		, typename enable_if_value<ModifiedValue, Value>::type* enable_if_var = nullptr)
+		: ptr( new(interaction.buffer) ValueInteraction<Value, ModifiedValue>(value) ) { }
+	template <class Function>
+	InteractionParam(Function&& fun, ParamStorage<> interaction = ParamStorage< FunctionInteraction<Value, typename std::remove_reference<Function>::type> >()
+		, typename enable_if_function<Function, Value>::type* enable_if_not_var = nullptr)
+		: ptr( new(interaction.buffer) FunctionInteraction<Value, typename std::remove_reference<Function>::type>(fun) ) { }
+	template <class Function>
+	InteractionParam(Function* fun, ParamStorage<> interaction = ParamStorage< FunctionInteraction<Value, Function> >() 
+		, typename enable_if_function<Function, Value>::type* enable_if_not_var = nullptr)
+		: ptr( new(interaction.buffer) FunctionInteraction<Value, Function>(*fun) ) { }
+
+	Interaction<Value>* operator ->() const { return ptr; }
+	operator bool() const { return ptr != nullptr; }
+};
+template <>
+struct UniversalInterfaceInteraction::InteractionParam<void> : UniversalInterfaceInteraction::InteractionParamHelper
+{
+	Interaction<void>* ptr;
+	InteractionParam(std::nullptr_t) : ptr() { }
+	template <class Function>
+	InteractionParam(Function&& fun, ParamStorage<> interaction = ParamStorage< FunctionInteraction<void, typename std::remove_reference<Function>::type> >()
+		, typename enable_if_function<Function, void>::type* enable_if_not_var = nullptr)
+		: ptr( new(interaction.buffer) FunctionInteraction<void, typename std::remove_reference<Function>::type>(fun) ) { }
+	template <class Function>
+	InteractionParam(Function* fun, ParamStorage<> interaction = ParamStorage< FunctionInteraction<void, Function> >()
+		, typename enable_if_function<Function, void>::type* enable_if_not_var = nullptr)
+		: ptr( new(interaction.buffer) FunctionInteraction<void, Function>(*fun) ) { }
+
+	Interaction<void>* operator ->() const { return ptr; }
+	operator bool() const { return ptr != nullptr; }
 };
 
 struct UniversalInterface : UniversalInterfaceInteraction

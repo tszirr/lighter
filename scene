@@ -210,7 +210,8 @@ struct DataHeader
 	static DataHeader make(char const* id, size_t count, unsigned version, size_t elementSize);
 	template <class T>
 	static unsigned make_version(T, std::integral_constant<unsigned, T::version>* = nullptr) { return T::version; }
-	static unsigned make_version(...) { return 0; }
+	CPP11_IF_VARIADIC_TEMPLATES(template <class... Args>)
+	static unsigned make_version(CPP11_IF_VARIADIC_TEMPLATES(Args&&)...) { return 0; }
 };
 
 } // namespace

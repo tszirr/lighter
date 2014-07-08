@@ -7,7 +7,7 @@
 #include <memory>
 #include <cstring>
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && !defined(__clang__)
 	#pragma warning(push)
 	// Decorated name length exceeded all the time by various STL containers
 	#pragma warning(disable : 4503)
@@ -33,6 +33,14 @@
 	// requiring user-defined ctors: wrong for pointers, generally useless
 	#pragma warning(disable : 4510)
 	#pragma warning(disable : 4610)
+
+	#define CPP11_NO_VARIADIC_TEMPLATES
+#endif
+
+#ifndef CPP11_NO_VARIADIC_TEMPLATES
+	#define CPP11_IF_VARIADIC_TEMPLATES(...) __VA_ARGS__
+#else
+	#define CPP11_IF_VARIADIC_TEMPLATES(...)
 #endif
 
 // Forward & move w/o function call
@@ -94,11 +102,8 @@ namespace stdx
 	inline auto maybe_deref_iterator(I it, typename I::iterator_category* = nullptr) -> decltype(*it) { return *it; }
 	template <class I>
 	inline auto maybe_deref_iterator(I* it) -> decltype(*it) { return *it; }
-	#ifdef _MSC_VER
-	inline void maybe_deref_iterator(...) { }
-	#else
-	template <class... Args> inline void maybe_deref_iterator(Args&&...) { }
-	#endif
+	CPP11_IF_VARIADIC_TEMPLATES(template <class... Args>)
+	inline void maybe_deref_iterator(CPP11_IF_VARIADIC_TEMPLATES(Args&&)...) { }
 
 	/// Range type.
 	template <class Iterator>
@@ -325,11 +330,8 @@ namespace stdx
 
 	struct noop
 	{
-		#ifdef _MSC_VER
-		void operator ()(...) const { }
-		#else
-		template <class... Args> void operator ()(Args&&...) const { }
-		#endif
+		CPP11_IF_VARIADIC_TEMPLATES(template <class... Args>)
+		void operator ()(CPP11_IF_VARIADIC_TEMPLATES(Args&&)...) const { }
 	};
 
 	template <class Exception>
@@ -348,12 +350,9 @@ namespace stdx
 
 	template <class Exception>
 	inline bool break_on_error(error<Exception> const&) { return error<Exception>::break_on_error; }
-	#ifdef _MSC_VER
-	inline bool break_on_error(...) { return false; }
-	#else
-	template <class... Args> inline bool break_on_error(Args&&...) { return false; }
-	#endif
-	
+	CPP11_IF_VARIADIC_TEMPLATES(template <class... Args>)
+	inline bool break_on_error(CPP11_IF_VARIADIC_TEMPLATES(Args&&)...) { return false; }
+
 	template <class Pointer>
 	struct no_delete
 	{
@@ -619,10 +618,12 @@ namespace stdx
 	template <int CounterStart>
 	struct enumerable
 	{
-		template <int Counter>
-		struct enum_iterator : enum_iterator<Counter - 1> { static int const value = Counter; static int const next_value = Counter - 1; };
-		template <>
-		struct enum_iterator<CounterStart - 1> { static int const value = 0; };
+		// C++ awkwardly forbids explicit specialization of nested templates + complex expressions in partial specializations,
+		// CounterCutoff is a workaround for both
+		template <int Counter, int CounterCutoff = CounterStart - 1>
+		struct enum_iterator : enum_iterator<Counter - 1, CounterCutoff> { static int const value = Counter; static int const next_value = Counter - 1; };
+		template <int CounterCutoff>
+		struct enum_iterator<CounterCutoff, CounterCutoff> { static int const value = 0; };
 
 		template <class This, class Op>
 		friend void enumerate_from(This&, enum_iterator<CounterStart - 1>, Op&&) { }
