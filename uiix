@@ -35,8 +35,8 @@ struct SortedKeyValueStore : ui::KeyValueStore
 	std::vector< size_t > sectionPrefixLen;
 
 	SortedKeyValueStore(stdx::range<iterator> in)
-		: sectionPrefixLen(1, 0)
-		, sectionRanges(1, in)
+		: sectionRanges(1, in)
+		, sectionPrefixLen(1, 0)
 	{ }
 
 	void enterSection(char const* section) override
