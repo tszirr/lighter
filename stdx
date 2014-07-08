@@ -255,7 +255,7 @@ namespace stdx
 		template <class Type2>
 		strided_ptr(strided_ptr<Type2> const& right
 			, typename std::enable_if<std::is_convertible<Type2*, pointer>::value>::type *enable_if_typematch = nullptr)
-			: ptr( right.ptr ),
+			: ptr( right.ptr )
 			, stride( right.stride ) { }
 
 		template <class Type2>
