@@ -367,8 +367,9 @@ struct TextureRef : gl_destroy<TextureRef, GLuint, glDeleteTextures>
 		glTexParameteri(textureType, GL_TEXTURE_MIN_FILTER, (levels == 1) ? GL_NEAREST_MIPMAP_NEAREST : GL_LINEAR_MIPMAP_LINEAR);
 		auto defaultWrapMode = (levels == 1) ? GL_CLAMP_TO_EDGE : GL_REPEAT;
 		glTexParameteri(textureType, GL_TEXTURE_WRAP_S, defaultWrapMode);
-		glTexParameteri(textureType, GL_TEXTURE_WRAP_T, defaultWrapMode);
-		if (depth > 0)
+		if (height > 0 && textureType != GL_TEXTURE_1D_ARRAY)
+			glTexParameteri(textureType, GL_TEXTURE_WRAP_T, defaultWrapMode);
+		if (depth > 0 && textureType != GL_TEXTURE_2D_ARRAY)
 			glTexParameteri(textureType, GL_TEXTURE_WRAP_R, defaultWrapMode);
 		THROW_OPENGL_LASTERROR("glTexParameteri()");
 
