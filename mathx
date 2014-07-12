@@ -5,6 +5,7 @@
 #define GLM_FORCE_CXX11
 
 #include <glm/glm.hpp>
+#include <type_traits>
 
 #ifndef MATHX_MINIMAL
 	#include <glm/ext.hpp>
