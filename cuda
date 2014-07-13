@@ -704,7 +704,7 @@ struct WithTextureAndSurface : WithSurface<WithTexture<Resource>>
 		, surface(move(surface)) { }
 };
 
-struct GlBufferRef : ref_base<GlBufferRef, CUgraphicsResource>
+struct GlBufferRef : cuda_destroy<GlBufferRef, CUgraphicsResource, cuGraphicsUnregisterResource>
 {
 	GlBufferRef(CUgraphicsResource ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 	
@@ -756,7 +756,7 @@ struct GlBufferDesc
 };
 #pragma pack(pop)
 
-struct GlTextureRef : ref_base<GlTextureRef, CUgraphicsResource>
+struct GlTextureRef : cuda_destroy<GlTextureRef, CUgraphicsResource, cuGraphicsUnregisterResource>
 {
 	GlTextureRef(CUgraphicsResource ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 
