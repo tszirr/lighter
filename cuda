@@ -708,9 +708,9 @@ struct GlBufferRef : cuda_destroy<GlBufferRef, CUgraphicsResource, cuGraphicsUnr
 {
 	GlBufferRef(CUgraphicsResource ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 	
-	static GlBufferRef from(CUcontext context, GLuint glBuffer, unsigned int flags = CU_GRAPHICS_REGISTER_FLAGS_NONE)
+	static owned from(CUcontext context, GLuint glBuffer, unsigned int flags = CU_GRAPHICS_REGISTER_FLAGS_NONE)
 	{
-		GlBufferRef r = nullptr;
+		owned r = nullptr;
 		THROW_CUDA_ERROR( cuGraphicsGLRegisterBuffer(&r.ref, glBuffer, flags), "cuGraphicsGLRegisterBuffer" );
 		return r;
 	}
@@ -731,7 +731,7 @@ struct GlBufferRef : cuda_destroy<GlBufferRef, CUgraphicsResource, cuGraphicsUnr
 		return result;
 	}
 };
-typedef GlBufferRef GlBuffer;
+typedef GlBufferRef::owned GlBuffer;
 
 #pragma pack(push, 1)
 struct GlBufferDesc
@@ -760,9 +760,9 @@ struct GlTextureRef : cuda_destroy<GlTextureRef, CUgraphicsResource, cuGraphicsU
 {
 	GlTextureRef(CUgraphicsResource ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 
-	static GlTextureRef from(CUcontext context, GLenum glTextureType, GLuint glTexture, unsigned int flags = CU_GRAPHICS_REGISTER_FLAGS_NONE)
+	static owned from(CUcontext context, GLenum glTextureType, GLuint glTexture, unsigned int flags = CU_GRAPHICS_REGISTER_FLAGS_NONE)
 	{
-		GlTextureRef r = nullptr;
+		owned r = nullptr;
 		THROW_CUDA_ERROR( cuGraphicsGLRegisterImage(&r.ref, glTexture, glTextureType, flags), "cuGraphicsGLRegisterImage" );
 		return r;
 	}
@@ -789,7 +789,7 @@ struct GlTextureRef : cuda_destroy<GlTextureRef, CUgraphicsResource, cuGraphicsU
 		return result;
 	}
 };
-typedef GlTextureRef GlTexture;
+typedef GlTextureRef::owned GlTexture;
 
 #pragma pack(push, 1)
 struct GlTextureDesc
