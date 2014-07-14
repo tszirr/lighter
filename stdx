@@ -595,15 +595,16 @@ namespace stdx
 		
 		dispatch_ptr dispatch;
 
+		fun_ref(nullptr_t) : dispatch(nullptr) { this->self = nullptr; }
 		template <class Callable>
 		fun_ref(Callable&& callable
 			, typename std::enable_if<!std::is_same<typename std::decay<Callable>::type, fun_ref>::value>::type *enable_if_not_copy = nullptr)
 			: dispatch(&callable_dispatcher<typename std::remove_reference<Callable>::type>::template dispatcher<signature_type>::call)
-		{	this->self = &callable; }
+		{	this->self = &callable; } // not enforced as commonly used as param type: static_assert(std::is_pointer<Callable>::value || std::is_reference<Callable>::value, "Error: Temporaries not stored by fun_ref");
 		template <class Class>
 		fun_ref(Class&& obj, dispatch_ptr dispatch)
 			: dispatch(dispatch)
-		{	this->self = &callable; }
+		{	this->self = &obj; }
 	};
 
 	template <class MemFunT, MemFunT MemFun, class Class>
@@ -614,6 +615,70 @@ namespace stdx
 			  obj
 			, &fun_ref::template memfun_dispatcher<typename std::remove_reference<Class>::type, MemFun>::template dispatcher<typename fun_ref::signature_type>::call)
 	}
+
+	struct freely_stored
+	{
+		virtual void destroy() const = 0;
+
+		struct deleter {
+			void operator ()(freely_stored const* ptr) {
+				if (ptr)
+					ptr->destroy();
+			}
+		};
+
+	protected:
+		~freely_stored() { }
+	};
+
+	// template <class TagType>
+	struct free_store
+	{
+		std::unique_ptr<freely_stored, freely_stored::deleter> ptr;
+
+		template <class T>
+		struct value_store : freely_stored
+		{
+			T value;
+
+			value_store() { }
+			template <class V>
+			value_store(V&& v) : value(FORWARD(V, v)) { }
+
+			void destroy() const override { delete this; }
+		};
+
+		template <class V>
+		V& operator =(V&& v)
+		{
+			typedef typename std::decay<V>::type T;
+			T* stored;
+			if (auto p = ptr.get())
+			{
+				assert (typeid(*p) == typeid(value_store<V>));
+				stored = &static_cast<value_store<T>*>(p)->value;
+				stored->~T();
+				new(stored) T(FORWARD(V, v));
+//				*stored = FORWARD(V, v);
+			}
+			else
+			{
+				auto newStore = new value_store<T>(FORWARD(V, v));
+				ptr.reset(newStore);
+				stored = &newStore->value;
+			}
+			return *stored;
+		}
+
+		template <class T>
+		T& get()
+		{
+			auto p = ptr.get();
+			assert (p);
+			assert (typeid(*p) == typeid(value_store<T>));
+			return static_cast<value_store<T>*>(p)->value;
+		}
+	};
 
 	template <int CounterStart>
 	struct enumerable
