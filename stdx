@@ -631,10 +631,9 @@ namespace stdx
 		~freely_stored() { }
 	};
 
-	// template <class TagType>
-	struct free_store
+	struct onetype_store
 	{
-		std::unique_ptr<freely_stored, freely_stored::deleter> ptr;
+		std::unique_ptr<freely_stored, freely_stored::deleter> store;
 
 		template <class T>
 		struct value_store : freely_stored
@@ -647,36 +646,65 @@ namespace stdx
 
 			void destroy() const override { delete this; }
 		};
+		
+		// ugly: lambdas not assignable
+		template <class T, bool Assignable = std::is_copy_assignable<T>::value || std::is_move_assignable<T>::value>
+		struct assign_helper {
+			template <class V>
+			static void assign(T& x, V&& v) { x = FORWARD(V, v); }
+		};
+		template <class T>
+		struct assign_helper<T, false> {
+			template <class V>
+			static void assign(T& x, V&& v) { x.~T(); new(&x) T(FORWARD(V, v)); }
+		};
 
+		// store & return reference TO STORED
 		template <class V>
 		V& operator =(V&& v)
 		{
 			typedef typename std::decay<V>::type T;
 			T* stored;
-			if (auto p = ptr.get())
+			if (auto p = store.get())
 			{
 				assert (typeid(*p) == typeid(value_store<V>));
 				stored = &static_cast<value_store<T>*>(p)->value;
-				stored->~T();
-				new(stored) T(FORWARD(V, v));
-//				*stored = FORWARD(V, v);
+				assign_helper<T>::assign(*stored, FORWARD(V, v));
 			}
 			else
 			{
 				auto newStore = new value_store<T>(FORWARD(V, v));
-				ptr.reset(newStore);
+				store.reset(newStore);
 				stored = &newStore->value;
 			}
 			return *stored;
 		}
 
+		// return reference to store (UNDEFINED BEHAVIOR if nothing stored!)
 		template <class T>
 		T& get()
 		{
-			auto p = ptr.get();
+			auto p = store.get();
 			assert (p);
 			assert (typeid(*p) == typeid(value_store<T>));
 			return static_cast<value_store<T>*>(p)->value;
+		}
+	};
+
+	// Allows for values of ONE unknown type to be stored alongside a reference
+	template <class Ref>
+	struct ref_with_onetype_store : private onetype_store
+	{
+		Ref ref;
+
+		ref_with_onetype_store() : ref() { }
+		ref_with_onetype_store(nullptr_t) : ref(nullptr) { }
+
+		template <class V>
+		ref_with_onetype_store& operator =(V&& v)
+		{
+			ref = onetype_store::operator =(FORWARD(V, v));
+			return *this;
 		}
 	};
 
