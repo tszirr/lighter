@@ -172,12 +172,14 @@ struct GLFWWindow : TrackedGLFWWindow
 	static void textCallback(GLFWwindow *window, unsigned chr);
 	static void mouseCallback(GLFWwindow *window, double x, double y);
 	static void buttonsCallback(GLFWwindow *window, int button, int action, int mods);
+	static void scrollCallback(GLFWwindow *window, double x, double y);
 
 	std::function<void (unsigned w, unsigned h)> resize;
 	std::function<void (int key, bool pressed, bool repeat)> keyboard;
 	std::function<void (unsigned)> text;
 	std::function<void (int x, int y)> mouse;
 	std::function<void (int button, bool pressed)> buttons;
+	std::function<void (int x, int y)> scroll;
 
 	GLFWWindow(int w, int h, char const *title, GLFWmonitor *monitor = glfwGetPrimaryMonitor(), GLFWwindow *share = nullptr)
 		: TrackedGLFWWindow( glfwCreateWindow(w, h, title, monitor, share) )
@@ -188,6 +190,7 @@ struct GLFWWindow : TrackedGLFWWindow
 		glfwSetCharCallback(*this, textCallback);
 		glfwSetCursorPosCallback(*this, mouseCallback);
 		glfwSetMouseButtonCallback(*this, buttonsCallback);
+		glfwSetScrollCallback(*this, scrollCallback);
 	}
 
 	void makeCurrent()

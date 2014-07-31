@@ -101,4 +101,11 @@ namespace ogl
 			self->buttons(button, action == GLFW_PRESS);
 	}
 
+	void GLFWWindow::scrollCallback(GLFWwindow *window, double x, double y)
+	{
+		auto* self = getThis<GLFWWindow>(window);
+		if (self && self->buttons)
+			self->scroll((int) x, (int) y);
+	}
+
 } // namespace
