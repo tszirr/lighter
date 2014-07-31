@@ -176,7 +176,9 @@ struct TextUi : UserInterface, UniversalInterface
 		if ( (state.mouse.primary && state.mouse.primaryChanged || state.mouse.secondary && state.mouse.secondaryChanged)
 			&& state.capturePath.empty())
 		{
-			state.focus = in_aabb(state.mouse.pos, setup.rect);
+			auto focusRect = setup.rect;
+			focusRect.min.y -= setup.options.lineHeight * 3 / 2; // todo: hack, as insert pos is base line
+			state.focus = in_aabb(state.mouse.pos, focusRect);
 		}
 
 		// get next input
