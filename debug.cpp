@@ -15,14 +15,14 @@ namespace stdx
 		auto hDbgHelp = LoadLibraryA("dbghelp");
 		if(!hDbgHelp)
 		{
-			std::cout << "Cannot load dbghelp to write crash dump" << std::endl;
+			std::cerr << "Cannot load dbghelp to write crash dump" << std::endl;
 			return false;
 		}
     
 		auto pMiniDumpWriteDump = decltype(&MiniDumpWriteDump)(GetProcAddress(hDbgHelp, "MiniDumpWriteDump"));
 		if(!pMiniDumpWriteDump)
 		{
-			std::cout << "Cannot retrieve MiniDumpWriteDump function from dbghelp" << std::endl;
+			std::cerr << "Cannot retrieve MiniDumpWriteDump function from dbghelp" << std::endl;
 			return false;
 		}
 
@@ -46,7 +46,7 @@ namespace stdx
 		auto hFile = CreateFileA(dumpPath, GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 		if(hFile == INVALID_HANDLE_VALUE)
 		{
-			std::cout << "Cannot write dump to file " << dumpPath << std::endl;
+			std::cerr << "Cannot write dump to file " << dumpPath << std::endl;
 			return false;
 		}
 
@@ -56,7 +56,7 @@ namespace stdx
 		CloseHandle(hFile);
 
 		if (!dumped)
-			std::cout << "Writing memory dump failed (" << dumpPath << ")" << std::endl;
+			std::cerr << "Writing memory dump failed (" << dumpPath << ")" << std::endl;
 
 		return (dumped != FALSE);
 	}

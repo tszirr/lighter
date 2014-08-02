@@ -420,7 +420,7 @@ namespace stdx
 		default:
 			msg = "Warning: COM could not be initialized";
 		}
-		std::cout << msg << std::endl;
+		std::cerr << msg << std::endl;
 	}
 
 	std::vector<std::string> prompt_file(char const* current, char const* extensions

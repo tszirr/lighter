@@ -1143,8 +1143,8 @@ struct ShaderRef : glew_destroy_single<ShaderRef, GLuint, glDeleteShader>
 			glGetShaderInfoLog(shader, (GLsizei) log.size(), nullptr, &log[0]);
 			THROW_OPENGL_LASTERROR("glGetShaderInfoLog()");
 
-			std::cout << ((status) ? "Build info:" : "There were build errors:") << std::endl;
-			std::cout << log << std::endl;
+			std::cerr << ((status) ? "Build info:\n" : "There were build errors:\n")
+				<< log << std::endl;
 		}
 
 		return (status == GL_TRUE);
@@ -1227,8 +1227,8 @@ struct ProgramRef : glew_destroy_single<ProgramRef, GLuint, glDeleteProgram>
 			glGetProgramInfoLog(program, (GLsizei) log.size(), nullptr, &log[0]);
 			THROW_OPENGL_LASTERROR("glGetProgramInfoLog()");
 
-			std::cout << ((status) ? "Link info:" : "There were linking errors:") << std::endl;
-			std::cout << log << std::endl;
+			std::cerr << ((status) ? "Link info:\n" : "There were linking errors:\n") 
+				<< log << std::endl;
 		}
 
 		return (status == GL_TRUE);

@@ -204,8 +204,8 @@ struct ProgramRef : cl_destroy<ProgramRef, cl_program, clReleaseProgram>
 		std::string log(logSize, 0);
 		THROW_OPENCL_ERROR(clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, log.size(), &log[0], nullptr), "Failed to retrieve OpenCL build log");
 
-		std::cout << "There were build errors:" << std::endl;
-		std::cout << log << std::endl;
+		std::cerr << "There were build errors:\n"
+			<< log << std::endl;
 	}
 };
 typedef ProgramRef::owned Program;

@@ -75,11 +75,11 @@ inline void print_exception()
 	}
 	catch (std::exception const &excpt)
 	{
-		std::cout << "Error: " << excpt.what() << std::endl;
+		std::cerr << "Error: " << excpt.what() << std::endl;
 	}
 	catch (...)
 	{
-		std::cout << "Unknown error" << std::endl;
+		std::cerr << "Unknown error" << std::endl;
 	}
 }
 
