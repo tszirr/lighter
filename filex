@@ -52,8 +52,10 @@ namespace stdx
 	template <class Range>
 	inline void serialize_container_binary(std::ostream& stream, Range const& range)
 	{
-		serialize_binary(stream, range.size());
-		stream.write(reinterpret_cast<char const*>(range.data()), sizeof(*range.data()) * range.size());
+		auto size = range.size();
+		serialize_binary(stream, size);
+		if (size > 0)
+			stream.write(reinterpret_cast<char const*>(range.data()), sizeof(*range.data()) * size);
 	}
 	template <class Range>
 	inline void serialize_container_binary(std::istream& stream, Range& range)
@@ -61,7 +63,8 @@ namespace stdx
 		size_t size = 0;
 		serialize_binary(stream, size);
 		range.resize(size);
-		stream.read(reinterpret_cast<char*>(range.data()), sizeof(*range.data()) * range.size());
+		if (size > 0)
+			stream.read(reinterpret_cast<char*>(range.data()), sizeof(*range.data()) * size);
 	}
 
 	/// Character stream buffer class that is required to allow for allocation-free usage of STL streaming facilities.
