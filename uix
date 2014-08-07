@@ -660,6 +660,28 @@ struct TextUi : UserInterface, UniversalInterface
 			}
 		}
 	}
+
+	void addColor(UniqueElementIdentifier id, char const* label, glm::vec3 const& value, float valueRange, InteractionParam<glm::vec3> interact, float valueTicks = 0.0f)
+	{
+		if (auto uiGroup = ui::Group(*this, id))
+		{
+			uintptr_t controlIdx = 0;
+
+			char numBuf[4 * 32];
+			sprintf(numBuf, "%f %f %f", value.x, value.y, value.z);
+			addText(controlIdx++, label, numBuf, nullptr);
+
+			auto hsv = toHSV(value, true);
+			bool colorChanged = false;
+
+			addSlider(controlIdx++, "hue", hsv.x, 1.0f, [&](float value){ hsv.x = glm::clamp(value, 0.0f, 1.0f); colorChanged = true; }, 1.0f / 6.0f);
+			addSlider(controlIdx++, "sat", hsv.y, 1.0f, [&](float value){ hsv.y = glm::clamp(value, 0.0f, 1.0f); colorChanged = true; }, 0.1f);
+			addSlider(controlIdx++, "val", hsv.z, 1.0f, [&](float value){ hsv.z = glm::max(value, 0.0f); colorChanged = true; }, valueTicks);
+
+			if (interact && colorChanged)
+				interact->updateValue(glm::linFromHSV(hsv.x, hsv.y, hsv.z));
+		}
+	}
 };
 
 } // namespace
