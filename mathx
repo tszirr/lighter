@@ -135,6 +135,63 @@ namespace glm
 		return ray;
 	}
 
+	MATHX_API inline vec3 fromHSV(float hue, float saturation, float value, bool toLinearSpace = false)
+	{
+		float hue6 = hue * 6.0f;
+		float minValue = 1.0f - saturation;
+
+		vec3 color;
+		color.r = mix(minValue, 1.0f, clamp(2.0f - abs(hue6 < 3.0f ? hue6 : hue6 - 6.0f), 0.0f, 1.0f));
+		color.g = mix(minValue, 1.0f, clamp(2.0f - abs(hue6 - 2.0f), 0.0f, 1.0f));
+		color.b = mix(minValue, 1.0f, clamp(2.0f - abs(hue6 - 4.0f), 0.0f, 1.0f));
+
+		// HSV RGB looks nice w/ gamma 2.2
+		// Make color appear approximately the same when applied in linear space
+		if (toLinearSpace)
+			color *= color;
+
+		color *= value;
+
+		return color;
+	}
+
+	MATHX_API inline vec3 linFromHSV(float hue, float saturation, float value)
+	{
+		return fromHSV(hue, saturation, value, true);
+	}
+	
+	MATHX_API inline vec3 toHSV(vec3 const& rgb, bool fromLinearSpace = false)
+	{
+		vec3 hsv(0.0f);
+		hsv.z = compMax(rgb);
+		if (hsv.z > 0.0f)
+		{
+			vec3 nrgb = rgb / hsv.z;
+			if (fromLinearSpace)
+				nrgb = sqrt(nrgb);
+
+			hsv.y = 1.0f - compMin(nrgb);
+
+			float hueBase;
+			float hueOffset;
+			if (nrgb.x >= nrgb.y && nrgb.x >= nrgb.z) {
+				hueOffset = nrgb.y - nrgb.z;
+				hueBase = (hueOffset < 0.0f) ? 6.0f : 0.0f;
+			} else if (nrgb.y >= nrgb.x && nrgb.y > nrgb.z) {
+				hueOffset = nrgb.z - nrgb.x;
+				hueBase = 2.0f;
+			} else { // if (nrgb.z >= nrgb.x && nrgb.z > nrgb.y)
+				hueOffset = nrgb.x - nrgb.y;
+				hueBase = 4.0f;
+			}
+			// Prevent div by zero when sat == 0!
+			if (hueOffset != 0.0f) hueOffset /= hsv.y;
+			hsv.x = (hueBase + hueOffset) / 6.0f;
+		}
+
+		return hsv;
+	}
+
 	template <class Uniform, size_t N>
 	struct rand_box
 	{
