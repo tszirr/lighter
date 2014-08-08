@@ -93,13 +93,25 @@ struct UiToText : UniversalInterface
 			stream->addItem(key, (value) ? "true" : "false");
 	}
 
-	void addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks = 0.0f, InteractionParam<Slider> control = nullptr) override
+	void addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks = 0.0f, float fullBarThreshold = 0.0f
+		, InteractionParam<Slider> control = nullptr) override
 	{
 		auto key = keyFromLabel(label);
 		if (interact)
 		{
 			char buf[1024];
 			sprintf(buf, "%f", value);
+			stream->addItem(key, buf);
+		}
+	}
+
+	void addColor(UniqueElementIdentifier id, char const* label, glm::vec3 const& value, float valueRange, InteractionParam<glm::vec3> interact, float valueTicks = 0.0f) override
+	{
+		auto key = keyFromLabel(label);
+		if (interact)
+		{
+			char buf[1024];
+			sprintf(buf, "%f %f %f", value.x, value.y, value.z);
 			stream->addItem(key, buf);
 		}
 	}
@@ -189,7 +201,8 @@ struct TextToUi : UniversalInterface
 				interact->updateValue( !stdx::strieq(val, "false") && !(val[0] == '0' && val[1] == 0) );
 	}
 
-	void addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks = 0.0f, InteractionParam<Slider> control = nullptr) override
+	void addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks = 0.0f, float fullBarThreshold = 0.0f
+		, InteractionParam<Slider> control = nullptr) override
 	{
 		auto key = keyFromLabel(label);
 		if (interact)
@@ -197,6 +210,18 @@ struct TextToUi : UniversalInterface
 			{
 				float newVal = value;
 				if (sscanf(val, "%f", &newVal) == 1)
+					interact->updateValue(newVal);
+			}
+	}
+
+	void addColor(UniqueElementIdentifier id, char const* label, glm::vec3 const& value, float valueRange, InteractionParam<glm::vec3> interact, float valueTicks = 0.0f) override
+	{
+		auto key = keyFromLabel(label);
+		if (interact)
+			if (auto val = stream->getValue(key))
+			{
+				glm::vec3 newVal = value;
+				if (sscanf(val, "%f %f %f", &newVal.x, &newVal.y, &newVal.z) == 3)
 					interact->updateValue(newVal);
 			}
 	}

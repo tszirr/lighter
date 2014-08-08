@@ -18,6 +18,9 @@ struct UiElement
 		Ticks,
 		OutlineBranch,
 		Outline,
+		HSVHue,
+		HSVSat,
+		HSVVal
 	};
 };
 
@@ -60,28 +63,28 @@ struct UiRenderer
 		widgetArrays.unbind();
 	}
 
-	void drawWidget(glm::ivec2 pos, glm::uvec2 size, UiElement::T clazz, unsigned ex = 0)
+	void drawWidget(glm::ivec2 pos, glm::uvec2 size, UiElement::T clazz, unsigned ex = 0, unsigned short exx = 0)
 	{
 		if (widgetBatchCnt >= widgetBatchSize)
 			flushWidgets();
 
 		QueuedWidget qc = { QueuedWidget::build_tuple( (short) pos.x, (short) pos.y )
 			, QueuedWidget::build_tuple( (unsigned short) size.x, (unsigned short) size.y )
-			, clazz
-		  , ex };
+			, clazz | (exx << 8U)
+			, ex };
 		widgetMem[widgetBatchCnt] = qc;
 		++widgetBatchCnt;
 	}
 
-	void drawLine(glm::ivec2 start, glm::ivec2 end, int lineWidth, UiElement::T clazz, unsigned ex = 0)
+	void drawLine(glm::ivec2 start, glm::ivec2 end, int lineWidth, UiElement::T clazz, unsigned ex = 0, unsigned short exx = 0)
 	{
 		if (widgetBatchCnt >= widgetBatchSize)
 			flushWidgets();
 
 		QueuedWidget qc = { QueuedWidget::build_tuple( (short) start.x, (short) start.y )
 			, QueuedWidget::build_tuple( (short) end.x, (short) end.y )
-			, (unsigned) clazz | ((unsigned) (unsigned char) lineWidth << 24U)
-		  , ex };
+			, (unsigned) clazz | ((unsigned) (unsigned char) lineWidth << 24U) | (exx << 8U)
+			, ex };
 		widgetMem[widgetBatchCnt] = qc;
 		++widgetBatchCnt;
 	}
@@ -568,8 +571,11 @@ struct TextUi : UserInterface, UniversalInterface
 		return addInteractiveButton(id, text, value, [&interact, value](ButtonEvent::T pressed) { if (pressed == ButtonEvent::UpAccept && interact) interact->updateValue(!value); }, control);
 	}
 
-	void addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks = 0.0f
-		, InteractionParam<Slider> control = nullptr) override
+	void makeSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks, float fullBarThreshold
+		, InteractionParam<Slider> control
+		, stdx::fun_ref<void(glm::ivec2, glm::uvec2)> drawFrame
+		, stdx::fun_ref<void(glm::ivec2, glm::uvec2)> drawBar
+		, stdx::fun_ref<void(glm::ivec2, glm::uvec2, float tickDelta)> drawTicks)
 	{
 		prependLabel(label);
 
@@ -588,24 +594,29 @@ struct TextUi : UserInterface, UniversalInterface
 		auto sliderSize = glm::uvec2(valBox.max - valBox.min) + glm::uvec2(2 * sliderPadding);
 		sliderSize.x = std::max((int) sliderSize.x, (int) setup.rect.max.x - context.insertPos.x);
 		sliderSize.y -= std::min((int) sliderPadding, valBox.max.y); // move excess into padding
-		uiRenderer->drawWidget(sliderPos, sliderSize, ui::UiElement::Frame);
+		if (drawFrame.dispatch) drawFrame.dispatch(drawFrame, sliderPos, sliderSize);
 		
 		auto barPos = sliderPos + glm::ivec2(sliderBarInset);
 		auto fullBarSize = sliderSize - glm::uvec2(2 * sliderBarInset);
 		auto barEnd = barPos + glm::ivec2(fullBarSize);
 		float relativeValue = value / range;
 		float relativeValueBase = floor(relativeValue);
-		auto barSize = fullBarSize;
-		barSize.x = unsigned((relativeValue - relativeValueBase) * (float) barSize.x);
-		uiRenderer->drawWidget(barPos, barSize, ui::UiElement::Bar);
+		if (relativeValueBase == relativeValue && value > fullBarThreshold)
+			relativeValueBase -= 1.0f;
+		if (drawBar.dispatch)
+		{
+			auto barSize = fullBarSize;
+			barSize.x = unsigned((relativeValue - relativeValueBase) * (float) barSize.x);
+			drawBar.dispatch(drawBar, barPos, barSize);
+		}
 
-		if (ticks > 0.0f)
+		if (ticks > 0.0f && drawTicks.dispatch)
 		{
 			auto tickPos = glm::ivec2(barPos.x, barEnd.y - sliderTickLength / 2);
 			auto tickSize = glm::uvec2(fullBarSize.x, sliderTickLength);
 
 			float tickDelta = ticks / range * (float) fullBarSize.x;
-			uiRenderer->drawWidget(tickPos, tickSize, ui::UiElement::Ticks, stdx::as_<unsigned>(tickDelta));
+			drawTicks.dispatch(drawTicks, tickPos, tickSize, tickDelta);
 		}
 		
 		Slider slider = { id, { barPos, barEnd }, value, range, relativeValueBase * range };
@@ -661,6 +672,16 @@ struct TextUi : UserInterface, UniversalInterface
 		}
 	}
 
+	void addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks = 0.0f, float fullBarThreshold = 0.0f
+		, InteractionParam<Slider> control = nullptr) override
+	{
+		makeSlider(id, label, value, range, interact, ticks, fullBarThreshold, control
+			, [&](glm::ivec2 pos, glm::uvec2 size) { uiRenderer->drawWidget(pos, size, ui::UiElement::Frame); }
+			, [&](glm::ivec2 pos, glm::uvec2 size) { uiRenderer->drawWidget(pos, size, ui::UiElement::Bar); }
+			, [&](glm::ivec2 pos, glm::uvec2 size, float tickDelta) { uiRenderer->drawWidget(pos, size, ui::UiElement::Ticks, stdx::as_<unsigned>(tickDelta)); }
+			);
+	}
+
 	void addColor(UniqueElementIdentifier id, char const* label, glm::vec3 const& value, float valueRange, InteractionParam<glm::vec3> interact, float valueTicks = 0.0f)
 	{
 		if (auto uiGroup = ui::Group(*this, id))
@@ -674,9 +695,32 @@ struct TextUi : UserInterface, UniversalInterface
 			auto hsv = toHSV(value, true);
 			bool colorChanged = false;
 
-			addSlider(controlIdx++, "hue", hsv.x, 1.0f, [&](float value){ hsv.x = glm::clamp(value, 0.0f, 1.0f); colorChanged = true; }, 1.0f / 6.0f);
-			addSlider(controlIdx++, "sat", hsv.y, 1.0f, [&](float value){ hsv.y = glm::clamp(value, 0.0f, 1.0f); colorChanged = true; }, 0.1f);
-			addSlider(controlIdx++, "val", hsv.z, 1.0f, [&](float value){ hsv.z = glm::max(value, 0.0f); colorChanged = true; }, valueTicks);
+			unsigned uiex = stdx::as_<unsigned>(hsv.x);
+			unsigned short uiexx =
+				  unsigned(std::min((unsigned char)(hsv.y * 255.0f), (unsigned char) 255))
+				| unsigned(std::min((unsigned char)(hsv.z * 255.0f), (unsigned char) 255) << 8U);
+
+			makeSlider(controlIdx++, "hue", hsv.x, 1.0f
+				, [&](float value){ hsv.x = glm::clamp(value, 0.0f, 1.0f); colorChanged = true; }
+				, 1.0f / 6.0f, 0.0f, nullptr
+				, [&](glm::ivec2 pos, glm::uvec2 size) { uiRenderer->drawWidget(pos, size, ui::UiElement::HSVHue, 0, uiexx); }
+				, nullptr
+				, [&](glm::ivec2 pos, glm::uvec2 size, float tickDelta) { uiRenderer->drawWidget(pos, size, ui::UiElement::Ticks, stdx::as_<unsigned>(tickDelta)); }
+				);
+			makeSlider(controlIdx++, "sat", hsv.y, 1.0f
+				, [&](float value){ hsv.y = glm::clamp(value, 0.0f, 1.0f); colorChanged = true; }
+				, 0.1f, 0.0f, nullptr
+				, [&](glm::ivec2 pos, glm::uvec2 size) { uiRenderer->drawWidget(pos, size, ui::UiElement::HSVSat, uiex, uiexx); }
+				, nullptr
+				, [&](glm::ivec2 pos, glm::uvec2 size, float tickDelta) { uiRenderer->drawWidget(pos, size, ui::UiElement::Ticks, stdx::as_<unsigned>(tickDelta)); }
+				);
+			makeSlider(controlIdx++, "val", hsv.z, valueRange
+				, [&](float value){ hsv.z = glm::max(value, 0.0f); colorChanged = true; }
+				, valueTicks, 0.0f, nullptr
+				, [&](glm::ivec2 pos, glm::uvec2 size) { uiRenderer->drawWidget(pos, size, ui::UiElement::HSVVal, uiex, uiexx); }
+				, nullptr
+				, [&](glm::ivec2 pos, glm::uvec2 size, float tickDelta) { uiRenderer->drawWidget(pos, size, ui::UiElement::Ticks, stdx::as_<unsigned>(tickDelta)); }
+				);
 
 			if (interact && colorChanged)
 				interact->updateValue(glm::linFromHSV(hsv.x, hsv.y, hsv.z));

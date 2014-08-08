@@ -3,6 +3,8 @@
 #include "stdx"
 #include <vector>
 
+#include "mathx"
+
 namespace ui
 {
 
@@ -186,7 +188,9 @@ struct UniversalInterface : UniversalInterfaceInteraction
 	virtual void addOption(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<bool> interact, InteractionParam<Button> control = nullptr) = 0;
 	
 	struct Slider;
-	virtual void addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks = 0.0f, InteractionParam<Slider> control = nullptr) = 0;	
+	virtual void addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks = 0.0f, float fullBarThreshold = 0.0f, InteractionParam<Slider> control = nullptr) = 0;
+
+	virtual void addColor(UniqueElementIdentifier id, char const* label, glm::vec3 const& value, float valueRange, InteractionParam<glm::vec3> interact, float valueTicks = 0.0f) = 0;
 };
 
 struct Group : stdx::noncopyable

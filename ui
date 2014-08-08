@@ -1,7 +1,6 @@
 #pragma once
 
 #include "uii"
-#include "mathx"
 
 #include <vector>
 
