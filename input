@@ -47,6 +47,8 @@ struct GLFWKeyboard
 
 	void keyHandler(int key, bool pressed, bool repeat)
 	{
+		if (key < 0 || key >= KeyCount) return;
+
 		if (!repeat)
 		{
 			keyState[key] = pressed;
@@ -180,6 +182,8 @@ struct GLFWMouse
 
 	void buttonHandler(int key, bool pressed)
 	{
+		if (key < 0 || key >= ButtonCount) return;
+
 		buttonState[key] = pressed;
 		buttonChanged[key] = true;
 
