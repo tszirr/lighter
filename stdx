@@ -93,6 +93,13 @@ namespace stdx
 				typedef decltype(std::declval<Iterator>() - std::declval<Iterator>()) difference_type;
 				typedef decltype(to_unsigned(std::declval<Iterator>() - std::declval<Iterator>())) size_type;
 			};
+
+			template <class T>
+			struct iterator_delta_types<T*>
+			{
+				typedef ptrdiff_t difference_type;
+				typedef size_t size_type;
+			};
 		}
 	}
 	using detail::iterator_delta_types::iterator_delta_types;
