@@ -187,6 +187,7 @@ namespace stdx
 	/// Wide-character stream class.
 	typedef basic_charstream<wchar_t> wcharstream;
 	
+
 	struct parse_tag;
 	typedef stdx::error<parse_tag> parse_error;
 
@@ -200,89 +201,120 @@ namespace stdx
 	}
 	
 	template <class Char>
-	void parse_ini_file(Char const *file, std::map< std::basic_string<Char>, std::basic_string<Char> >& contents, stdx::data_range_param<typename std::identity<Char>::type const> prefix = stdx::data_range_param<Char const>())
+	stdx::range<size_t> parse_ini_file(stdx::range<Char const*>& file
+		, std::vector< key_value_node<Char, size_t> >& nodes
+		, std::vector< key_value_node<Char, size_t> >& nodeStack
+		, bool inFlatSection = false
+		)
 	{
-		typedef std::basic_string<Char> string_type;
-		
-		stdx::range<Char const*> sectionPrefix = prefix;
-		string_type sectionPrefixStore;
+		auto nodeStackOffset = nodeStack.size();
 
-		Char const *keyBegin = file, *keyEnd = file;
-		Char const *secBegin = file, *secEnd = file;
+		auto nextLine = file.first;
 
-		for (; *file; ++file)
+		// allow for strings of unspecified size (last == nullptr):
+		// compare using != rather than < and also check for nulltermination
+		for (; nextLine != file.last && *nextLine; )
 		{
-			if (*file == Char('\n'))
+			auto lineBegin = nextLine, lineEnd = lineBegin;
+			for (; lineEnd != file.last && *lineEnd; ++lineEnd)
+				if (*lineEnd == Char('\n'))
+					break;
+			
+			nextLine = lineEnd;
+			if (*lineEnd)
+				++nextLine;
+
+			// Process trimmed line
+			auto trimBegin = lineBegin, trimEnd = lineEnd;
+			trim_char_range(trimBegin, trimEnd);
+			if (trimBegin < trimEnd)
 			{
-				Char const *valBegin = keyEnd + 1, *valEnd = file;
+				bool newSection = (trimBegin[0] == Char('['));
+				bool endSection = (trimEnd[-1] == Char(']'));
 
-				// Trim
-				trim_char_range(keyBegin, keyEnd);
-				trim_char_range(secBegin, secEnd);
-
-				// ORDER: Make sure key was complete with '='
-				if (keyBegin < keyEnd)
+				// end of this flat section, handle in parent section
+				if (inFlatSection && (newSection || endSection))
 				{
-					// Trim value
-					trim_char_range(valBegin, valEnd);
-
-					string_type key;
-					key.resize(sectionPrefix.size() + (keyEnd - keyBegin));
-					std::copy( keyBegin, keyEnd, std::copy(sectionPrefix.first, sectionPrefix.last, &key[0]) );
-					contents[std::move(key)] = string_type(valBegin, valEnd);
-				}
-				else if (secBegin < secEnd)
-				{
-					sectionPrefixStore.resize(prefix.size() + (secEnd - secBegin) + 1);
-					*std::copy( secBegin, secEnd, std::copy(prefix.first, prefix.last, &sectionPrefixStore[0]) ) = Char('.');
-					sectionPrefix = data_range(sectionPrefixStore);
+					nextLine = lineBegin;
+					break;
 				}
 
-				keyBegin = keyEnd = secBegin = secEnd = file + 1;
+				// Key trimmed line w/o section delimiters by default
+				auto keyBegin = trimBegin, keyEnd = trimEnd;
+				if (newSection)
+					++keyBegin;
+				if (endSection)
+					--keyEnd;
+
+				// Value empty by default, always untrimmed
+				auto valBegin = lineEnd, valEnd = lineEnd;
+
+				for (auto cursor = keyBegin; cursor < keyEnd; ++cursor)
+					if (*cursor == Char('='))
+					{
+						keyEnd = cursor;
+						// Key always trimmed
+						trim_char_range(keyBegin, keyEnd);
+						// Value starts right after first '='
+						valBegin = cursor + 1;
+						break;
+					}
+
+				key_value_node<Char, size_t> node = {
+					  make_range(keyBegin, keyEnd)
+					, make_range(valBegin, valEnd)
+				};
+				if (newSection)
+				{
+					auto childFileRange = make_range(nextLine, file.last);
+					node.children = parse_ini_file<Char>(childFileRange, nodes, nodeStack, endSection);
+					nextLine = childFileRange.last;
+				}
+
+				nodeStack.push_back(node);
+
+				// End of this deep section
+				if (!newSection && endSection)
+					break;
 			}
-			else if (*file == Char('=') && keyBegin == keyEnd)
-				keyEnd = file;
-			else if (*file == Char('['))
-				secBegin = file + 1;
-			else if (*file == Char(']') && secBegin >= secEnd)
-				secEnd = file;
 		}
+
+		// Update handled range
+		file.last = nextLine;
+
+		// Move from stack to continuous storage range
+		auto children = make_range_n(nodes.size(), nodeStack.size() - nodeStackOffset);
+		nodes.insert(nodes.end(), nodeStack.begin() + nodeStackOffset, nodeStack.end());
+		nodeStack.erase(nodeStack.begin() + nodeStackOffset, nodeStack.end());
+		return children;
 	}
 	
 	template <class Char>
-	std::map< std::basic_string<Char>, std::basic_string<Char> > parse_ini_file(Char const *file, stdx::data_range_param<typename std::identity<Char>::type const> prefix = stdx::data_range_param<Char const>())
+	std::unique_ptr<key_value_node<Char>[]> parse_ini_file(stdx::range<Char const*> file)
 	{
-		typedef std::basic_string<Char> string_type;
-		std::map<string_type, string_type> contents;
-		parse_ini_file(file, contents, prefix);
-		return contents;
+		std::unique_ptr<key_value_node<Char>[]> result;
+		
+		// Parse to intermediate storage
+		std::vector< key_value_node<Char, size_t> > nodes, nodeStack;
+		auto parsed = parse_ini_file<Char>(file, nodes, nodeStack);
+
+		// Allocate result tree
+		result.reset(new key_value_node<Char>[1 + nodes.size()]);
+		auto treeBegin = result.get() + 1, treeEnd = treeBegin + nodes.size();
+		
+		// Build result tree
+		auto treeCursor = treeBegin;
+		for (auto node = nodes.data(); treeCursor < treeEnd; ++node, ++treeCursor)
+		{
+			treeCursor->key = node->key;
+			treeCursor->value = node->value;
+			treeCursor->children = make_range(treeBegin + node->children.first, treeBegin + node->children.last);
+		}
+
+		// Prepend root
+		result[0].children = make_range(treeBegin + parsed.first, treeBegin + parsed.last);
+		
+		return result;
 	}
 	
-	template <class Char>
-	basic_charstream<Char> get_ini_stream(std::map< std::basic_string<Char>, std::basic_string<Char> > const &contents, typename identity<std::basic_string<Char>>::type const &name)
-	{
-		auto it = contents.find(name);
-		if (it == contents.end()) throwx(parse_error(name));
-		auto begin = it->second.c_str(), end = begin + it->second.size();
-		basic_charstream<Char> result(const_cast<Char*>(begin), const_cast<Char*>(end));
-		enable_stream_exceptions(result);
-		return result;
-	}
-
-	template <class Value, class Char>
-	Value get_ini_value(std::map< std::basic_string<Char>, std::basic_string<Char> > const &contents, typename identity<std::basic_string<Char>>::type const &name)
-	{
-		Value result;
-		get_ini_stream(contents, name) >> result;
-		return result;
-	}
-
-	template <class Char>
-	std::basic_string<Char> const& get_ini_value(std::map< std::basic_string<Char>, std::basic_string<Char> > const &contents, typename identity<std::basic_string<Char>>::type const &name)
-	{
-		auto it = contents.find(name);
-		if (it == contents.end()) throwx(parse_error(name));	
-		return it->second;
-	}
-
 } // namespace

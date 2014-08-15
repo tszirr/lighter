@@ -246,7 +246,7 @@ struct KeyValueStore
 {
 	virtual void enterSection(char const* section) = 0;
 	virtual void leaveSection() = 0;
-	virtual char const* getValue(char const* key) = 0;
+	virtual stdx::range<char const*> getValue(char const* key) = 0;
 };
 void read(KeyValueStore& in, stdx::fun_ref<void(UniversalInterface&)> ui);
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "uii"
+#include "file"
 #include <vector>
 #include <iostream>
 #include <algorithm>
@@ -27,64 +28,37 @@ struct IniStream : ui::KeyValueStream
 	}
 };
 
-template <class Iterator>
+template <class KeyValueNode>
 struct SortedKeyValueStore : ui::KeyValueStore
 {
-	typedef Iterator iterator;
-	std::vector< stdx::range<iterator> > sectionRanges;
-	std::vector< size_t > sectionPrefixLen;
+	std::vector<KeyValueNode const*> sectionNodes;
 
-	SortedKeyValueStore(stdx::range<iterator> in)
-		: sectionRanges(1, in)
-		, sectionPrefixLen(1, 0)
+	SortedKeyValueStore(KeyValueNode const* in)
+		: sectionNodes(1, in)
 	{ }
 
 	void enterSection(char const* section) override
 	{
-		auto r = sectionRanges.back();
-		auto l = sectionPrefixLen.back();
-		auto sl = strlen(section);
-
-		char sectionEndDelim = '.';
-		typedef decltype(*r.first) item_ref;
-		auto&& sectionCmp = [&](item_ref const& key, char const* section) -> bool
-		{
-			auto kc = key.first.data() + l;
-			auto o = strncmp(kc, section, sl);
-			return o < 0 || o == 0 && unsigned(kc[sl]) < unsigned(sectionEndDelim);
-		};
-
-		auto sb = std::lower_bound(r.first, r.last, section, sectionCmp);
-		++sectionEndDelim;
-		auto se = std::lower_bound(r.first, r.last, section, sectionCmp);
-
-		sectionRanges.push_back( stdx::make_range(sb, se) );
-		sectionPrefixLen.push_back( l + sl + 1 );
+		auto parent = sectionNodes.back();
+		sectionNodes.push_back(
+			(parent) ? parent->find_sorted(stdx::str_range(section)) : nullptr
+		);
 	}
 	void leaveSection() override
 	{
-		sectionRanges.pop_back();
-		sectionPrefixLen.pop_back();
+		sectionNodes.pop_back();
 	}
-	char const* getValue(char const* key) override
+	stdx::range<char const*> getValue(char const* key) override
 	{
-		auto r = sectionRanges.back();
-		auto l = sectionPrefixLen.back();
-
-		typedef decltype(*r.first) item_ref;
-		auto&& sectionCmp = [&](item_ref const& key, char const* seek) -> bool
-		{
-			return strcmp(key.first.data() + l, seek) < 0;
-		};
-		auto i = std::lower_bound(r.first, r.last, key, sectionCmp);
-		return (i != r.last && strcmp(i->first.data() + l, key) == 0)
-			? i->second.data()
-			: nullptr;
+		if (auto parent = sectionNodes.back())
+			if (auto it = parent->find_sorted(stdx::str_range(key)))
+				return it->value;
+		return stdx::range<char const*>();
 	}
 };
 
-template <class Range>
-SortedKeyValueStore<typename Range::iterator> make_SortedKeyValueStore(Range& range)
-{	return SortedKeyValueStore<typename Range::iterator>(stdx::make_range(range)); }
+template <class KeyValueNode>
+SortedKeyValueStore<KeyValueNode> make_SortedKeyValueStore(KeyValueNode* kvn)
+{	return SortedKeyValueStore<KeyValueNode>(kvn); }
 
 } // namespace

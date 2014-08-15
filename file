@@ -125,5 +125,40 @@ namespace stdx
 		} resolver_wrapper(resolve_include);
 		return process_includes_(src, filename, resolver_wrapper, preamble, int_file_id);
 	}
+	
+	template <class Char = char, class ChildPtr = void>
+	struct key_value_node
+	{
+		typedef typename std::conditional<std::is_void<ChildPtr>::value, key_value_node*, ChildPtr>::type child_pointer;
+
+		stdx::range<Char const*> key, value;
+		stdx::range<child_pointer> children;
+
+		// key comparisons
+		static bool key_order(key_value_node const& a, key_value_node const& b) { return memcmp(a.key, b.key) < 0; }
+		static bool key_less(key_value_node const& a, stdx::range<Char const*> key) { return memcmp(a.key, key) < 0; }
+		static bool key_equal(key_value_node const& a, stdx::range<Char const*> key) { return memcmp(a.key, key) == 0; }
+		
+		void sort()
+		{
+			std::sort(children.first, children.last, key_order);
+			for (auto& child : children)
+				child.sort();
+		}
+
+		key_value_node const* find_linear(stdx::data_range_param<Char const> key) const
+		{
+			auto it = std::find(children.first, children.last, key, key_equal);
+			return (it != children.last) ? it : nullptr;
+		}
+
+		key_value_node const* find_sorted(stdx::data_range_param<Char const> key) const
+		{
+			auto it = std::lower_bound(children.first, children.last, key, key_less);
+			return (it != children.last && key_equal(*it, key)) ? it : nullptr;
+		}
+	};
+
+//	std::unique_ptr<key_value_node<char>[]> parse_ini_file();
 
 } // namespace

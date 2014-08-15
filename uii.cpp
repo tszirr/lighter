@@ -128,6 +128,7 @@ struct TextToUi : UniversalInterface
 	typedef std::pair<std::string, std::string> tuple;
 	
 	KeyValueStore* stream;
+	std::string nullterminatedStore;
 
 	size_t groupLabelPending;
 
@@ -173,14 +174,20 @@ struct TextToUi : UniversalInterface
 		auto key = keyFromLabel(label);
 		if (interact)
 			if (auto val = stream->getValue(key))
-				interact->updateValue(val);
+			{
+				nullterminatedStore.assign(val.first, val.last);
+				interact->updateValue(nullterminatedStore.c_str());
+			}
 	}
 
 	void addHidden(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact, InteractionParam<std::string&> onDemand = nullptr) override
 	{
 		if (interact)
 			if (auto val = stream->getValue(label))
-				interact->updateValue(val);
+			{
+				nullterminatedStore.assign(val.first, val.last);
+				interact->updateValue(nullterminatedStore.c_str());
+			}
 	}
 
 	void addInteractiveButton(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<ButtonEvent::T> interact, InteractionParam<Button> control = nullptr) override
@@ -198,7 +205,7 @@ struct TextToUi : UniversalInterface
 		auto key = keyFromLabel(text);
 		if (interact)
 			if (auto val = stream->getValue(key))
-				interact->updateValue( !stdx::strieq(val, "false") && !(val[0] == '0' && val[1] == 0) );
+				interact->updateValue( !stdx::memeq(val, stdx::strlit_range("false")) && !(val[0] == '0' && val[1] == 0) );
 	}
 
 	void addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks = 0.0f, float fullBarThreshold = 0.0f
@@ -209,7 +216,7 @@ struct TextToUi : UniversalInterface
 			if (auto val = stream->getValue(key))
 			{
 				float newVal = value;
-				if (sscanf(val, "%f", &newVal) == 1)
+				if (sscanf(val.first, "%f", &newVal) == 1)
 					interact->updateValue(newVal);
 			}
 	}
@@ -221,7 +228,7 @@ struct TextToUi : UniversalInterface
 			if (auto val = stream->getValue(key))
 			{
 				glm::vec3 newVal = value;
-				if (sscanf(val, "%f %f %f", &newVal.x, &newVal.y, &newVal.z) == 3)
+				if (sscanf(val.first, "%f %f %f", &newVal.x, &newVal.y, &newVal.z) == 3)
 					interact->updateValue(newVal);
 			}
 	}
@@ -243,8 +250,10 @@ namespace ui
 
 void load_ini_file(char const* file, stdx::fun_ref<void(UniversalInterface&)> ui)
 {
-	auto presets = stdx::parse_ini_file(stdx::load_file(file).c_str());
-	auto valStore = make_SortedKeyValueStore(presets);
+	auto presetFile = stdx::load_file(file);
+	auto presets = stdx::parse_ini_file<char>(stdx::data_range(presetFile));
+	presets[0].sort();
+	auto valStore = make_SortedKeyValueStore(presets.get());
 	read(valStore, ui);
 }
 
