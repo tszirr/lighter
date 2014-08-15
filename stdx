@@ -478,6 +478,27 @@ namespace stdx
 		operator RefObj() const { return ref; }
 	};
 	
+	// compare bytes of unequally-sized memory blocks
+	using std::memcmp;
+	inline int memcmp(void const* a, size_t sa, void const* b, size_t sb)
+	{
+		int prefixCmp = std::memcmp(a, b, std::min(sa, sb));
+		return (prefixCmp != 0 || sa == sb) ? prefixCmp : (sa < sb) ? -1 : 1;
+	}
+	template <class Range1, class Range2>
+	inline int memcmp(Range1 const& a, Range2 const& b)
+	{	return memcmp(a.data(), sizeof(*a.data()) * a.size(), b.data(), sizeof(*b.data()) * b.size()); }
+	template <class Range1, class Range2>
+	inline bool memeq(Range1 const& a, Range2 const& b)
+	{	return memcmp(a, b) == 0; }
+
+	template <class Range1, class Range2>
+	inline auto mem_less(Range1 const&, Range2 const&) -> decltype(&memcmp<Range1, Range2>)
+	{	return &memcmp<Range1, Range2>; }
+	template <class Range1, class Range2>
+	inline auto mem_equal(Range1 const& a, Range2 const& b) -> decltype(&memeq<Range1, Range2>)
+	{	return &memeq<Range1, Range2>; }
+
 	inline bool streq(char const* a, char const* b) { return strcmp(a, b) == 0; }
 	inline bool strieq(char const* a, char const* b)
 #ifdef WIN32
