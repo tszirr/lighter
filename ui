@@ -89,17 +89,17 @@ struct Cursor
 
 struct InputKeys
 {
-  static unsigned const KeyStart		 = 0x80000000;
-
-  static unsigned const ManipKeyMask = 0x81000000;
-  static unsigned const DeleteLast	 = ManipKeyMask + 0;
-  static unsigned const DeleteNext	 = ManipKeyMask + 1;
-
-  static unsigned const NavKeyMask	 = 0x82000000;
-  static unsigned const MoveUp       = NavKeyMask;
-  static unsigned const MoveDown		 = NavKeyMask + 1;
-  static unsigned const MoveLeft		 = NavKeyMask + 2;
-  static unsigned const MoveRight		 = NavKeyMask + 3;
+    static unsigned const KeyStart     = 0x80000000;
+    
+    static unsigned const ManipKeyMask = 0x81000000;
+    static unsigned const DeleteLast   = ManipKeyMask + 0;
+    static unsigned const DeleteNext   = ManipKeyMask + 1;
+    
+    static unsigned const NavKeyMask   = 0x82000000;
+    static unsigned const MoveUp       = NavKeyMask;
+    static unsigned const MoveDown     = NavKeyMask + 1;
+    static unsigned const MoveLeft     = NavKeyMask + 2;
+    static unsigned const MoveRight    = NavKeyMask + 3;
 };
 
 struct UniversalInterface::Button
