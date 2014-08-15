@@ -12,6 +12,7 @@ namespace ui
 struct IniStream : ui::KeyValueStream
 {
 	std::ostream* out;
+	std::string indent;
 
 	IniStream(std::ostream& out)
 		: out(&out)
@@ -19,12 +20,17 @@ struct IniStream : ui::KeyValueStream
 
 	void enterSection(char const* section, char const* sectionPath) override
 	{
-		*out << '[' << sectionPath << ']' << std::endl;
+		*out << indent << '[' << section << std::endl;
+		indent.push_back(' ');
 	}
-	void leaveSection() override { }
+	void leaveSection() override
+	{
+		indent.pop_back();
+		*out << indent << "]\n";
+	}
 	void addItem(char const* key, char const* value) override
 	{
-		*out << key << '=' << value << std::endl;
+		*out << indent << key << '=' << value << std::endl;
 	}
 };
 
