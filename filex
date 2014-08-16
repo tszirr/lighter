@@ -247,7 +247,7 @@ namespace stdx
 					--keyEnd;
 
 				// Value empty by default, always untrimmed
-				auto valBegin = lineEnd, valEnd = lineEnd;
+				Char const* valBegin = nullptr, *valEnd = nullptr;
 
 				for (auto cursor = keyBegin; cursor < keyEnd; ++cursor)
 					if (*cursor == Char('='))
@@ -257,6 +257,7 @@ namespace stdx
 						trim_char_range(keyBegin, keyEnd);
 						// Value starts right after first '='
 						valBegin = cursor + 1;
+						valEnd = lineEnd;
 						break;
 					}
 
