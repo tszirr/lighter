@@ -18,12 +18,15 @@ struct IniStream : ui::KeyValueStream
 		: out(&out)
 	{ }
 
-	void enterSection(char const* section, char const* sectionPath) override
+	void enterSection(char const* key, char const* value) override
 	{
-		*out << indent << '[' << section << std::endl;
+		*out << indent << '[' << key;
+		if (value)
+			*out << '=' << value;
+		*out << std::endl;
 		indent.push_back(' ');
 	}
-	void leaveSection() override
+	void leaveSection(char const* key) override
 	{
 		indent.pop_back();
 		*out << indent << "]\n";
@@ -43,23 +46,48 @@ struct SortedKeyValueStore : ui::KeyValueStore
 		: sectionNodes(1, in)
 	{ }
 
-	void enterSection(char const* section) override
+	size_t estimateItems(char const* key = nullptr) override
 	{
 		auto parent = sectionNodes.back();
-		sectionNodes.push_back(
-			(parent) ? parent->find_sorted(stdx::str_range(section)) : nullptr
-		);
+		if (parent)
+		{
+			return (key)
+				? parent->find_sorted_range(stdx::str_range(key)).size()
+				: parent->children.size();
+		}
+		else
+			return 0;
+	}
+
+	KeyValueNode const* findItem(char const* key, size_t offset = 0, bool* found = nullptr)
+	{
+		if (auto parent = sectionNodes.back())
+		{
+			auto matches = parent->find_sorted_range(stdx::str_range(key));
+			if (offset < matches.size())
+			{
+				if (found) *found = true;
+				return matches.first + offset;
+			}
+		}
+		if (found) *found = false;
+		return nullptr;
+	}
+
+	stdx::range<char const*> enterSection(char const* key, size_t offset = 0, bool* found = nullptr) override
+	{
+		auto section = findItem(key, offset, found);
+		sectionNodes.push_back(section);
+		return (section) ? section->value : stdx::range<char const*>();
 	}
 	void leaveSection() override
 	{
 		sectionNodes.pop_back();
 	}
-	stdx::range<char const*> getValue(char const* key) override
+	stdx::range<char const*> getValue(char const* key, size_t offset = 0, bool* found = nullptr) override
 	{
-		if (auto parent = sectionNodes.back())
-			if (auto it = parent->find_sorted(stdx::str_range(key)))
-				return it->value;
-		return stdx::range<char const*>();
+		auto it = findItem(key, offset, found);
+		return (it) ? it->value : stdx::range<char const*>();
 	}
 };
 

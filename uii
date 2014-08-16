@@ -172,24 +172,49 @@ struct UniversalInterfaceInteraction::InteractionParam<void> : UniversalInterfac
 
 struct UniversalInterface : UniversalInterfaceInteraction
 {
-	virtual bool pushGroup(UniqueElementIdentifier id, bool openByDefault = true) = 0;
+	// Opens an 'inline' group w/o introducing new name scope, but identifying contained controls with the given parent context id.
+	// No semantic significance.
+	// Returns true if population of context recommended (e.g. b/c contents are currently visible).
+	virtual bool pushContext(UniqueElementIdentifier id) = 0;
+	virtual void popContext(UniqueElementIdentifier id) = 0;
+
+	// Opens a new context with its own name scope. The first added control serves as the parent/head control, i.e. its label
+	// serves as a (unique) name for the opened group in its parent scope. Subsequent contained/body controls are identified
+	// with the name of the group and need only be unique _inside_ the group. Returns true if population recommended (see pushContext).
+	virtual bool pushGroup(UniqueElementIdentifier id) = 0;
 	virtual void popGroup(UniqueElementIdentifier id) = 0;
+	
+	// Begins a union of controls (e.g. buttons) to be grouped in one line.
+	// No semantic significance.
+	virtual void beginUnion() { }
+	virtual void endUnion() { }
 
-	virtual void beginUnion() = 0;
-	virtual void endUnion() = 0;
+	struct ItemSource
+	{
+		virtual bool hasMore(char const* checkLabel) const = 0;
+	};
+	// Allows for addition of items via universal interface (e.g. deserialization or copy'n'paste).
+	virtual void addItems(stdx::fun_ref<bool(ui::UniversalInterface&, ItemSource&)> addItem
+		, stdx::fun_ref<void(size_t)> reserveItems = nullptr, char const* estimateForLabel = nullptr) { }
 
+	// Adds the given label and (optional) text.
 	virtual void addText(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact) = 0;
+	// Adds the given pair of a key and an (optional) value. Allows for storage of additional info not reflected in any control.
 	virtual void addHidden(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact, InteractionParam<std::string&> onDemand = nullptr) { };
 	
 	struct Button;
 	struct ButtonEvent { enum T { Down, UpAccept, UpDismiss }; };
+	// Adds a clickable button.
 	virtual void addButton(UniqueElementIdentifier id, char const* text, InteractionParam<void> interact, char const* fullText = nullptr, InteractionParam<Button> control = nullptr) = 0;
+	// Adds a button with custom mouse interaction.
 	virtual void addInteractiveButton(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<ButtonEvent::T> interact, InteractionParam<Button> control = nullptr) = 0;
+	// Adds a toggle button.
 	virtual void addOption(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<bool> interact, InteractionParam<Button> control = nullptr) = 0;
 	
 	struct Slider;
+	// Adds a slider displaying a real value.
 	virtual void addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks = 0.0f, float fullBarThreshold = 0.0f, InteractionParam<Slider> control = nullptr) = 0;
-
+	// Adds a color picker.
 	virtual void addColor(UniqueElementIdentifier id, char const* label, glm::vec3 const& value, float valueRange, InteractionParam<glm::vec3> interact, float valueTicks = 0.0f) = 0;
 };
 
@@ -197,22 +222,22 @@ struct Group : stdx::noncopyable
 {
 	UniqueElementIdentifier id;
 	UniversalInterface* ui;
-	bool groupOpened;
+	bool groupVisible;
 
-	Group(std::nullptr_t) : id(nullptr), ui(nullptr), groupOpened(false) { }
-	Group(UniversalInterface& ui, UniqueElementIdentifier id, bool openByDefault = true) : id(id), ui(&ui), groupOpened(ui.pushGroup(id, openByDefault)) { }
-	Group(Group&& right) : id(right.id), ui(right.ui), groupOpened(right.groupOpened) { right.id = nullptr; right.ui = nullptr; right.groupOpened = false; }
-	~Group() { if (ui && groupOpened) ui->popGroup(id); }
+	Group(std::nullptr_t) : id(nullptr), ui(nullptr), groupVisible(false) { }
+	Group(UniversalInterface& ui, UniqueElementIdentifier id) : id(id), ui(&ui), groupVisible(ui.pushGroup(id)) { }
+	Group(Group&& right) : id(right.id), ui(right.ui), groupVisible(right.groupVisible) { right.id = nullptr; right.ui = nullptr; right.groupVisible = false; }
+	~Group() { if (ui) ui->popGroup(id); }
 
 	Group& operator =(Group right)
 	{
 		std::swap(id, right.id);
 		std::swap(ui, right.ui);
-		std::swap(groupOpened, right.groupOpened);
+		std::swap(groupVisible, right.groupVisible);
 		return *this;
 	}
 
-	operator bool() const { return groupOpened; }
+	operator bool() const { return groupVisible; }
 };
 
 struct Union : stdx::noncopyable
@@ -236,17 +261,18 @@ struct Union : stdx::noncopyable
 
 struct KeyValueStream
 {
-	virtual void enterSection(char const* section, char const* sectionPath) = 0;
-	virtual void leaveSection() = 0;
+	virtual void enterSection(char const* key, char const* value) = 0;
+	virtual void leaveSection(char const* key) = 0;
 	virtual void addItem(char const* key, char const* value) = 0;
 };
 void write(KeyValueStream& out, stdx::fun_ref<void(UniversalInterface&)> ui);
 
 struct KeyValueStore
 {
-	virtual void enterSection(char const* section) = 0;
+	virtual size_t estimateItems(char const* key = nullptr) { return size_t(-1); }
+	virtual stdx::range<char const*> enterSection(char const* key, size_t nth = 0, bool* found = nullptr) = 0;
 	virtual void leaveSection() = 0;
-	virtual stdx::range<char const*> getValue(char const* key) = 0;
+	virtual stdx::range<char const*> getValue(char const* key, size_t nth = 0, bool* found = nullptr) = 0;
 };
 void read(KeyValueStore& in, stdx::fun_ref<void(UniversalInterface&)> ui);
 

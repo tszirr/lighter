@@ -11,16 +11,19 @@ struct UiToText : UniversalInterface
 	
 	KeyValueStream* stream;
 
-	std::string groupPrefix;
-	std::vector<size_t> groupPrefixLen;
+	std::vector<std::string> groupPath;
+	size_t groupCount;
 	size_t groupLabelPending;
 
 	UiToText(KeyValueStream& stream)
 		: stream(&stream)
-		, groupPrefixLen(1, 0)
+		, groupCount(0)
 		, groupLabelPending(0) { }
+	
+	bool pushContext(UniqueElementIdentifier id) override { return true; }
+	void popContext(UniqueElementIdentifier id) override { }
 
-	bool pushGroup(UniqueElementIdentifier id, bool openByDefault = true) override
+	bool pushGroup(UniqueElementIdentifier id) override
 	{
 		++groupLabelPending;
 		return true;
@@ -31,42 +34,33 @@ struct UiToText : UniversalInterface
 			--groupLabelPending;
 		else
 		{
-			stream->leaveSection();
-			groupPrefixLen.pop_back();
-			assert (!groupPrefixLen.empty()); // Always keep 0 sentinel
-			groupPrefix.resize(groupPrefixLen.back());
+			stream->leaveSection(groupPath.back().c_str());
+			--groupCount;
 		}
 	}
 	
-	char const* keyFromLabel(char const* label)
+	void addItemOrGroup(char const* key, char const* value)
 	{
 		if (groupLabelPending > 0)
 		{
-			if (!groupPrefix.empty())
-				groupPrefix.push_back('.');
-			groupPrefix.append(label);
-			groupPrefixLen.push_back(groupPrefix.size());
+			if (groupCount >= groupPath.size())
+				groupPath.resize(1 + groupCount * 3 / 2);
+			groupPath[groupCount] = key;
+			++groupCount;
 			--groupLabelPending;
-			stream->enterSection(label, groupPrefix.c_str());
-			return "$";
+			stream->enterSection(key, value);
 		}
-		else
-			return label;
-	}
-
-	void beginUnion() override
-	{
-	}
-
-	void endUnion() override
-	{
+		else if (value)
+			stream->addItem(key, value);
 	}
 
 	void addText(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact) override
 	{
-		auto key = keyFromLabel(label);
-		if (interact)
-			stream->addItem(key, text);
+		addItemOrGroup(label
+			  // Always store something for interactive text
+			, (interact) ? (text ? text : "")
+			  // Otherwise store nothing, but maybe add group
+			  : nullptr);
 	}
 
 	void addHidden(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact, InteractionParam<std::string&> onDemand = nullptr) override
@@ -88,32 +82,32 @@ struct UiToText : UniversalInterface
 
 	void addOption(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<bool> interact, InteractionParam<Button> control = nullptr) override
 	{
-		auto key = keyFromLabel(text);
-		if (interact)
-			stream->addItem(key, (value) ? "true" : "false");
+		addItemOrGroup(text, (interact) ? (value ? "true" : "false") : nullptr);
 	}
 
 	void addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks = 0.0f, float fullBarThreshold = 0.0f
 		, InteractionParam<Slider> control = nullptr) override
 	{
-		auto key = keyFromLabel(label);
+		char const* storedVal = nullptr;
+		char buf[1024];
 		if (interact)
 		{
-			char buf[1024];
 			sprintf(buf, "%f", value);
-			stream->addItem(key, buf);
+			storedVal = buf;
 		}
+		addItemOrGroup(label, storedVal);
 	}
 
 	void addColor(UniqueElementIdentifier id, char const* label, glm::vec3 const& value, float valueRange, InteractionParam<glm::vec3> interact, float valueTicks = 0.0f) override
 	{
-		auto key = keyFromLabel(label);
+		char const* storedVal = nullptr;
+		char buf[1024];
 		if (interact)
 		{
-			char buf[1024];
 			sprintf(buf, "%f %f %f", value.x, value.y, value.z);
-			stream->addItem(key, buf);
+			storedVal = buf;
 		}
+		addItemOrGroup(label, storedVal);
 	}
 };
 
@@ -130,13 +124,18 @@ struct TextToUi : UniversalInterface
 	KeyValueStore* stream;
 	std::string nullterminatedStore;
 
+	std::vector<size_t> groupItemOffsets;
 	size_t groupLabelPending;
 
 	TextToUi(KeyValueStore& stream)
 		: stream(&stream)
+		, groupItemOffsets(1, 0)
 		, groupLabelPending(0) { }
 
-	bool pushGroup(UniqueElementIdentifier id, bool openByDefault = true) override
+	bool pushContext(UniqueElementIdentifier id) override { return true; }
+	void popContext(UniqueElementIdentifier id) override { }
+
+	bool pushGroup(UniqueElementIdentifier id) override
 	{
 		++groupLabelPending;
 		return true;
@@ -146,34 +145,60 @@ struct TextToUi : UniversalInterface
 		if (groupLabelPending > 0)
 			--groupLabelPending;
 		else
+		{
 			stream->leaveSection();
+			groupItemOffsets.pop_back();
+		}
 	}
 	
-	char const* keyFromLabel(char const* label)
+	void addItems(stdx::fun_ref<bool(ui::UniversalInterface&, ItemSource&)> addItem
+		, stdx::fun_ref<void(size_t)> reserveItems = nullptr, char const* estimateForLabel = nullptr) override
 	{
+		if (reserveItems.dispatch)
+		{
+			auto estimatedNumber = stream->estimateItems(estimateForLabel);
+			if (estimatedNumber != size_t(-1))
+				reserveItems.dispatch(reserveItems, estimatedNumber);
+		}
+
+		struct ItemSource : UniversalInterface::ItemSource
+		{
+			KeyValueStore* stream;
+			size_t itemOffset;
+
+			bool hasMore(char const* checkLabel) const override
+			{
+				bool found = false;
+				stream->getValue(checkLabel, itemOffset, &found);
+				return found;
+			}
+		} is;
+		is.stream = stream;
+		is.itemOffset = groupItemOffsets.back();
+
+		while (addItem.dispatch(addItem, *this, is))
+			is.itemOffset = ++groupItemOffsets.back();
+	}
+
+	stdx::range<char const*> getValueAndMaybeEnter(char const* label)
+	{
+		size_t itemOffset = groupItemOffsets.back();
 		if (groupLabelPending > 0)
 		{
-			stream->enterSection(label);
+			auto val = stream->enterSection(label, itemOffset);
+			groupItemOffsets.push_back(0);
 			--groupLabelPending;
-			return "$";
+			return val;
 		}
 		else
-			return label;
-	}
-
-	void beginUnion() override
-	{
-	}
-
-	void endUnion() override
-	{
+			return stream->getValue(label, itemOffset);
 	}
 
 	void addText(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact) override
 	{
-		auto key = keyFromLabel(label);
+		auto val = getValueAndMaybeEnter(label);
 		if (interact)
-			if (auto val = stream->getValue(key))
+			if (val.first) // check if value explicitly given
 			{
 				nullterminatedStore.assign(val.first, val.last);
 				interact->updateValue(nullterminatedStore.c_str());
@@ -183,11 +208,14 @@ struct TextToUi : UniversalInterface
 	void addHidden(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact, InteractionParam<std::string&> onDemand = nullptr) override
 	{
 		if (interact)
-			if (auto val = stream->getValue(label))
+		{
+			auto val = stream->getValue(label, groupItemOffsets.back());
+			if (val.first) // check if value explicitly given
 			{
 				nullterminatedStore.assign(val.first, val.last);
 				interact->updateValue(nullterminatedStore.c_str());
 			}
+		}
 	}
 
 	void addInteractiveButton(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<ButtonEvent::T> interact, InteractionParam<Button> control = nullptr) override
@@ -202,18 +230,18 @@ struct TextToUi : UniversalInterface
 
 	void addOption(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<bool> interact, InteractionParam<Button> control = nullptr) override
 	{
-		auto key = keyFromLabel(text);
+		auto val = getValueAndMaybeEnter(text);
 		if (interact)
-			if (auto val = stream->getValue(key))
+			if (val.first)
 				interact->updateValue( !stdx::memeq(val, stdx::strlit_range("false")) && !(val[0] == '0' && val[1] == 0) );
 	}
 
 	void addSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks = 0.0f, float fullBarThreshold = 0.0f
 		, InteractionParam<Slider> control = nullptr) override
 	{
-		auto key = keyFromLabel(label);
+		auto val = getValueAndMaybeEnter(label);
 		if (interact)
-			if (auto val = stream->getValue(key))
+			if (val.first)
 			{
 				float newVal = value;
 				if (sscanf(val.first, "%f", &newVal) == 1)
@@ -223,9 +251,9 @@ struct TextToUi : UniversalInterface
 
 	void addColor(UniqueElementIdentifier id, char const* label, glm::vec3 const& value, float valueRange, InteractionParam<glm::vec3> interact, float valueTicks = 0.0f) override
 	{
-		auto key = keyFromLabel(label);
+		auto val = getValueAndMaybeEnter(label);
 		if (interact)
-			if (auto val = stream->getValue(key))
+			if (val.first)
 			{
 				glm::vec3 newVal = value;
 				if (sscanf(val.first, "%f %f %f", &newVal.x, &newVal.y, &newVal.z) == 3)

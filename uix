@@ -248,7 +248,17 @@ struct TextUi : UserInterface, UniversalInterface
 				&& std::equal(path.begin(), path.end(), state.captureReleasedPath.data());
 	}
 
-	bool pushGroup(UniqueElementIdentifier id, bool openByDefault = true) override
+	bool pushContext(UniqueElementIdentifier id) override
+	{
+		context.parentPath.push_back(id);
+		return true;
+	}
+	void popContext(UniqueElementIdentifier id) override
+	{
+		assert(!context.parentPath.empty() && id == context.parentPath.back());
+		context.parentPath.pop_back();
+	}
+	bool pushGroup(UniqueElementIdentifier id) override
 	{
 		context.parentPath.push_back(id);
 
@@ -275,13 +285,30 @@ struct TextUi : UserInterface, UniversalInterface
 			auto start = hiddenCtx.lastOutlinePos;
 			auto end = context.insertPos;
 			auto outlineClass = UiElement::Outline;
+
 			if (hiddenCtx.pendingIndent > 0)
 			{
-				start = end;
-				start.y -= setup.options.lineHeight / 4;
+				auto branch = end;
+				branch.y -= setup.options.lineHeight / 4;
+
+/*				if (start.x == branch.x)
+				{
+					auto branchStart = start, branchEnd = branch;
+					branchStart.x -= setup.options.labelDelta / 2;
+					branchEnd.x -= setup.options.labelDelta / 2;
+
+					uiRenderer->drawLine(branchStart, branchEnd, 1, outlineClass);
+				}
+*/
+				start = branch;
 				end.x += hiddenCtx.pendingIndent;
 				outlineClass = UiElement::OutlineBranch;
 			}
+
+			// no back curve
+			if (start.x > end.x)
+				start.x = end.x;
+
 			hiddenCtx.lastOutlinePos = end;
 
 			start.x -= setup.options.labelDelta / 2;
