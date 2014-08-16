@@ -136,9 +136,16 @@ namespace stdx
 
 		// key comparisons
 		static bool key_order(key_value_node const& a, key_value_node const& b) { return memcmp(a.key, b.key) < 0; }
-		static bool key_less(key_value_node const& a, stdx::range<Char const*> key) { return memcmp(a.key, key) < 0; }
+		static bool key_less(key_value_node const& a, stdx::range<Char const*> thanKey) { return memcmp(a.key, thanKey) < 0; }
 		static bool key_equal(key_value_node const& a, stdx::range<Char const*> key) { return memcmp(a.key, key) == 0; }
 		
+		struct key_comparator
+		{
+			bool operator ()(key_value_node const& a, key_value_node const& b) { return memcmp(a.key, b.key) < 0; }
+			bool operator ()(key_value_node const& a, stdx::range<Char const*> thanKey) { return memcmp(a.key, thanKey) < 0; }
+			bool operator ()(stdx::range<Char const*> thanKey, key_value_node const& b) { return memcmp(b.key, thanKey) > 0; }
+		};
+
 		void sort()
 		{
 			std::sort(children.first, children.last, key_order);
@@ -156,6 +163,12 @@ namespace stdx
 		{
 			auto it = std::lower_bound(children.first, children.last, key, key_less);
 			return (it != children.last && key_equal(*it, key)) ? it : nullptr;
+		}
+
+		stdx::range<key_value_node const*> find_sorted_range(stdx::data_range_param<Char const> key) const
+		{
+			auto it = std::equal_range(children.first, children.last, key, key_comparator());
+			return stdx::range<key_value_node const*>(it.first, it.second);
 		}
 	};
 
