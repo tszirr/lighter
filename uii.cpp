@@ -193,6 +193,8 @@ struct TextToUi : UniversalInterface
 		is.nextItem = stream->findItem(filterLabel);
 		addItem.dispatch(addItem, *this, is);
 	}
+	// Clear all item groups before addition of new items.
+	bool clearItems() const override { return true; }
 	
 	KeyValueStore::Item const* getItem(char const* label)
 	{

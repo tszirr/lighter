@@ -194,6 +194,8 @@ struct UniversalInterface : UniversalInterfaceInteraction
 		virtual size_t estimateCount() const = 0;
 		virtual char const* next() = 0;
 	};
+	// Returns true if items in this group should be cleared.
+	virtual bool clearItems() const { return false; }
 	// Allows for addition of items via universal interface (e.g. deserialization or copy'n'paste).
 	virtual void addItems(stdx::fun_ref<void(ui::UniversalInterface&, ItemSource&)> addItem, char const* label = nullptr) { }
 
