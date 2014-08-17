@@ -191,11 +191,11 @@ struct UniversalInterface : UniversalInterfaceInteraction
 
 	struct ItemSource
 	{
-		virtual bool hasMore(char const* checkLabel) const = 0;
+		virtual size_t estimateCount() const = 0;
+		virtual char const* next() = 0;
 	};
 	// Allows for addition of items via universal interface (e.g. deserialization or copy'n'paste).
-	virtual void addItems(stdx::fun_ref<bool(ui::UniversalInterface&, ItemSource&)> addItem
-		, stdx::fun_ref<void(size_t)> reserveItems = nullptr, char const* estimateForLabel = nullptr) { }
+	virtual void addItems(stdx::fun_ref<void(ui::UniversalInterface&, ItemSource&)> addItem, char const* label = nullptr) { }
 
 	// Adds the given label and (optional) text.
 	virtual void addText(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact) = 0;
@@ -261,6 +261,7 @@ struct Union : stdx::noncopyable
 
 struct KeyValueStream
 {
+	// value optional for sections
 	virtual void enterSection(char const* key, char const* value) = 0;
 	virtual void leaveSection(char const* key) = 0;
 	virtual void addItem(char const* key, char const* value) = 0;
@@ -269,10 +270,16 @@ void write(KeyValueStream& out, stdx::fun_ref<void(UniversalInterface&)> ui);
 
 struct KeyValueStore
 {
-	virtual size_t estimateItems(char const* key = nullptr) { return size_t(-1); }
-	virtual stdx::range<char const*> enterSection(char const* key, size_t nth = 0, bool* found = nullptr) = 0;
+	struct Item;
+
+	// all methods must handle _any_ item returned by them (including null items, if returned)
+	virtual Item const* findItem(char const* filterKey = nullptr) = 0;
+	virtual Item const* nextItem(Item const* prev) = 0;
+	virtual size_t estimateCount(Item const* startingWith) const = 0;
+
+	virtual void enterSection(Item const* item) = 0;
 	virtual void leaveSection() = 0;
-	virtual stdx::range<char const*> getValue(char const* key, size_t nth = 0, bool* found = nullptr) = 0;
+	virtual stdx::range<char const*> getValue(Item const* item) = 0;
 };
 void read(KeyValueStore& in, stdx::fun_ref<void(UniversalInterface&)> ui);
 

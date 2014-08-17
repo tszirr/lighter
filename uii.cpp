@@ -124,12 +124,10 @@ struct TextToUi : UniversalInterface
 	KeyValueStore* stream;
 	std::string nullterminatedStore;
 
-	std::vector<size_t> groupItemOffsets;
 	size_t groupLabelPending;
 
 	TextToUi(KeyValueStore& stream)
 		: stream(&stream)
-		, groupItemOffsets(1, 0)
 		, groupLabelPending(0) { }
 
 	bool pushContext(UniqueElementIdentifier id) override { return true; }
@@ -145,53 +143,74 @@ struct TextToUi : UniversalInterface
 		if (groupLabelPending > 0)
 			--groupLabelPending;
 		else
-		{
 			stream->leaveSection();
-			groupItemOffsets.pop_back();
-		}
 	}
 	
-	void addItems(stdx::fun_ref<bool(ui::UniversalInterface&, ItemSource&)> addItem
-		, stdx::fun_ref<void(size_t)> reserveItems = nullptr, char const* estimateForLabel = nullptr) override
+	struct ItemSource : UniversalInterface::ItemSource
 	{
-		if (reserveItems.dispatch)
+		struct Data
 		{
-			auto estimatedNumber = stream->estimateItems(estimateForLabel);
-			if (estimatedNumber != size_t(-1))
-				reserveItems.dispatch(reserveItems, estimatedNumber);
-		}
+			char itemSourceID[4];
+			KeyValueStore::Item const* item;
 
-		struct ItemSource : UniversalInterface::ItemSource
-		{
-			KeyValueStore* stream;
-			size_t itemOffset;
+			#define ItemSource_ID(_0, _1, _2, _3) _0 1 _1 5 _2 6 _3 4
+			#define ItemSource_ID_Expr(x, e, d) ItemSource_ID(x[0] e, d x[1] e, d x[2] e, d x[3] e)
 
-			bool hasMore(char const* checkLabel) const override
+			Data()
 			{
-				bool found = false;
-				stream->getValue(checkLabel, itemOffset, &found);
-				return found;
+				ItemSource_ID_Expr(itemSourceID, =, ;);
 			}
-		} is;
-		is.stream = stream;
-		is.itemOffset = groupItemOffsets.back();
+			static KeyValueStore::Item const* getItem(char const* label)
+			{
+				return (ItemSource_ID_Expr(label, ==, &&)) 
+					? reinterpret_cast<Data const*>(label)->item
+					: nullptr;
+			}
 
-		while (addItem.dispatch(addItem, *this, is))
-			is.itemOffset = ++groupItemOffsets.back();
+			#undef ItemSource_ID_Expr
+			#undef ItemSource_ID
+		} data;
+
+		KeyValueStore* stream;
+		KeyValueStore::Item const* nextItem;
+
+		size_t estimateCount() const override
+		{
+			return stream->estimateCount(data.item);
+		}
+		char const* next() override
+		{
+			data.item = nextItem;
+			nextItem = stream->nextItem(nextItem);
+			return (data.item) ? data.itemSourceID : nullptr;
+		}
+	};
+
+	void addItems(stdx::fun_ref<void(UniversalInterface&, UniversalInterface::ItemSource&)> addItem, char const* filterLabel = nullptr) override
+	{
+		ItemSource is;
+		is.stream = stream;
+		is.nextItem = stream->findItem(filterLabel);
+		addItem.dispatch(addItem, *this, is);
+	}
+	
+	KeyValueStore::Item const* getItem(char const* label)
+	{
+		auto item = ItemSource::Data::getItem(label);
+		if (!item)
+			item = stream->findItem(label);
+		return item;
 	}
 
 	stdx::range<char const*> getValueAndMaybeEnter(char const* label)
 	{
-		size_t itemOffset = groupItemOffsets.back();
+		auto item = getItem(label);
 		if (groupLabelPending > 0)
 		{
-			auto val = stream->enterSection(label, itemOffset);
-			groupItemOffsets.push_back(0);
+			stream->enterSection(item);
 			--groupLabelPending;
-			return val;
 		}
-		else
-			return stream->getValue(label, itemOffset);
+		return stream->getValue(item);
 	}
 
 	void addText(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<char const*> interact) override
@@ -209,7 +228,7 @@ struct TextToUi : UniversalInterface
 	{
 		if (interact)
 		{
-			auto val = stream->getValue(label, groupItemOffsets.back());
+			auto val = stream->getValue(getItem(label));
 			if (val.first) // check if value explicitly given
 			{
 				nullterminatedStore.assign(val.first, val.last);

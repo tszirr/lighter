@@ -46,48 +46,63 @@ struct SortedKeyValueStore : ui::KeyValueStore
 		: sectionNodes(1, in)
 	{ }
 
-	size_t estimateItems(char const* key = nullptr) override
-	{
-		auto parent = sectionNodes.back();
-		if (parent)
-		{
-			return (key)
-				? parent->find_sorted_range(stdx::str_range(key)).size()
-				: parent->children.size();
-		}
-		else
-			return 0;
-	}
+	static KeyValueNode const* fromItem(Item const* it) { return reinterpret_cast<KeyValueNode const*>(it); }
+	static Item const* toItem(KeyValueNode const* it) { return reinterpret_cast<Item const*>(it); }
 
-	KeyValueNode const* findItem(char const* key, size_t offset = 0, bool* found = nullptr)
+	static bool key_greater(stdx::range<char const*> thanKey, KeyValueNode const& b) { return memcmp(b.key, thanKey) > 0; }
+
+	Item const* findItem(char const* key = nullptr) override
 	{
 		if (auto parent = sectionNodes.back())
 		{
-			auto matches = parent->find_sorted_range(stdx::str_range(key));
-			if (offset < matches.size())
-			{
-				if (found) *found = true;
-				return matches.first + offset;
-			}
+			if (key)
+				return toItem(parent->find_sorted(stdx::str_range(key)));
+			else if (auto all = parent->children)
+				return toItem(all.first);
 		}
-		if (found) *found = false;
 		return nullptr;
 	}
-
-	stdx::range<char const*> enterSection(char const* key, size_t offset = 0, bool* found = nullptr) override
+	stdx::range<KeyValueNode const*> assertParentRange(KeyValueNode const* it) const
 	{
-		auto section = findItem(key, offset, found);
+		auto parent = sectionNodes.back();
+		assert (parent);
+		auto parentRange = parent->children;
+		assert (parentRange.first <= it && it < parentRange.last);
+		return parentRange;
+	}
+	Item const* nextItem(Item const* prev) override
+	{
+		if (prev)
+		{
+			auto it = fromItem(prev), next = it;
+			if (++next < assertParentRange(it).last && next->key == it->key)
+				return toItem(next);
+		}
+		return nullptr;
+	}
+	size_t estimateCount(Item const* startingWith) const override
+	{
+		if (auto begin = fromItem(startingWith))
+		{
+			auto end = std::upper_bound(begin, assertParentRange(begin).last, begin->key, key_greater);
+			return end - begin;
+		}
+		return 0;
+	}
+
+	void enterSection(Item const* item) override
+	{
+		auto section = fromItem(item);
+		if (section) assertParentRange(section);
 		sectionNodes.push_back(section);
-		return (section) ? section->value : stdx::range<char const*>();
 	}
 	void leaveSection() override
 	{
 		sectionNodes.pop_back();
 	}
-	stdx::range<char const*> getValue(char const* key, size_t offset = 0, bool* found = nullptr) override
+	stdx::range<char const*> getValue(Item const* item) override
 	{
-		auto it = findItem(key, offset, found);
-		return (it) ? it->value : stdx::range<char const*>();
+		return (item) ? fromItem(item)->value : stdx::range<char const*>();
 	}
 };
 
