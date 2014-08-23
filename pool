@@ -11,6 +11,12 @@ struct pooled_interface
 {
 	virtual void acquire() const = 0;
 	virtual void release() const = 0;
+
+	virtual bool query_desc(void* desc, std::type_info const& descType) const { return false; }
+	template <class Desc>
+	bool query_desc(Desc& desc) const { return query_desc(&desc, typeid(desc)); }
+	template <class Desc>
+	Desc get_desc() const { Desc r; auto s = query_desc(&r, typeid(r)); assert(s); return r; }
 };
 
 template <class RefObj, class PoolPtr>
@@ -205,6 +211,17 @@ struct resource_pool
 			: description(desc)
 			, resource(FORWARD(RFW, res))
 		{ }
+
+		bool query_desc(void* desc, std::type_info const& descType) const override
+		{
+			if (descType == typeid(Desc))
+			{
+				*static_cast<Desc*>(desc) = description;
+				return true;
+			}
+			else
+				return false;
+		}
 	};
 	
 	template <class Res, class Desc>
