@@ -481,6 +481,10 @@ namespace stdx
 			}
 
 			throw_com_error(pfd->SetFileTypes(UINT(typeCnt), types.data()));
+
+			// Unchecked, as not documented to work, but seems to always select first extension as expected
+			if (mode == dialog::save && typeCnt > 0)
+				pfd->SetDefaultExtension(L"");
 		}
 
 		// Initial folder
