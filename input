@@ -89,27 +89,49 @@ struct GLFWUiKeyboard : GLFWKeyboard
 	}
 
 	template <class InputKeys>
-	void keyHandler(int key, bool pressed, bool repeat)
+	void modKeyHandler(int keyCode, bool pressed, bool repeat, int modifiers)
 	{
-		GLFWKeyboard::keyHandler(key, pressed, repeat);
+		unsigned key;
 
-		if (pressed) switch (key)
+		if (pressed)
 		{
-			unsigned key;
-			case GLFW_KEY_BACKSPACE: key = InputKeys::DeleteLast; goto INSERT_INPUT_KEY;
-			case GLFW_KEY_DELETE: key = InputKeys::DeleteNext; goto INSERT_INPUT_KEY;
-			case GLFW_KEY_LEFT: key = InputKeys::MoveLeft; goto INSERT_INPUT_KEY;
-			case GLFW_KEY_RIGHT: key = InputKeys::MoveRight; goto INSERT_INPUT_KEY;
-			case GLFW_KEY_UP: key = InputKeys::MoveUp; goto INSERT_INPUT_KEY;
-			case GLFW_KEY_DOWN: key = InputKeys::MoveDown; goto INSERT_INPUT_KEY;
-			INSERT_INPUT_KEY: inputQueue.push_back(key);
+			switch (keyCode)
+			{
+				case GLFW_KEY_BACKSPACE: key = InputKeys::DeleteLast; goto INSERT_INPUT_KEY;
+				case GLFW_KEY_DELETE: key = InputKeys::DeleteNext; goto INSERT_INPUT_KEY;
+				case GLFW_KEY_LEFT: key = InputKeys::MoveLeft; goto INSERT_INPUT_KEY;
+				case GLFW_KEY_RIGHT: key = InputKeys::MoveRight; goto INSERT_INPUT_KEY;
+				case GLFW_KEY_UP: key = InputKeys::MoveUp; goto INSERT_INPUT_KEY;
+				case GLFW_KEY_DOWN: key = InputKeys::MoveDown; goto INSERT_INPUT_KEY;
+			}
+
+			if (!repeat)
+			{
+				// Modified printable keys are not processed as characters, therefore insert here
+				if (modifiers && GLFW_KEY_SPACE <= keyCode && keyCode <= GLFW_KEY_GRAVE_ACCENT)
+				{
+					key = keyCode;
+					goto INSERT_INPUT_KEY;
+				}
+
+				switch (keyCode)
+				{
+					case GLFW_KEY_LEFT_CONTROL: case GLFW_KEY_RIGHT_CONTROL: key = InputKeys::Control; goto INSERT_INPUT_KEY;
+					case GLFW_KEY_LEFT_ALT: case GLFW_KEY_RIGHT_ALT: key = InputKeys::Alternative; goto INSERT_INPUT_KEY;
+					case GLFW_KEY_LEFT_SHIFT: case GLFW_KEY_RIGHT_SHIFT: key = InputKeys::Select; goto INSERT_INPUT_KEY;
+				}
+			}
 		}
+		goto DONT_INSERT_INPUT_KEY;
+
+		DONT_INSERT_INPUT_KEY: return;
+		INSERT_INPUT_KEY: inputQueue.push_back(key); return;
 	}
 
 	template <class InputKeys, class Window>
 	void apply(Window& wnd)
 	{
-		wnd.keyboard = [this](int key, bool pressed, bool repeat){ keyHandler<InputKeys>(key, pressed, repeat); };
+		wnd.modKeyboard = [this](int key, bool pressed, bool repeat, int modifiers){ modKeyHandler<InputKeys>(key, pressed, repeat, modifiers); };
 		wnd.text = [this](unsigned chr){ textHandler(chr); };
 	}
 };

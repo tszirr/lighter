@@ -76,8 +76,16 @@ namespace ogl
 	void GLFWWindow::keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
 	{
 		auto* self = getThis<GLFWWindow>(window);
-		if (self && self->keyboard)
-			self->keyboard(key, action != GLFW_RELEASE, action == GLFW_REPEAT);
+		if (self)
+		{
+			auto pressed = action != GLFW_RELEASE;
+			auto repeated = action == GLFW_REPEAT;
+
+			if (self->keyboard)
+				self->keyboard(key, pressed, repeated);
+			if (self->modKeyboard)
+				self->modKeyboard(key, pressed, repeated, mods);
+		}
 	}
 
 	void GLFWWindow::textCallback(GLFWwindow *window, unsigned chr)

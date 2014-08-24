@@ -126,8 +126,14 @@ struct TextUi : UserInterface, UniversalInterface
 		GenericContext(T&& v) : T(std::move(v)) { }
 	};
 
+	struct MouseState { enum T { None = 0x0, Primary = 0x1, Secondary = 0x2 }; };
+	struct ControlState { enum T { None = 0x0, Control = 0x1, Alternative = 0x2, Select = 0x4 }; };
+
 	struct HiddenContext
 	{
+		unsigned mouseState;
+		unsigned controlState;
+
 		int insertLine;
 		unsigned pendingIndent;
 		bool horizontalGroup;
@@ -150,11 +156,17 @@ struct TextUi : UserInterface, UniversalInterface
 
 		state.cursorVisible = true;
 		state.focus = false;
+
+		hiddenCtx.mouseState = 0;
+		hiddenCtx.controlState = 0;
 	}
 	
 	// prepare internal state for next cycle
 	UniversalInterface& reset() override
 	{
+		hiddenCtx.mouseState = (state.mouse.primary ? MouseState::Primary : 0)
+			| (state.mouse.secondary ? MouseState::Secondary : 0);
+
 		if (!state.mouse.primary && !state.mouse.secondary)
 		{
 			state.captureReleasedPath = state.capturePath;
@@ -189,9 +201,10 @@ struct TextUi : UserInterface, UniversalInterface
 			auto& cursor = state.cursor;
 
 			auto it = state.input.begin(), itEnd = state.input.end();
+			auto handledBegin = it;
 
 			// process keyboard navigation
-			for (; it < itEnd && (*it & InputKeys::NavKeyMask) == InputKeys::NavKeyMask; ++it)
+			for (; it < itEnd && InputKeys::matches(*it, InputKeys::NavKeyMask); ++it)
 				switch (*it)
 				{
 				case InputKeys::MoveDown: ++cursor.row; break;
@@ -206,14 +219,38 @@ struct TextUi : UserInterface, UniversalInterface
 			if (cursor.row < 0)
 				cursor.row = 0;
 
+			// process keyboard modifiers
+			for (; it < itEnd && InputKeys::matches(*it, InputKeys::ControlKeyMask); ++it)
+				switch (*it)
+				{
+				case InputKeys::Control: hiddenCtx.controlState ^= ControlState::Control; break;
+				case InputKeys::Alternative: hiddenCtx.controlState ^= ControlState::Alternative; break;
+				}
+
+			// todo: command processing
+
 			// isolate next batch of value input
-			auto pendingBegin = it;
-			for (; it < itEnd && (*it & InputKeys::NavKeyMask) != InputKeys::NavKeyMask; ++it);
-			auto pendingEnd = it;
+			for (; it < itEnd; ++it)
+			{
+				auto chr = *it;
+				// Only insert chars and manipulator keys into queue
+				if (!InputKeys::isKey(chr) || InputKeys::matches(chr, InputKeys::ManipKeyMask))
+					context.pendingInput.push_back(*it);
+				// Toggle select state
+				else if (chr == InputKeys::Select)
+					hiddenCtx.controlState ^= ControlState::Select;
+				// Other keys will have to be handled in next round
+				else
+					break;
+			}
+			auto handledEnd = it;
+
+			// Discard unrecognized input to avoid being deadlocked by invalid key codes
+			if (handledBegin == handledEnd && handledEnd < itEnd)
+				++handledEnd;
 
 			// move next input batch from state to context
-			context.pendingInput.assign(pendingBegin, pendingEnd);
-			state.input.erase(state.input.begin(), pendingEnd);
+			state.input.erase(state.input.begin(), handledEnd);
 		}
 
 		return *this;

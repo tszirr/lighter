@@ -89,17 +89,29 @@ struct Cursor
 
 struct InputKeys
 {
-    static unsigned const KeyStart     = 0x80000000;
-    
-    static unsigned const ManipKeyMask = 0x81000000;
-    static unsigned const DeleteLast   = ManipKeyMask + 0;
-    static unsigned const DeleteNext   = ManipKeyMask + 1;
-    
-    static unsigned const NavKeyMask   = 0x82000000;
-    static unsigned const MoveUp       = NavKeyMask;
-    static unsigned const MoveDown     = NavKeyMask + 1;
-    static unsigned const MoveLeft     = NavKeyMask + 2;
-    static unsigned const MoveRight    = NavKeyMask + 3;
+	// key in groups <=> key & (mask1 | mask2 | ...) > MatchStart
+	static unsigned const MatchStart   = 0x80000000;
+	static bool matches(unsigned key, unsigned masks) { return (key & masks) > MatchStart; }
+	// Values > KeyStart are keys
+	static unsigned const KeyStart     = MatchStart;
+	static bool isKey(unsigned key) { return key > KeyStart; }
+
+	static unsigned const ManipKeyMask = MatchStart + 0x01000000;
+	static unsigned const DeleteLast   = ManipKeyMask + 1;
+	static unsigned const DeleteNext   = ManipKeyMask + 2;
+
+	static unsigned const NavKeyMask   = MatchStart + 0x02000000;
+	static unsigned const MoveUp       = NavKeyMask + 1;
+	static unsigned const MoveDown     = NavKeyMask + 2;
+	static unsigned const MoveLeft     = NavKeyMask + 3;
+	static unsigned const MoveRight    = NavKeyMask + 4;
+
+	static unsigned const ControlKeyMask = MatchStart + 0x04000000;
+	static unsigned const Control        = ControlKeyMask + 1;
+	static unsigned const Alternative    = ControlKeyMask + 2;
+
+	static unsigned const SelectKeyMask = MatchStart + 0x08000000;
+	static unsigned const Select        = SelectKeyMask + 1;
 };
 
 struct UniversalInterface::Button
