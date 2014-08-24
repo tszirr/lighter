@@ -469,7 +469,7 @@ struct TextUi : UserInterface, UniversalInterface
 		{
 			if (chr < InputKeys::KeyStart)
 				newText[headCursor++] = (char) chr; // todo: utf-8
-			else if (chr == InputKeys::DeleteLast && textCursor > 0)
+			else if (chr == InputKeys::DeleteLast && headCursor > 0)
 				--headCursor;
 			else if (chr == InputKeys::DeleteNext)
 				++tailCursor;
