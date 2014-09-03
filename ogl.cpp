@@ -112,7 +112,7 @@ namespace ogl
 	void GLFWWindow::scrollCallback(GLFWwindow *window, double x, double y)
 	{
 		auto* self = getThis<GLFWWindow>(window);
-		if (self && self->buttons)
+		if (self && self->scroll)
 			self->scroll((int) x, (int) y);
 	}
 
