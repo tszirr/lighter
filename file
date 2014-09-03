@@ -75,6 +75,54 @@ namespace stdx
 	private:
 		mapped_file(mapped_file const&);
 	};
+	
+	inline char const* read_binary(void const* stream)
+	{	return static_cast<char const*>(stream); }
+	inline char* write_binary(void* stream)
+	{	return static_cast<char*>(stream); }
+	template <class SerializationFunct>
+	inline size_t size_binary(SerializationFunct&& f)
+	{	size_t size = 0; f(size); return size; }
+
+	template <class T>
+	inline void serialize_binary(char*& stream, T const& val)
+	{	memcpy(stream, &reinterpret_cast<char const&>(val), sizeof(val)); stream += sizeof(val); }
+	template <class T>
+	inline void serialize_binary(char const*& stream, T& val)
+	{	memcpy(&reinterpret_cast<char&>(val), stream, sizeof(val)); stream += sizeof(val); }
+	template <class T>
+	inline void serialize_binary(size_t& stream, T& val)
+	{	stream += sizeof(val); }
+
+	template <class Range>
+	inline void serialize_container_binary(char*& stream, Range const& range)
+	{
+		auto size = range.size();
+		serialize_binary(stream, size);
+		auto bytes = sizeof(*range.data()) * size;
+		if (size > 0)
+			memcpy(stream, reinterpret_cast<char const*>(range.data()), bytes);
+		stream += bytes;
+	}
+	template <class Range>
+	inline void serialize_container_binary(char const*& stream, Range& range)
+	{
+		size_t size = 0;
+		serialize_binary(stream, size);
+		range.resize(size);
+		auto bytes = sizeof(*range.data()) * size;
+		if (size > 0)
+			memcpy(reinterpret_cast<char*>(range.data()), stream, bytes);
+		stream += bytes;
+	}
+	template <class Range>
+	inline void serialize_container_binary(size_t& stream, Range const& range)
+	{
+		auto size = range.size();
+		serialize_binary(stream, size);
+		auto bytes = sizeof(*range.data()) * size;
+		stream += bytes;
+	}
 
 	void init_shell_on_startup();
 
