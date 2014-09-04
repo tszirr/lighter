@@ -58,8 +58,7 @@ CLSL_INLINE float4 transform4(mat4 matrix, float4 vector)
 CLSL_INLINE float4 transform4div4(mat4 matrix, float4 vector)
 {
 	float4 r = transform4(matrix, vector);
-	r.xyz = float3(r.xyz) / r.w;
-	return r;
+	return CLSL_CTOR(float4)( CLSL_CTOR(float3)(r) / r.w, r.w );
 }
 
 CLSL_INLINE float2 viewportCoords(int2 screenPos, int2 screenDim)
@@ -69,13 +68,13 @@ CLSL_INLINE float2 viewportCoords(int2 screenPos, int2 screenDim)
 
 CLSL_INLINE ray3 rayFromVPI(float2 viewportCoords, mat4 viewProjInverse)
 {
-	float3 rayBase = transform4div4( viewProjInverse, CLSL_CTOR(float4)(viewportCoords, -1.25f, 1.0f) ).xyz;
+	float3 rayBase = CLSL_CTOR(float3)(transform4div4( viewProjInverse, CLSL_CTOR(float4)(viewportCoords, -1.25f, 1.0f) ));
 	ray3 ray;
-	ray.o = transform4div4( viewProjInverse, CLSL_CTOR(float4)(viewportCoords, -1.0f, 1.0f) ).xyz;
+	ray.o = CLSL_CTOR(float3)(transform4div4( viewProjInverse, CLSL_CTOR(float4)(viewportCoords, -1.0f, 1.0f) ));
 	ray.d = normalize(ray.o - rayBase);
 	return ray;
 }
-
+/*
 CLSL_INLINE float rayIntersectAABB(ray3 ray, aabb3 box, CLSL_OUT_PARAM(float3) pointOut)
 {
 	float3 plus = float_from_bool3(lessThan(ray.o, box.min));
@@ -138,3 +137,4 @@ CLSL_INLINE float rayIntersectAABBBack(ray3 ray, aabb3 box, CLSL_OUT_PARAM(float
 	else
 		return -1.0f;
 }
+*/
