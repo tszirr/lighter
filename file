@@ -18,6 +18,7 @@ namespace stdx
 
 	std::string concat_path(char const* tail, char const* head);
 	std::string relative_path(char const* from, char const* to);
+	std::string filesys_relative_path(char const* from, char const* to);
 
 	std::string load_file(char const* name);
 	

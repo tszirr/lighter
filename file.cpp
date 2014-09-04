@@ -126,6 +126,11 @@ namespace stdx
 		return concat;
 	}
 
+	std::string filesys_relative_path(char const* from, char const* to)
+	{
+		return relative_path(realpath(from).c_str(), realpath(to).c_str());
+	}
+
 	std::string relative_path(char const* from, char const* to)
 	{
 		using namespace detail::relative_path;
