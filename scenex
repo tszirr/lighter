@@ -138,4 +138,40 @@ inline Scene load_scene(stdx::data_range_param<char const> src, ErrorHandler&& e
 	return scene;
 }
 
+struct scenecvt
+{
+	bool normals;
+	bool texcoords;
+	bool forceTexcoords;
+	bool regenerateAllNormals;
+	float maxSmoothingAngle;
+	bool optimize;
+	bool mergeAllGeometry;
+	bool mergeEqualMaterials;
+	bool pretransform;
+	float scaleFactor;
+	bool vertexColors;
+	char const* toolExe;
+
+	scenecvt()
+	{
+		normals = true;
+		vertexColors = true;
+		texcoords = true;
+		forceTexcoords = false;
+		regenerateAllNormals = false;
+		maxSmoothingAngle = -1.0f;
+		optimize = true;
+		mergeAllGeometry = false;
+		mergeEqualMaterials = false;
+		pretransform = true;
+		scaleFactor = 0.0f;
+		toolExe = nullptr;
+	}
+
+	std::string cmd() const;
+	int run(stdx::data_range_param<char const *const> inputs, char const* output) const;
+	std::string locateOrRun(char const* srcFile, bool skipIfUpToDate = true) const;
+};
+
 } // namespace
