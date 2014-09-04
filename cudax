@@ -15,6 +15,42 @@
 
 namespace cudax
 {
+	
+// Half-precision floating-point bit representation vectors
+typedef glm::tvec2<unsigned short> hbvec2;
+typedef glm::tvec3<unsigned short> hbvec3;
+typedef glm::tvec4<unsigned short> hbvec4;
+
+}
+
+namespace glm
+{
+
+// Vector type analysis
+template <> struct vec_type< float1 > { static size_t const dimension = 1; typedef float component; };
+template <> struct vec_type< float2 > { static size_t const dimension = 2; typedef float component; };
+template <> struct vec_type< float3 > { static size_t const dimension = 3; typedef float component; };
+template <> struct vec_type< float4 > { static size_t const dimension = 4; typedef float component; };
+
+template <> struct vec_type< int1 > { static size_t const dimension = 1; typedef int component; };
+template <> struct vec_type< int2 > { static size_t const dimension = 2; typedef int component; };
+template <> struct vec_type< int3 > { static size_t const dimension = 3; typedef int component; };
+template <> struct vec_type< int4 > { static size_t const dimension = 4; typedef int component; };
+
+template <> struct vec_type< ushort1 > { static size_t const dimension = 1; typedef unsigned short component; };
+template <> struct vec_type< ushort2 > { static size_t const dimension = 2; typedef unsigned short component; };
+template <> struct vec_type< ushort3 > { static size_t const dimension = 3; typedef unsigned short component; };
+template <> struct vec_type< ushort4 > { static size_t const dimension = 4; typedef unsigned short component; };
+
+template <> struct vec_type< uint1 > { static size_t const dimension = 1; typedef unsigned int component; };
+template <> struct vec_type< uint2 > { static size_t const dimension = 2; typedef unsigned int component; };
+template <> struct vec_type< uint3 > { static size_t const dimension = 3; typedef unsigned int component; };
+template <> struct vec_type< uint4 > { static size_t const dimension = 4; typedef unsigned int component; };
+
+} // namespace
+
+namespace cudax
+{
 
 template <class T>
 inline __host__ __device__ T* asRuntimePtr(CUdeviceptr ptr)
@@ -57,10 +93,6 @@ struct raw_bytes
 	__device__ __host__ operator T&() { return *reinterpret_cast<T*>(memory); }
 	__device__ __host__ operator T const&() const { return *reinterpret_cast<T const*>(memory); }
 };
-
-typedef glm::tvec2<unsigned short> hbvec2;
-typedef glm::tvec3<unsigned short> hbvec3;
-typedef glm::tvec4<unsigned short> hbvec4;
 
 template <class T> struct CudaToGlm;
 template <> struct CudaToGlm<float> { typedef glm::mediump_float Type; };
