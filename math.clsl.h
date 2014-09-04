@@ -74,7 +74,7 @@ CLSL_INLINE ray3 rayFromVPI(float2 viewportCoords, mat4 viewProjInverse)
 	ray.d = normalize(ray.o - rayBase);
 	return ray;
 }
-/*
+
 CLSL_INLINE float rayIntersectAABB(ray3 ray, aabb3 box, CLSL_OUT_PARAM(float3) pointOut)
 {
 	float3 plus = float_from_bool3(lessThan(ray.o, box.min));
@@ -137,4 +137,3 @@ CLSL_INLINE float rayIntersectAABBBack(ray3 ray, aabb3 box, CLSL_OUT_PARAM(float
 	else
 		return -1.0f;
 }
-*/
