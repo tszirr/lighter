@@ -72,6 +72,9 @@ namespace stdx
 			return *this;
 		}
 
+		stdx::range<char*> range() const { return stdx::range<char*>(data, data + size); }
+		stdx::range<char const*> crange() const { return stdx::range<char const*>(data, data + size); }
+
 		// MSVC compatibility
 	private:
 		mapped_file(mapped_file const&);
