@@ -37,34 +37,53 @@ glm::aabb<glm::ivec2> UiTextRenderer::drawText(glm::ivec2 insertPos, char const*
 	}
 }
 
+void UiTextRenderer::flushText()
+{
+	renderer.flushText();
+}
+
+namespace
+{
+	struct DefaultTextRenderer : UiTextRenderer
+	{
+		text::TextRenderer textRenderer;
+		
+		DefaultTextRenderer(text::FreeTypeRef* freeTypeLib, text::FaceRef* font, ogl::ProgramRef* textProgram)
+			: UiTextRenderer(*freeTypeLib, *font, textRenderer)
+			, textRenderer(*freeTypeLib, textProgram, 10000) // todo: initialize with adaptive tile size?
+		{ }
+	};
+}
+
+std::unique_ptr<UiTextRenderer> UiTextRenderer::create(text::FreeTypeRef* freeTypeLib, text::FaceRef* font, ogl::ProgramRef* textProgram)
+{
+	return std::unique_ptr<UiTextRenderer>(new DefaultTextRenderer(freeTypeLib, font, textProgram));
+}
+
 std::unique_ptr<UserInterface> UserInterface::create(text::FreeTypeRef* freeTypeLib, text::FaceRef* font, ogl::ProgramRef* textProgram
 		, ogl::ProgramRef* widgetProgram)
 {
 	struct DefaultUserInterfaceDeps
 	{
 		UiRenderer widgetRenderer;
-		text::TextRenderer textRenderer;
-		UiTextRenderer uiTextRenderer;
+		DefaultTextRenderer uiTextRenderer;
 		
 		DefaultUserInterfaceDeps(text::FreeTypeRef* freeTypeLib, text::FaceRef* font, ogl::ProgramRef* textProgram
 				, ogl::ProgramRef* widgetProgram)
 			: widgetRenderer(widgetProgram, 1024)
-			, textRenderer(*freeTypeLib, textProgram, 10000) // todo: initialize with adaptive tile size?
-			, uiTextRenderer(*freeTypeLib, *font, textRenderer)
-		{
-		}
+			, uiTextRenderer(freeTypeLib, font, textProgram)
+		{ }
 	};
 	struct DefaultUserInterface : DefaultUserInterfaceDeps, ui::TextUi
 	{
 		DefaultUserInterface(text::FreeTypeRef* freeTypeLib, text::FaceRef* font, ogl::ProgramRef* textProgram
 				, ogl::ProgramRef* widgetProgram)
 			: DefaultUserInterfaceDeps(freeTypeLib, font, textProgram, widgetProgram)
-			, TextUi(&widgetRenderer, &uiTextRenderer)
-		{
-		}
+			, TextUi(&this->DefaultUserInterfaceDeps::widgetRenderer, &this->DefaultUserInterfaceDeps::uiTextRenderer)
+		{ }
 		// todo: replace by proper render methods
-		void flushWidgets() override { widgetRenderer.flushWidgets(); }
-		void flushText() override { DefaultUserInterfaceDeps::textRenderer.flushText(); }
+		void flushWidgets() override { DefaultUserInterfaceDeps::widgetRenderer.flushWidgets(); }
+		void flushText() override { DefaultUserInterfaceDeps::uiTextRenderer.textRenderer.flushText(); }
 	};
 	return std::unique_ptr<UserInterface>(new DefaultUserInterface(freeTypeLib, font, textProgram, widgetProgram));
 }

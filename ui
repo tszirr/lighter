@@ -44,6 +44,7 @@ struct TextRenderer
 	template <class Char>
 	inline glm::aabb<glm::ivec2> drawText(glm::ivec2 insertPos, Char const* text, size_t maxChars = ~0, CharType type = CharTypeFromChar<Char>::value)
 	{	return drawText(insertPos, reinterpret_cast<char const*>(text), maxChars, type); }
+	virtual void flushText() = 0;
 };
 
 struct UiTextRenderer : TextRenderer
@@ -54,6 +55,7 @@ struct UiTextRenderer : TextRenderer
 
 	UiTextRenderer(text::FreeTypeRef& lib, text::FaceRef& font, text::TextRenderer& renderer)
 		: lib(lib), font(font), renderer(renderer) { }
+	virtual ~UiTextRenderer() { }
 
 	glm::aabb<glm::ivec2> selectChar(glm::ivec2 cursorPos, size_t& charIdx, glm::ivec2 insertPos, char const* text, size_t maxChars, CharType type) override;
 	using TextRenderer::selectChar;
@@ -61,6 +63,9 @@ struct UiTextRenderer : TextRenderer
 	using TextRenderer::boundText;
 	glm::aabb<glm::ivec2> drawText(glm::ivec2 insertPos, char const* text, size_t maxChars, CharType type) override;
 	using TextRenderer::drawText;
+	void flushText() override;
+
+	static std::unique_ptr<UiTextRenderer> create(text::FreeTypeRef* freeTypeLib, text::FaceRef* font, ogl::ProgramRef* textProgram);
 };
 
 struct Mouse
