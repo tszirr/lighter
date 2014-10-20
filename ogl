@@ -283,7 +283,7 @@ struct BufferRef : glew_destroy<BufferRef, GLuint, glDeleteBuffers>
 		THROW_OPENGL_LASTERROR("glBufferSubData()");
 	}
 	template <class Range>
-	void read(GLenum bufferType, Range const& range, size_t srcOffset = 0)
+	void read(GLenum bufferType, Range& range, size_t srcOffset = 0)
 	{
 		bind(bufferType);
 		glGetBufferSubData(bufferType, sizeof(*range.data()) * srcOffset, sizeof(*range.data()) * range.size(), range.data());
