@@ -250,7 +250,7 @@ namespace stdx
 				Char const* valBegin = nullptr, *valEnd = nullptr;
 
 				for (auto cursor = keyBegin; cursor < keyEnd; ++cursor)
-					if (*cursor == Char('='))
+					if (*cursor == Char('=') && cursor != trimBegin) // legacy: allow '=' at beginning of non-section keys
 					{
 						keyEnd = cursor;
 						// Key always trimmed
