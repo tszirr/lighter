@@ -728,10 +728,12 @@ struct TextUi : UserInterface, UniversalInterface
 				auto& editCtx = genericEditContext<EditContext>(id, [&slider]() -> EditContext { EditContext c = { slider.valueBase }; return c; } );
 				editCtx.touch();
 
-				interact->updateValue(
-					  editCtx.valueBase
-					+ float(mouse.pos.x - slider.rect.min.x) / float(slider.rect.max.x - slider.rect.min.x) * slider.range
-					);
+				// Compute new value from selected pixel
+				if (!mouse.secondary)
+					interact->updateValue(editCtx.valueBase + float(mouse.pos.x - slider.rect.min.x) / float(slider.rect.max.x - slider.rect.min.x) * slider.range);
+				// Allow for negation using secondary && primary
+				else if (mouse.primaryChanged)
+					interact->updateValue(-value);
 			}
 		}
 	}
