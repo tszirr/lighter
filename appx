@@ -118,4 +118,46 @@ template <class Changed, class Fun>
 inline void maybe_update_noexcept(Changed& changed, Fun&& update) { try { maybe_update(changed, update); return; }
 	catch (...) { print_exception(); } }
 
+template <class T>
+struct auto_reset
+{
+	T value;
+	T* variable;
+
+	auto_reset(T& var)
+		: value(var)
+		, variable(&var)
+	{ }
+	auto_reset(auto_reset&& right)
+		: value(MOVE(right.value))
+		, variable(right.variable)
+	{
+		right.variable = nullptr;
+	}
+	~auto_reset()
+	{
+		if (variable)
+			*variable = value;
+	}
+
+	auto_reset& operator =(auto_reset&& right)
+	{
+		~auto_reset();
+		variable = nullptr;
+		value = MOVE(right.value);
+		variable = right.variable;
+		right.variable = nullptr;
+		return *this;
+	}
+
+	void disarm()
+	{
+		variable = nullptr;
+	}
+};
+
+template <class T>
+auto_reset<T> defer_reset(T& var) 
+{ return auto_reset<T>(var); }
+
 } // namespace
