@@ -48,7 +48,9 @@ namespace ogl
 		else if(type == GL_DEBUG_TYPE_OTHER_ARB)
 		{
 			typeS = "message";
-			Info = (strstr(message, "info:") != nullptr);
+			Info = false
+				|| id == 131076 // NVIDIA: Small pointer value, intended to be used as an offset into a buffer? Yes.
+				|| (strstr(message, "info:") != nullptr);
 		}
 
 		char const* severityS= "unknown severity";

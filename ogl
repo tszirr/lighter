@@ -1366,13 +1366,14 @@ struct NullVertexArray : VertexArrays
 	}
 	NullVertexArray()
 		: VertexArrays( create() )
-		, buffer( Buffer::create(GL_ARRAY_BUFFER, sizeof(float)) )
+		, buffer( Buffer::create(GL_ARRAY_BUFFER, sizeof(float) * 4) )
 	{
 		bind();
-		glVertexAttribPointer(0, 1, GL_FLOAT, GL_FALSE, 0, nullptr);
+		buffer.bind(GL_ARRAY_BUFFER);
 		glEnableVertexAttribArray(0);
-		unbind();
+		glVertexAttribPointer(0, 1, GL_FLOAT, GL_FALSE, 0, nullptr);
 		buffer.unbind(GL_ARRAY_BUFFER);
+		unbind();
 	}
 };
 
