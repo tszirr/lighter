@@ -87,7 +87,7 @@ struct Instance
 	static unsigned const version = 1;
 
 	unsigned mesh;
-	math::vec< math::vec<float, 3>, 4 > transform;
+	math::mat4x3 transform;
 
 	math::aabb< math::vec<float, 3> > bounds;
 };
