@@ -781,7 +781,7 @@ struct TextUi : UserInterface, UniversalInterface
 				, [&](glm::ivec2 pos, glm::uvec2 size, float tickDelta) { uiRenderer->drawWidget(pos, size, ui::UiElement::Ticks, stdx::as_<unsigned>(tickDelta)); }
 				);
 			makeSlider(controlIdx++, "val", hsv.z, valueRange
-				, [&](float value){ hsv.z = glm::max_value(value, 0.0f); colorChanged = true; }
+				, [&](float value){ hsv.z = glm::max(value, 0.0f); colorChanged = true; }
 				, valueTicks, 0.0f, nullptr
 				, [&](glm::ivec2 pos, glm::uvec2 size) { uiRenderer->drawWidget(pos, size, ui::UiElement::HSVVal, uiex, uiexx); }
 				, nullptr
