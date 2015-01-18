@@ -15,11 +15,6 @@ namespace glm
 {
 	using namespace sml;
 
-	template glm::bvec2;
-	template glm::vec2;
-	template glm::vec3;
-	template glm::vec4;
-
 	// POD AABB (no default initialization)
 	template <class Vec>
 	struct aabb { Vec min, max; };
