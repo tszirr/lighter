@@ -179,7 +179,7 @@ struct GLFWMouse
 	void accept()
 	{
 		memset(buttonChanged, 0, sizeof(buttonChanged));
-		mouseDelta = glm::ivec2();
+		mouseDelta = glm::ivec2(0);
 	}
 
 	void moveHandler(int x, int y)
