@@ -59,7 +59,8 @@ __device__ inline Type surf2Dread(SurfaceType surf, int2 coord, cudaSurfaceBound
 template <class Type, class SurfaceType>
 __device__ inline void surf2Dwrite(Type const& x, SurfaceType surf, int2 coord, cudaSurfaceBoundaryMode boundaryMode = cudaBoundaryModeTrap)
 {
-	::surf2Dwrite(x, surf, coord.x * (int) sizeof(Type), coord.y, boundaryMode);
+	using glm::to_cuda;
+	::surf2Dwrite(to_cuda(x), surf, coord.x * (int) sizeof(Type), coord.y, boundaryMode);
 }
 
 
@@ -73,7 +74,8 @@ __device__ inline Type surf3Dread(SurfaceType surf, int3 coord, cudaSurfaceBound
 template <class Type, class SurfaceType>
 __device__ inline void surf3Dwrite(Type const& x, SurfaceType surf, int3 coord, cudaSurfaceBoundaryMode boundaryMode = cudaBoundaryModeTrap)
 {
-	::surf3Dwrite(x, surf, coord.x * (int) sizeof(Type), coord.y, coord.z, boundaryMode);
+	using glm::to_cuda;
+	::surf3Dwrite(to_cuda(x), surf, coord.x * (int) sizeof(Type), coord.y, coord.z, boundaryMode);
 }
 
 template <class Type, class Vec>
