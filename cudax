@@ -21,37 +21,6 @@ typedef glm::vec<unsigned short, 2> hbvec2;
 typedef glm::vec<unsigned short, 3> hbvec3;
 typedef glm::vec<unsigned short, 4> hbvec4;
 
-}
-
-namespace glm
-{
-
-// Vector type analysis
-template <> struct vec_type< float1 > { static size_t const dimension = 1; typedef float component; };
-template <> struct vec_type< float2 > { static size_t const dimension = 2; typedef float component; };
-template <> struct vec_type< float3 > { static size_t const dimension = 3; typedef float component; };
-template <> struct vec_type< float4 > { static size_t const dimension = 4; typedef float component; };
-
-template <> struct vec_type< int1 > { static size_t const dimension = 1; typedef int component; };
-template <> struct vec_type< int2 > { static size_t const dimension = 2; typedef int component; };
-template <> struct vec_type< int3 > { static size_t const dimension = 3; typedef int component; };
-template <> struct vec_type< int4 > { static size_t const dimension = 4; typedef int component; };
-
-template <> struct vec_type< ushort1 > { static size_t const dimension = 1; typedef unsigned short component; };
-template <> struct vec_type< ushort2 > { static size_t const dimension = 2; typedef unsigned short component; };
-template <> struct vec_type< ushort3 > { static size_t const dimension = 3; typedef unsigned short component; };
-template <> struct vec_type< ushort4 > { static size_t const dimension = 4; typedef unsigned short component; };
-
-template <> struct vec_type< uint1 > { static size_t const dimension = 1; typedef unsigned int component; };
-template <> struct vec_type< uint2 > { static size_t const dimension = 2; typedef unsigned int component; };
-template <> struct vec_type< uint3 > { static size_t const dimension = 3; typedef unsigned int component; };
-template <> struct vec_type< uint4 > { static size_t const dimension = 4; typedef unsigned int component; };
-
-} // namespace
-
-namespace cudax
-{
-
 template <class T>
 inline __host__ __device__ T* asRuntimePtr(CUdeviceptr ptr)
 {
@@ -78,91 +47,6 @@ inline __device__ __host__ char (&arraylen_helper(T const volatile (&a)[S]))[S];
 	#define arraylen(x) sizeof(::cudax::arraylen_helper(x))
 #endif
 
-template <class T>
-struct raw_bytes
-{
-	__align__(16) char memory[sizeof(T)];
-
-	__device__ __host__ T& operator *() { return *reinterpret_cast<T*>(memory); }
-	__device__ __host__ T const& operator *() const { return *reinterpret_cast<T const*>(memory); }
-	__device__ __host__ T* operator ->() { return reinterpret_cast<T*>(memory); }
-	__device__ __host__ T const* operator ->() const { return reinterpret_cast<T const*>(memory); }
-
-	__device__ __host__ T& get() { return *reinterpret_cast<T*>(memory); }
-	__device__ __host__ T const& get() const { return *reinterpret_cast<T const*>(memory); }
-	__device__ __host__ operator T&() { return *reinterpret_cast<T*>(memory); }
-	__device__ __host__ operator T const&() const { return *reinterpret_cast<T const*>(memory); }
-};
-
-template <class T> struct CudaToGlm;
-template <> struct CudaToGlm<float> { typedef float Type; };
-template <> struct CudaToGlm<float1> { typedef float Type; };
-template <> struct CudaToGlm<float2> { typedef glm::vec2 Type; };
-template <> struct CudaToGlm<float3> { typedef glm::vec3 Type; };
-template <> struct CudaToGlm<float4> { typedef glm::vec4 Type; };
-
-template <> struct CudaToGlm<int> { typedef int Type; };
-template <> struct CudaToGlm<int1> { typedef int Type; };
-template <> struct CudaToGlm<int2> { typedef glm::ivec2 Type; };
-template <> struct CudaToGlm<int3> { typedef glm::ivec3 Type; };
-template <> struct CudaToGlm<int4> { typedef glm::ivec4 Type; };
-
-template <> struct CudaToGlm<unsigned short> { typedef unsigned short Type; };
-template <> struct CudaToGlm<ushort1> { typedef unsigned short Type; };
-template <> struct CudaToGlm<ushort2> { typedef hbvec2 Type; };
-template <> struct CudaToGlm<ushort3> { typedef hbvec3 Type; };
-template <> struct CudaToGlm<ushort4> { typedef hbvec4 Type; };
-
-template <> struct CudaToGlm<unsigned int> { typedef unsigned Type; };
-template <> struct CudaToGlm<uint1> { typedef unsigned Type; };
-template <> struct CudaToGlm<uint2> { typedef glm::uvec2 Type; };
-template <> struct CudaToGlm<uint3> { typedef glm::uvec3 Type; };
-template <> struct CudaToGlm<uint4> { typedef glm::uvec4 Type; };
-
-template <class T>
-inline __host__ __device__ typename CudaToGlm<T>::Type toGlm(T const& cuda)
-{
-	return reinterpret_cast<typename CudaToGlm<T>::Type const&>(cuda);
-}
-
-template <class T> struct GlmToCuda;
-template <> struct GlmToCuda<float> { typedef float Type; };
-template <> struct GlmToCuda<glm::vec1> { typedef float Type; };
-template <> struct GlmToCuda<glm::vec2> { typedef float2 Type; };
-template <> struct GlmToCuda<glm::vec3> { typedef float3 Type; };
-template <> struct GlmToCuda<glm::vec4> { typedef float4 Type; };
-
-template <> struct GlmToCuda<int> { typedef int Type; };
-template <> struct GlmToCuda<glm::ivec1> { typedef int Type; };
-template <> struct GlmToCuda<glm::ivec2> { typedef int2 Type; };
-template <> struct GlmToCuda<glm::ivec3> { typedef int3 Type; };
-template <> struct GlmToCuda<glm::ivec4> { typedef int4 Type; };
-
-template <> struct GlmToCuda<unsigned short> { typedef unsigned short Type; };
-template <> struct GlmToCuda<glm::vec<unsigned short, 1>> { typedef unsigned short Type; };
-template <> struct GlmToCuda<glm::vec<unsigned short, 2>> { typedef ushort2 Type; };
-template <> struct GlmToCuda<glm::vec<unsigned short, 3>> { typedef ushort3 Type; };
-template <> struct GlmToCuda<glm::vec<unsigned short, 4>> { typedef ushort4 Type; };
-
-template <> struct GlmToCuda<unsigned> { typedef unsigned int Type; };
-template <> struct GlmToCuda<glm::uvec1> { typedef unsigned int Type; };
-template <> struct GlmToCuda<glm::uvec2> { typedef uint2 Type; };
-template <> struct GlmToCuda<glm::uvec3> { typedef uint3 Type; };
-template <> struct GlmToCuda<glm::uvec4> { typedef uint4 Type; };
-
-template <class T>
-inline __host__ __device__ typename GlmToCuda<T>::Type toCuda(T const& glm)
-{
-	return reinterpret_cast<typename GlmToCuda<T>::Type const&>(glm);
-}
-
-template <class T, class U>
-inline __host__ __device__ T toGlmExplicit(U const& cuda
-										 , typename std::enable_if<std::is_same<typename CudaToGlm<U>::Type, typename CudaToGlm<typename GlmToCuda<T>::Type>::Type>::value>::type* enable_if_connected = nullptr)
-{
-	return reinterpret_cast<T const&>(cuda);
-}
-
 #ifdef __CUDACC__ 
 
 template <class Type, class SurfaceType>
@@ -173,21 +57,11 @@ __device__ inline Type surf2Dread(SurfaceType surf, int2 coord, cudaSurfaceBound
 	return x;
 }
 template <class Type, class SurfaceType>
-__device__ inline Type surf2Dread(SurfaceType surf, glm::ivec2 coord, cudaSurfaceBoundaryMode boundaryMode = cudaBoundaryModeTrap)
-{
-	return toGlmExplicit<Type>( surf2Dread<typename GlmToCuda<Type>::Type>(surf, toCuda(coord), boundaryMode) );
-}
-
-template <class Type, class SurfaceType>
 __device__ inline void surf2Dwrite(Type const& x, SurfaceType surf, int2 coord, cudaSurfaceBoundaryMode boundaryMode = cudaBoundaryModeTrap)
 {
 	::surf2Dwrite(x, surf, coord.x * (int) sizeof(Type), coord.y, boundaryMode);
 }
-template <class Type, class SurfaceType>
-__device__ inline void surf2Dwrite(Type const& x, SurfaceType surf, glm::ivec2 coord, cudaSurfaceBoundaryMode boundaryMode = cudaBoundaryModeTrap)
-{
-	surf2Dwrite(toCuda(x), surf, toCuda(coord), boundaryMode);
-}
+
 
 template <class Type, class SurfaceType>
 __device__ inline Type surf3Dread(SurfaceType surf, int3 coord, cudaSurfaceBoundaryMode boundaryMode = cudaBoundaryModeTrap)
@@ -197,52 +71,31 @@ __device__ inline Type surf3Dread(SurfaceType surf, int3 coord, cudaSurfaceBound
 	return x;
 }
 template <class Type, class SurfaceType>
-__device__ inline Type surf3Dread(SurfaceType surf, glm::ivec3 coord, cudaSurfaceBoundaryMode boundaryMode = cudaBoundaryModeTrap)
-{
-	return toGlmExplicit<Type>( surf3Dread<typename GlmToCuda<Type>::Type>(surf, toCuda(coord), boundaryMode) );
-}
-
-template <class Type, class SurfaceType>
 __device__ inline void surf3Dwrite(Type const& x, SurfaceType surf, int3 coord, cudaSurfaceBoundaryMode boundaryMode = cudaBoundaryModeTrap)
 {
 	::surf3Dwrite(x, surf, coord.x * (int) sizeof(Type), coord.y, coord.z, boundaryMode);
 }
-template <class Type, class SurfaceType>
-__device__ inline void surf3Dwrite(Type const& x, SurfaceType surf, glm::ivec3 coord, cudaSurfaceBoundaryMode boundaryMode = cudaBoundaryModeTrap)
-{
-	surf3Dwrite(toCuda(x), surf, toCuda(coord), boundaryMode);
-}
 
 template <class Type, class Vec>
-__device__ inline Type tex2D(cudaTextureObject_t surf, Vec coord, typename CudaToGlm<Vec>::Type* enable_if_cuda_vec = nullptr)
+__device__ inline Type tex2D(cudaTextureObject_t surf, Vec coord)
 {
 	return ::tex2D<Type>(surf, (float) coord.x, (float) coord.y);
 }
 template <class Type, class SurfaceType, class Vec>
-__device__ inline Type tex2D(SurfaceType surf, Vec coord, typename CudaToGlm<Vec>::Type* enable_if_cuda_vec = nullptr)
+__device__ inline Type tex2D(SurfaceType surf, Vec coord)
 {
 	return ::tex2D(surf, (float) coord.x, (float) coord.y);
 }
-template <class Type, class SurfaceType, class Vec>
-__device__ inline Type tex2D(SurfaceType surf, Vec coord, typename GlmToCuda<Vec>::Type* enable_if_glm_vec = nullptr)
-{
-	return toGlmExplicit<Type>( tex2D<typename GlmToCuda<Type>::Type>(surf, toCuda(coord)) );
-}
 
 template <class Type, class Vec>
-__device__ inline Type tex3D(cudaTextureObject_t surf, Vec coord, typename CudaToGlm<Vec>::Type* enable_if_cuda_vec = nullptr)
+__device__ inline Type tex3D(cudaTextureObject_t surf, Vec coord)
 {
 	return ::tex3D<Type>(surf, (float) coord.x, (float) coord.y, (float) coord.z);
 }
 template <class Type, class SurfaceType, class Vec>
-__device__ inline Type tex3D(SurfaceType surf, Vec coord, typename CudaToGlm<Vec>::Type* enable_if_cuda_vec = nullptr)
+__device__ inline Type tex3D(SurfaceType surf, Vec coord)
 {
 	return ::tex3D(surf, (float) coord.x, (float) coord.y, (float) coord.z);
-}
-template <class Type, class SurfaceType, class Vec>
-__device__ inline Type tex3D(SurfaceType surf, Vec coord, typename GlmToCuda<Vec>::Type* enable_if_glm_vec = nullptr)
-{
-	return toGlmExplicit<Type>( tex3D<typename GlmToCuda<Type>::Type>(surf, toCuda(coord)) );
 }
 
 __device__ inline hbvec3 toHalf(glm::vec3 const& v)
