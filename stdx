@@ -52,6 +52,9 @@ namespace std { struct random_access_iterator_tag; }
 
 namespace stdx
 {
+	template <class T> inline T min_value(T a, T b) { return (a < b || !(b == b)) ? a : b; } // min by-value w/ preference for non-NaN
+	template <class T> inline T max_value(T a, T b) { return (a > b || !(b == b)) ? a : b; } // max by-value w/ preference for non-NaN
+
 	namespace detail
 	{
 		template <class T, size_t Size>
@@ -482,7 +485,7 @@ namespace stdx
 	using std::memcmp;
 	inline int memcmp(void const* a, size_t sa, void const* b, size_t sb)
 	{
-		int prefixCmp = std::memcmp(a, b, std::min(sa, sb));
+		int prefixCmp = std::memcmp(a, b, min_value(sa, sb));
 		return (prefixCmp != 0 || sa == sb) ? prefixCmp : (sa < sb) ? -1 : 1;
 	}
 	template <class Range1, class Range2>

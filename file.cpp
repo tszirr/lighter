@@ -627,7 +627,7 @@ namespace stdx
 					typeStr[ass++] = 0;
 
 				wcscpy(extensionDataCursor, typeCStr + off);
-				extensionDataCursor += std::min(nextOff, ass) - off;
+				extensionDataCursor += min_value(nextOff, ass) - off;
 				
 				if (ass < nextOff)
 				{
