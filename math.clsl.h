@@ -68,7 +68,7 @@ CLSL_INLINE float2 viewportCoords(int2 screenPos, int2 screenDim)
 
 CLSL_INLINE ray3 rayFromVPI(float2 viewportCoords, mat4 viewProjInverse)
 {
-	float3 rayBase = CLSL_CTOR(float3)(transform4div4( viewProjInverse, CLSL_CTOR(float4)(viewportCoords, -1.25f, 1.0f) ));
+	float3 rayBase = CLSL_CTOR(float3)(transform4div4( viewProjInverse, CLSL_CTOR(float4)(viewportCoords, -16.0f, 1.0f) ));
 	ray3 ray;
 	ray.o = CLSL_CTOR(float3)(transform4div4( viewProjInverse, CLSL_CTOR(float4)(viewportCoords, -1.0f, 1.0f) ));
 	ray.d = normalize(ray.o - rayBase);

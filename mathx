@@ -81,7 +81,7 @@ namespace sml
 	MATHX_API inline ray<vec3> rayFromVPI(vec2 viewportCoords, mat4 const& viewProjInverse)
 	{
 		ray<vec3> ray;
-		auto rayBase = vec3( transformdiv( viewProjInverse, vec4(viewportCoords, -1.25f, 1.0f) ) );
+		auto rayBase = vec3( transformdiv( viewProjInverse, vec4(viewportCoords, -16.0f, 1.0f) ) );
 		ray.o = vec3( transformdiv( viewProjInverse, vec4(viewportCoords, -1.0f, 1.0f) ) );
 		ray.d = normalize(ray.o - rayBase);
 		return ray;
