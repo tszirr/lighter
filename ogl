@@ -258,6 +258,17 @@ struct BufferRef : glew_destroy<BufferRef, GLuint, glDeleteBuffers>
 		glBindBufferBase(bufferType, slot, 0);
 	}
 
+	static owned create(GLenum bufferType, GLbitfield flags, size_t size, void const* data = nullptr)
+	{
+		auto result = create();
+		result.bind(bufferType);
+
+		glBufferStorage(bufferType, size, data, flags);
+		THROW_OPENGL_LASTERROR("glBufferData()");
+
+		return result;
+	}
+	// legacy
 	static owned create(GLenum bufferType, size_t size, void const* data = nullptr, GLenum usage = GL_STATIC_DRAW)
 	{
 		auto result = create();
@@ -268,7 +279,13 @@ struct BufferRef : glew_destroy<BufferRef, GLuint, glDeleteBuffers>
 
 		return result;
 	}
-
+	
+	template <class Range>
+	static owned init(GLenum bufferType, GLbitfield flags, Range const& range)
+	{
+		return create(bufferType, flags, sizeof(*range.data()) * range.size(), range.data());
+	}
+	// legacy
 	template <class Range>
 	static owned init(GLenum bufferType, Range const& range, GLenum usage = GL_STATIC_DRAW)
 	{
