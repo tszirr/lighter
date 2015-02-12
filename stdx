@@ -649,7 +649,7 @@ namespace stdx
 		typedef fun_ref<typename signature<MemFunT>::type> fun_ref;
 		return fun_ref(
 			  obj
-			, &fun_ref::template memfun_dispatcher<typename std::remove_reference<Class>::type, MemFun>::template dispatcher<typename fun_ref::signature_type>::call)
+			, &fun_ref::template memfun_dispatcher<typename std::remove_reference<Class>::type, MemFun>::template dispatcher<typename fun_ref::signature_type>::call);
 	}
 
 	struct freely_stored
