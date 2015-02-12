@@ -56,7 +56,7 @@ using std::scalbn; using std::scalbln;
 using std::nexttoward; using std::tgamma;
 
 using std::fpclassify; using std::signbit;
-using std::isfinite; using std::isinf;
+using std::isfinite;
 using std::isnan; using std::isnormal;
 using std::isgreater; using std::isgreaterequal;
 using std::isless; using std::islessequal;

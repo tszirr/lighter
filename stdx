@@ -209,7 +209,7 @@ namespace stdx
 
 		template <class Value2>
 		range<typename Iterator::template reinterpret_t<Value2>::t> reinterpret() const
-		{	return range<typename Iterator::template reinterpret_t<Value2>::t>(this->first.reinterpret<Value2>(), this->last.reinterpret<Value2>()); }
+		{	return range<typename Iterator::template reinterpret_t<Value2>::t>(this->first.template reinterpret<Value2>(), this->last.template reinterpret<Value2>()); }
 	};
 
 	template <class Iterator>
@@ -631,7 +631,7 @@ namespace stdx
 		
 		dispatch_ptr dispatch;
 
-		fun_ref(nullptr_t) : dispatch(nullptr) { this->self = nullptr; }
+		fun_ref(std::nullptr_t) : dispatch(nullptr) { this->self = nullptr; }
 		template <class Callable>
 		fun_ref(Callable&& callable
 			, typename std::enable_if<!std::is_same<typename std::decay<Callable>::type, fun_ref>::value>::type *enable_if_not_copy = nullptr)
@@ -734,7 +734,7 @@ namespace stdx
 		Ref ref;
 
 		ref_with_onetype_store() : ref() { }
-		ref_with_onetype_store(nullptr_t) : ref(nullptr) { }
+		ref_with_onetype_store(std::nullptr_t) : ref(nullptr) { }
 
 		template <class V>
 		ref_with_onetype_store& operator =(V&& v)

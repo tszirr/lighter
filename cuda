@@ -50,7 +50,7 @@ struct Context : ContextRefWithDevice::owned
 {
 	MOVE_BASE(Context, owned)
 
-	Context(nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE)
+	Context(std::nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE)
 		: owned( ContextRefWithDevice(nullptr) ) { }
 
 	explicit Context(CUdevice device, unsigned int flags = 0)
@@ -85,7 +85,7 @@ struct CommandStream : CommandStreamRef::owned
 {
 	MOVE_BASE(CommandStream, owned)
 
-	CommandStream(nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) : owned(nullptr) { }
+	CommandStream(std::nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) : owned(nullptr) { }
 	explicit CommandStream(CUstream ref) : owned(ref) { }
 
 	// New stream
@@ -200,7 +200,7 @@ typedef KernelRef Kernel;
 
 struct VariableRef : ref_base<VariableRef, CUdeviceptr>
 {
-	VariableRef(nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
+	VariableRef(std::nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
 	VariableRef(CUdeviceptr ref) { this->ref = ref; }
 
 	static VariableRef fromModule(CUmodule module, char const *name)
@@ -286,7 +286,7 @@ inline double diffMS(CUevent startEvent, CUevent endEvent, bool failQuiet = fals
 
 struct BufferRef : cuda_destroy<BufferRef, CUdeviceptr, cuMemFree>
 {
-	BufferRef(nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
+	BufferRef(std::nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
 	BufferRef(CUdeviceptr ref) { this->ref = ref; }
 	
 	static owned create(CUcontext context, size_t size)
@@ -572,7 +572,7 @@ inline CUDA_TEXTURE_DESC point_texture_desc(CUaddress_mode addressMode = CU_TR_A
 
 struct TextureRef : cuda_destroy<TextureRef, CUtexObject, cuTexObjectDestroy>
 {
-	TextureRef(nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
+	TextureRef(std::nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
 	TextureRef(CUtexObject ref) { this->ref = ref; }
 	
 	static owned create(CUcontext context, CUDA_RESOURCE_DESC const& resDesc, CUDA_TEXTURE_DESC const& texDesc, CUDA_RESOURCE_VIEW_DESC const* pRVDesc = nullptr)
@@ -638,7 +638,7 @@ inline CUDA_RESOURCE_DESC surface_resource_desc(CUarray res)
 
 struct SurfaceRef : cuda_destroy<SurfaceRef, CUsurfObject, cuSurfObjectDestroy>
 {
-	SurfaceRef(nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
+	SurfaceRef(std::nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
 	SurfaceRef(CUsurfObject ref) { this->ref = ref; }
 	
 	static owned create(CUcontext context, CUDA_RESOURCE_DESC const& resDesc)

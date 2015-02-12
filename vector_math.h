@@ -29,7 +29,7 @@ namespace sml
 	
 	template <class T> SML_API inline T pi() { return T(3.14159265359); }
 	template <class T> SML_API inline T radians(T deg) { return T(3.14159265359 / 180.0) * deg; }
-	template <class T> SML_API inline T degrees(T deg) { return T(180.0 / 3.14159265359) * rad; }
+	template <class T> SML_API inline T degrees(T rad) { return T(180.0 / 3.14159265359) * rad; }
 	
 	typedef unsigned uint;
 
