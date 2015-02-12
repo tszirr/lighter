@@ -1,6 +1,7 @@
 #pragma once
 
 #include "file"
+#include <limits>
 #include <fstream>
 #include <sstream>
 #include <string>

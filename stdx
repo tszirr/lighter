@@ -176,16 +176,18 @@ namespace stdx
 	template <class Value, class Iterator = Value*>
 	struct data_range_param : range<Iterator>
 	{
+		using range<Iterator>::assert_stride_compatible;
+
 		data_range_param() { }
 		data_range_param(Iterator f, Iterator l) : range<Iterator>(f, l) { }
 		template <class Range>
 		data_range_param(Range& r
 			, typename enable_if_iterator_compatible<typename Range::pointer, Iterator>::type *enable_if_typematch = nullptr
-			) : range<Iterator>(r.data(), r.data() + r.size()) { assert_stride_compatible(data(), r.data()); }
+			) : range<Iterator>(r.data(), r.data() + r.size()) { assert_stride_compatible(this->data(), r.data()); }
 		template <class Range>
 		data_range_param(Range const& r
 			, typename enable_if_iterator_compatible<typename Range::const_pointer, Iterator>::type *enable_if_typematch = nullptr)
-			: range<Iterator>(r.data(), r.data() + r.size()) { assert_stride_compatible(data(), r.data()); }
+			: range<Iterator>(r.data(), r.data() + r.size()) { assert_stride_compatible(this->data(), r.data()); }
 	};
 
 	template <class Type> struct strided_ptr;
