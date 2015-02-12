@@ -4,9 +4,10 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/utime.h>
 
 #ifdef WIN32
+	#include <sys/utime.h>
+
 	#define NOMINMAX
 	#include <Windows.h>
 	#include <cstdlib>
@@ -19,6 +20,7 @@
 
 	#pragma comment(linker, "\"/manifestdependency:type='Win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 #else
+	#include <utime.h>
 	#include <libgen.h>
 #endif
 
