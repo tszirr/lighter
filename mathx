@@ -29,9 +29,41 @@ namespace glm
 
 #include <climits>
 #include <cfloat>
+
 #include <cmath>
-#include <type_traits>
+// fix cmath
+using std::abs; using std::acos; using std::asin;
+using std::atan; using std::atan2; using std::ceil;
+using std::cos; using std::cosh; using std::exp;
+using std::fabs; using std::floor; using std::fmod;
+using std::frexp; using std::ldexp; using std::log;
+using std::log10; using std::modf; using std::pow;
+using std::sin; using std::sinh; using std::sqrt;
+using std::tan; using std::tanh;
+
+using std::acosh; using std::asinh; using std::atanh;
+using std::cbrt; using std::erf; using std::erfc;
+using std::expm1; using std::exp2;
+using std::hypot; using std::ilogb; using std::lgamma;
+using std::log1p; using std::log2; using std::logb;
+using std::llrint; using std::lrint; using std::nearbyint;
+using std::rint; using std::llround; using std::lround;
+using std::fdim; using std::fma; using std::fmax; using std::fmin;
+using std::round; using std::trunc;
+using std::remainder; using std::remquo;
+using std::copysign; using std::nan; using std::nextafter;
+using std::scalbn; using std::scalbln;
+using std::nexttoward; using std::tgamma;
+
+using std::fpclassify; using std::signbit;
+using std::isfinite; using std::isinf;
+using std::isnan; using std::isnormal;
+using std::isgreater; using std::isgreaterequal;
+using std::isless; using std::islessequal;
+using std::islessgreater; using std::isunordered;
+
 #include "vector_math.h"
+#include <type_traits>
 
 #ifndef MATHX_API
 	#define MATHX_API SML_API

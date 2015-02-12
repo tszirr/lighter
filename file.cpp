@@ -1,6 +1,6 @@
-#include "filex"
 #include <algorithm>
 #include <iostream>
+#include "filex"
 
 #include <sys/types.h>
 #include <sys/stat.h>
