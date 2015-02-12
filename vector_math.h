@@ -164,8 +164,8 @@ namespace sml
 		typedef vec<T, dimension> vec;
 #endif
 		
-		SML_API T& operator [](ptrdiff_t i) { return c[i]; }
-		SML_API T  operator [](ptrdiff_t i) const { return c[i]; }
+		SML_API T& operator [](int i) { return c[i]; }
+		SML_API T  operator [](int i) const { return c[i]; }
 
 #ifdef SML_MSVC_LEGACY
 		SML_API SML_POD_VEC& operator = (vec const& r) { return *this = (pod_vec&) r; }
@@ -330,8 +330,8 @@ namespace sml
 		typedef vec<T, dimension> vec;
 #endif
 
-		SML_API T& operator [](ptrdiff_t i) { return c[i]; }
-		SML_API T  operator [](ptrdiff_t i) const { return c[i]; }
+		SML_API T& operator [](int i) { return c[i]; }
+		SML_API T  operator [](int i) const { return c[i]; }
 
 #ifdef SML_MSVC_LEGACY
 		SML_API SML_POD_VEC& operator = (vec const& r) { return *this = (pod_vec&) r; }
@@ -501,8 +501,8 @@ namespace sml
 		typedef vec<T, dimension> vec;
 #endif
 
-		SML_API T& operator [](ptrdiff_t i) { return c[i]; }
-		SML_API T  operator [](ptrdiff_t i) const { return c[i]; }
+		SML_API T& operator [](int i) { return c[i]; }
+		SML_API T  operator [](int i) const { return c[i]; }
 
 #ifdef SML_MSVC_LEGACY
 		SML_API SML_POD_VEC& operator = (vec const& r) { return *this = (pod_vec&) r; }
@@ -683,8 +683,8 @@ namespace sml
 		typedef vec<T, dimension> vec;
 #endif
 
-		SML_API T& operator [](ptrdiff_t i) { return c[i]; }
-		SML_API T  operator [](ptrdiff_t i) const { return c[i]; }
+		SML_API T& operator [](int i) { return c[i]; }
+		SML_API T  operator [](int i) const { return c[i]; }
 		
 #ifdef SML_MSVC_LEGACY
 		SML_API SML_POD_VEC& operator = (vec const& r) { return *this = (pod_vec&) r; }
@@ -850,8 +850,8 @@ namespace sml
 		typedef vec<T, N> vec;
 #endif
 		
-		SML_API T& operator [](ptrdiff_t i) { return c[i]; }
-		SML_API T  operator [](ptrdiff_t i) const { return c[i]; }
+		SML_API T& operator [](int i) { return c[i]; }
+		SML_API T  operator [](int i) const { return c[i]; }
 
 #ifdef SML_MSVC_LEGACY
 		SML_API SML_POD_VEC& operator = (vec const& r) { return *this = (pod_vec&) r; }
@@ -1070,8 +1070,8 @@ namespace sml
 		typedef mat<T, columns, columns> mat_s;
 		typedef mat<T, R, columns> mat_t;
 		
-		SML_API column& operator [](ptrdiff_t i) { return (column&) (T(&)[rows]) cls[i]; }
-		SML_API column  operator [](ptrdiff_t i) const { return cls[i]; }
+		SML_API column& operator [](int i) { return (column&) (T(&)[rows]) cls[i]; }
+		SML_API column  operator [](int i) const { return cls[i]; }
 		
 		SML_API mat& operator +=(mat const& r) { a += r.a; return *this; }
 		SML_API mat& operator -=(mat const& r) { a -= r.a; return *this; }
@@ -1162,8 +1162,8 @@ namespace sml
 		typedef mat<T, columns, columns> mat_s;
 		typedef mat<T, R, columns> mat_t;
 		
-		SML_API column& operator [](ptrdiff_t i) { return (column&) (T(&)[rows]) cls[i]; }
-		SML_API column  operator [](ptrdiff_t i) const { return cls[i]; }
+		SML_API column& operator [](int i) { return (column&) (T(&)[rows]) cls[i]; }
+		SML_API column  operator [](int i) const { return cls[i]; }
 		
 		SML_API mat& operator +=(mat const& r) { a += r.a; b += r.b; return *this; }
 		SML_API mat& operator -=(mat const& r) { a -= r.a; b -= r.b; return *this; }
@@ -1261,8 +1261,8 @@ namespace sml
 		typedef mat<T, columns, columns> mat_s;
 		typedef mat<T, R, columns> mat_t;
 		
-		SML_API column& operator [](ptrdiff_t i) { return (column&) (T(&)[rows]) cls[i]; }
-		SML_API column  operator [](ptrdiff_t i) const { return cls[i]; }
+		SML_API column& operator [](int i) { return (column&) (T(&)[rows]) cls[i]; }
+		SML_API column  operator [](int i) const { return cls[i]; }
 		
 		SML_API mat& operator +=(mat const& r) { a += r.a; b += r.b; c += r.c; return *this; }
 		SML_API mat& operator -=(mat const& r) { a -= r.a; b -= r.b; c -= r.c; return *this; }
@@ -1363,8 +1363,8 @@ namespace sml
 		typedef mat<T, columns, columns> mat_s;
 		typedef mat<T, R, columns> mat_t;
 		
-		SML_API column& operator [](ptrdiff_t i) { return (column&) (T(&)[rows]) cls[i]; }
-		SML_API column  operator [](ptrdiff_t i) const { return cls[i]; }
+		SML_API column& operator [](int i) { return (column&) (T(&)[rows]) cls[i]; }
+		SML_API column  operator [](int i) const { return cls[i]; }
 		
 		SML_API mat& operator +=(mat const& r) { a += r.a; b += r.b; c += r.c; d += r.d; return *this; }
 		SML_API mat& operator -=(mat const& r) { a -= r.a; b -= r.b; c -= r.c; d -= r.d; return *this; }
@@ -1454,8 +1454,8 @@ namespace sml
 		typedef mat<T, C, C> mat_s;
 		typedef mat<T, R, C> mat_t;
 		
-		SML_API column& operator [](ptrdiff_t i) { return (column&) (T(&)[rows]) cls[i]; }
-		SML_API column  operator [](ptrdiff_t i) const { return cls[i]; }
+		SML_API column& operator [](int i) { return (column&) (T(&)[rows]) cls[i]; }
+		SML_API column  operator [](int i) const { return cls[i]; }
 		
 		SML_API mat& operator +=(mat const& r) { for (int i = 0; i < C; ++i) cls[i] += r.cls[i]; return *this; }
 		SML_API mat& operator -=(mat const& r) { for (int i = 0; i < C; ++i) cls[i] -= r.cls[i]; return *this; }
