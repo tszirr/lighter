@@ -41,6 +41,7 @@ using std::log10; using std::modf; using std::pow;
 using std::sin; using std::sinh; using std::sqrt;
 using std::tan; using std::tanh;
 
+#if _MSC_VER > 1700
 using std::acosh; using std::asinh; using std::atanh;
 using std::cbrt; using std::erf; using std::erfc;
 using std::expm1; using std::exp2;
@@ -61,6 +62,7 @@ using std::isnan; using std::isnormal;
 using std::isgreater; using std::isgreaterequal;
 using std::isless; using std::islessequal;
 using std::islessgreater; using std::isunordered;
+#endif
 
 #include "vector_math.h"
 #include <type_traits>

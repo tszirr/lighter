@@ -21,6 +21,7 @@
 	#pragma comment(linker, "\"/manifestdependency:type='Win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 #else
 	#include <sys/time.h>
+	#include <fcntl.h>
 	#include <sys/mman.h>
 
 	#include <libgen.h>
@@ -623,7 +624,7 @@ namespace stdx
 				auto nextOff = typeStr.find('|', off);
 				if (nextOff != typeStr.npos)
 					typeStr[nextOff++] = 0;
-				elsel
+				else
 					nextOff = typeStr.size() + 1;
 
 				auto ass = typeStr.find('=', off);
