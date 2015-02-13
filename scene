@@ -156,7 +156,7 @@ struct Material : MaterialProperties< math::vec<float, 3> >
 		reset_float_default();
 		tex.reset_null_default();
 	}
-	static Material default()
+	static Material make_default()
 	{
 		Material r;
 		r.reset_default();

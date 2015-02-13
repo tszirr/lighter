@@ -872,7 +872,7 @@ struct FramebufferRef : glew_destroy<FramebufferRef, GLuint, glDeleteFramebuffer
 		return result;
 	}
 
-	static FramebufferRef default()
+	static FramebufferRef get_default()
 	{
 		return FramebufferRef(0U);
 	}

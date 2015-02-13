@@ -75,7 +75,7 @@ struct CommandStreamRef : cuda_destroy<CommandStreamRef, CUstream, cuStreamDestr
 {
 	CommandStreamRef(CUstream ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 
-	static CommandStreamRef default()
+	static CommandStreamRef get_default()
 	{
 		return CommandStreamRef(nullptr);
 	}
