@@ -100,7 +100,7 @@ struct noexcept_wrapper
 template <class Fun>
 inline noexcept_wrapper<Fun> wrap_noexcept(Fun&& fun)
 {
-	noexcept_wrapper<Fun> w = { MOVE(fun) };
+	noexcept_wrapper<Fun> w = { MOVE_T(fun) };
 	return w;
 }
 
@@ -129,7 +129,7 @@ struct auto_reset
 		, variable(&var)
 	{ }
 	auto_reset(auto_reset&& right)
-		: value(MOVE(right.value))
+		: value(MOVE_T(right.value))
 		, variable(right.variable)
 	{
 		right.variable = nullptr;
@@ -144,7 +144,7 @@ struct auto_reset
 	{
 		~auto_reset();
 		variable = nullptr;
-		value = MOVE(right.value);
+		value = MOVE_T(right.value);
 		variable = right.variable;
 		right.variable = nullptr;
 		return *this;

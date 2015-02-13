@@ -70,7 +70,7 @@ struct UiRenderer
 
 		QueuedWidget qc = { QueuedWidget::build_tuple( (short) pos.x, (short) pos.y )
 			, QueuedWidget::build_tuple( (unsigned short) size.x, (unsigned short) size.y )
-			, clazz | (exx << 8U)
+			, unsigned(clazz) | (exx << 8U)
 			, ex };
 		widgetMem[widgetBatchCnt] = qc;
 		++widgetBatchCnt;
