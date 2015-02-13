@@ -20,8 +20,9 @@
 
 	#pragma comment(linker, "\"/manifestdependency:type='Win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 #else
-	#include <sys/time.h>
+	#include <utime.h>
 	#include <fcntl.h>
+	#include <unistd.h>
 	#include <sys/mman.h>
 
 	#include <libgen.h>
@@ -752,18 +753,10 @@ namespace stdx
 		{
 			inline int get_posix_access_flags(unsigned access)
 			{
-				int access = O_RDONLY;
+				int sysaccess = O_RDONLY;
 				if (access & file_flags::write)
-					access = (access & file_flags::read) ? O_RDWR : O_WRONLY;
-				return access;
-			}
-
-			inline DWORD get_windows_sharing_flags(unsigned share, unsigned access)
-			{
-				DWORD winShare = 0;
-				if (share & file_flags::read) winShare |= FILE_SHARE_READ;
-				if (share & file_flags::write) winShare |= FILE_SHARE_WRITE;
-				return winShare;
+					sysaccess = (access & file_flags::read) ? O_RDWR : O_WRONLY;
+				return sysaccess;
 			}
 
 			inline int get_posix_open_mode(file_flags::open_mode mode, unsigned access)
@@ -778,13 +771,6 @@ namespace stdx
 					}
 				else
 					return 0;
-			}
-
-			inline DWORD get_windows_optimization_flags(unsigned hints)
-			{
-				if (hints & file_flags::sequential) return FILE_FLAG_SEQUENTIAL_SCAN;
-				else if (hints & file_flags::random) return FILE_FLAG_RANDOM_ACCESS;
-				else return 0;
 			}
 
 			template <class Pointer, int (*Deleter)(Pointer)>
@@ -815,7 +801,7 @@ namespace stdx
 
 		fdhandle file( ::open(
 			  name
-			, detail::generic_file::get_posix_access_flags(access) | detail::generic_file::get_posix_open_mode(mode)
+			, detail::generic_file::get_posix_access_flags(access) | detail::generic_file::get_posix_open_mode(mode, access)
 			, (mode_t) 0600
 			) );
 		if (file.get() == -1)
@@ -828,13 +814,13 @@ namespace stdx
 		{
 			mapSize = size;
 			auto success = ::lseek(file, mapSize - 1, SEEK_SET) != -1
-				&& ::write(fd, "", 1) == 1;
+				&& ::write(file, "", 1) == 1;
 			if (!success)
 				throwx(std::runtime_error(name));
 		}
 		// Always map full range
 		else
-			mapSize = ::lseek(file, 0, SEEK_END)
+			mapSize = ::lseek(file, 0, SEEK_END);
 
 		this->data = (char*) ::mmap(nullptr
 			, mapSize
