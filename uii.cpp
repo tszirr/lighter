@@ -1,6 +1,7 @@
 #include "uii"
 
 #include <cstdio>
+#include <string>
 
 namespace ui
 {

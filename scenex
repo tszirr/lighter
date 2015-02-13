@@ -1,6 +1,7 @@
 #pragma once
 
 #include "scene"
+#include <string>
 
 namespace scene
 {
