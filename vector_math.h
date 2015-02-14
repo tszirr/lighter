@@ -2,7 +2,7 @@
 
 #ifndef SML_API
 	#ifdef __CUDACC__
-		#define SML_API __host__ __device__ __inline__
+		#define SML_API __host__ __device__
 	#else
 		#define SML_API
 	#endif
@@ -121,9 +121,10 @@ namespace sml
 	template <> struct cuda_type<unsigned, 4> { typedef ::uint4 type; };
 
 	template <class T> SML_API inline T const& to_cuda(T const& v) { return v; }
-	template <class T, int N> SML_API inline typename cuda_type<T, N>::type const& to_cuda(pod_vec<T, N> const& v) { return v; }
 	template <class T, int N> SML_API inline typename cuda_type<T, N>::type const& to_cuda(vec<T, N> const& v) { return v; }
-	
+#ifdef SML_MSVC_LEGACY
+	template <class T, int N> SML_API inline typename cuda_type<T, N>::type const& to_cuda(pod_vec<T, N> const& v) { return v; }
+#endif
 	#define SML_MAKE_CUDA_CAST() MAKE_COMPATIBILITY_CAST(typename cuda_type<component, dimension>::type)
 #else
 	#define SML_MAKE_CUDA_CAST() 
@@ -1099,7 +1100,7 @@ namespace sml
 		{
 			mat_s s;
 			mat l_t = transpose(l);
-			s.a = mat_s::column( dot(l_t.a, r.a) );
+			s.a = typename mat_s::column( dot(l_t.a, r.a) );
 			return s;
 		}
 		SML_API friend vec<T, columns> operator *(vec<T, R> const& l, mat const& r) { return vec<T, columns>( dot(l, r.a) ); }
@@ -1192,8 +1193,8 @@ namespace sml
 		{
 			mat_s s;
 			mat l_t = transpose(l);
-			s.a = mat_s::column( dot(l_t.a, r.a), dot(l_t.b, r.a) );
-			s.b = mat_s::column( dot(l_t.a, r.b), dot(l_t.b, r.b) );
+			s.a = typename mat_s::column( dot(l_t.a, r.a), dot(l_t.b, r.a) );
+			s.b = typename mat_s::column( dot(l_t.a, r.b), dot(l_t.b, r.b) );
 			return s;
 		}
 		SML_API friend vec<T, columns> operator *(vec<T, R> const& l, mat const& r) { return vec<T, columns>( dot(l, r.a), dot(l, r.b) ); }
@@ -1292,9 +1293,9 @@ namespace sml
 		{
 			mat_s s;
 			mat l_t = transpose(l);
-			s.a = mat_s::column( dot(l_t.a, r.a), dot(l_t.b, r.a), dot(l_t.c, r.a) );
-			s.b = mat_s::column( dot(l_t.a, r.b), dot(l_t.b, r.b), dot(l_t.c, r.b) );
-			s.c = mat_s::column( dot(l_t.a, r.c), dot(l_t.b, r.c), dot(l_t.c, r.c) );
+			s.a = typename mat_s::column( dot(l_t.a, r.a), dot(l_t.b, r.a), dot(l_t.c, r.a) );
+			s.b = typename mat_s::column( dot(l_t.a, r.b), dot(l_t.b, r.b), dot(l_t.c, r.b) );
+			s.c = typename mat_s::column( dot(l_t.a, r.c), dot(l_t.b, r.c), dot(l_t.c, r.c) );
 			return s;
 		}
 		SML_API friend vec<T, columns> operator *(vec<T, R> const& l, mat const& r) { return vec<T, columns>( dot(l, r.a), dot(l, r.b), dot(l, r.c) ); }
@@ -1395,10 +1396,10 @@ namespace sml
 		{
 			mat_s s;
 			mat l_t = transpose(l);
-			s.a = mat_s::column( dot(l_t.a, r.a), dot(l_t.b, r.a), dot(l_t.c, r.a), dot(l_t.d, r.a) );
-			s.b = mat_s::column( dot(l_t.a, r.b), dot(l_t.b, r.b), dot(l_t.c, r.b), dot(l_t.d, r.b) );
-			s.c = mat_s::column( dot(l_t.a, r.c), dot(l_t.b, r.c), dot(l_t.c, r.c), dot(l_t.d, r.c) );
-			s.d = mat_s::column( dot(l_t.a, r.d), dot(l_t.b, r.d), dot(l_t.c, r.d), dot(l_t.d, r.d) );
+			s.a = typename mat_s::column( dot(l_t.a, r.a), dot(l_t.b, r.a), dot(l_t.c, r.a), dot(l_t.d, r.a) );
+			s.b = typename mat_s::column( dot(l_t.a, r.b), dot(l_t.b, r.b), dot(l_t.c, r.b), dot(l_t.d, r.b) );
+			s.c = typename mat_s::column( dot(l_t.a, r.c), dot(l_t.b, r.c), dot(l_t.c, r.c), dot(l_t.d, r.c) );
+			s.d = typename mat_s::column( dot(l_t.a, r.d), dot(l_t.b, r.d), dot(l_t.c, r.d), dot(l_t.d, r.d) );
 			return s;
 		}
 		SML_API friend vec<T, columns> operator *(vec<T, R> const& l, mat const& r) { return vec<T, columns>( dot(l, r.a), dot(l, r.b), dot(l, r.c), dot(l, r.d) ); }

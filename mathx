@@ -193,7 +193,7 @@ namespace sml
 		MATHX_API rand_box(Uniform u)
 		{	for (size_t i = 0; i < N; ++i) c[i] = u; }
 		template <class E>
-		MATHX_API result_type operator ()(E& e) const
+		MATHX_API result_type operator ()(E& e)
 		{
 			result_type v;
 			for (size_t i = 0; i < N; ++i)

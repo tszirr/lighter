@@ -24,13 +24,13 @@ typedef glm::vec<unsigned short, 4> hbvec4;
 template <class T>
 inline __host__ __device__ T* asRuntimePtr(CUdeviceptr ptr)
 {
-	return reinterpret_cast<T*>( static_cast<uintptr_t>(ptr) );
+	return reinterpret_cast<T*>( static_cast<size_t>(ptr) );
 }
 
 template <class T>
 inline __host__ __device__ CUdeviceptr asDriverPtr(T* ptr)
 {
-	return static_cast<CUdeviceptr>( reinterpret_cast<uintptr_t>(ptr) );
+	return static_cast<CUdeviceptr>( reinterpret_cast<size_t>(ptr) );
 }
 
 template <class T, class X>

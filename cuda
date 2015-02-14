@@ -63,7 +63,7 @@ struct Context : ContextRefWithDevice::owned
 		THROW_CUDA_ERROR(cuCtxCreate(&ref, flags, device), "cuDeviceGet");
 	}
 
-	static Context default(unsigned int flags = 0)
+	static Context create_default(unsigned int flags = 0)
 	{
 		CUdevice device;
 		THROW_CUDA_ERROR(cuDeviceGet(&device, 0), "cuDeviceGet");
@@ -678,8 +678,8 @@ struct WithSurface : Resource
 	using Resource::operator =;
 	Surface surface;
 	WithSurface(Resource resource, Surface surface = nullptr)
-		: Resource(move(resource))
-		, surface(move(surface)) { }
+		: Resource(MOVE_T(resource))
+		, surface(MOVE_T(surface)) { }
 };
 template <class Resource>
 struct WithTexture : Resource
@@ -688,20 +688,20 @@ struct WithTexture : Resource
 	using Resource::operator =;
 	Texture texture;
 	WithTexture(Resource resource, Texture texture = nullptr)
-		: Resource(move(resource))
-		, texture(move(texture)) { }
+		: Resource(MOVE_T(resource))
+		, texture(MOVE_T(texture)) { }
 };
 template <class Resource>
 struct WithTextureAndSurface : WithSurface<WithTexture<Resource>>
 {
 	MOVE_BASE(WithTextureAndSurface, WithSurface<WithTexture<Resource>>)
 	using Resource::operator =;
+	typedef typename WithTextureAndSurface::WithSurface WithTextureAndSurfaceBase;
 	WithTextureAndSurface(Resource resource)
-		: resource(move(resource)) { }
+		: WithTextureAndSurfaceBase(MOVE_T(resource)) { }
 	WithTextureAndSurface(Resource resource, Texture texture, Surface surface)
-		: resource(move(resource))
-		, texture(move(texture))
-		, surface(move(surface)) { }
+		: WithTextureAndSurfaceBase(WithTexture<Resource>(MOVE_T(resource), MOVE_T(texture)), MOVE_T(surface))
+		{ }
 };
 
 struct GlBufferRef : cuda_destroy<GlBufferRef, CUgraphicsResource, cuGraphicsUnregisterResource>
