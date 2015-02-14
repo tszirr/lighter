@@ -863,6 +863,6 @@ namespace stdx
 #define MOVE_MEMBER(clazz, member) MOVE_GENERATE(clazz, MOVE_1, MEMBER, member)
 #define MOVE_BASE_MEMBER(clazz, base, member) MOVE_GENERATE(clazz, MOVE_2, BASE, base, MEMBER, member)
 
-#define INPLACE_OSTREAM(t, x) (t() << x)
+#define INPLACE_OSTREAM(t, x) static_cast<t&&>(t() << x)
 #define INPLACE_SSTREAM(x) INPLACE_OSTREAM(std::stringstream, x)
 #define INPLACE_STR(x) INPLACE_SSTREAM(x).str()
