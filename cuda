@@ -56,6 +56,10 @@ struct Context : ContextRefWithDevice::owned
 	explicit Context(CUdevice device, unsigned int flags = 0)
 		: owned( ContextRefWithDevice(nullptr, device) )
 	{
+		int driverVersion = -1;
+		THROW_CUDA_ERROR(cuDriverGetVersion(&driverVersion); , "Unable to query CUDA driver version.");
+		std::cout << "CUDA Driver: " << driverVersion << std::endl;
+
 		char deviceName[2048];
 		THROW_CUDA_ERROR( cuDeviceGetName(deviceName, arraylen(deviceName), device), "Unable to query device name.");
 		std::cout << "CUDA Device: " << deviceName << std::endl;
