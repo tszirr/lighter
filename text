@@ -48,7 +48,7 @@ struct FreeType : FreeTypeRef::owned
 {
 	MOVE_BASE(FreeType, owned)
 
-	FreeType(nullptr_t) : owned(nullptr) { }
+	FreeType(std::nullptr_t) : owned(nullptr) { }
 	explicit FreeType(FT_Library ref) : owned(ref) { }
 	
 	FreeType()

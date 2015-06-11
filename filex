@@ -1,6 +1,7 @@
 #pragma once
 
 #include "file"
+#include <limits>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -83,8 +84,8 @@ namespace stdx
 		/// Constructs a character stream buffer from the given character range.
 		basic_charbuf(char_type *begin, char_type *end)
 		{
-			setp(begin, end);
-			setg(begin, begin, end);
+			this->setp(begin, end);
+			this->setg(begin, begin, end);
 		}
 
 		/// Resets the character stream buffer.

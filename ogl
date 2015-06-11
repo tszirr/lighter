@@ -1,7 +1,7 @@
 #pragma once
 
 #include "oglbase"
-#include <glfw/glfw3.h>
+#include <GLFW/glfw3.h>
 
 #include "stdx"
 #include "file"
@@ -258,6 +258,17 @@ struct BufferRef : glew_destroy<BufferRef, GLuint, glDeleteBuffers>
 		glBindBufferBase(bufferType, slot, 0);
 	}
 
+	static owned create(GLenum bufferType, GLbitfield flags, size_t size, void const* data = nullptr)
+	{
+		auto result = create();
+		result.bind(bufferType);
+
+		glBufferStorage(bufferType, size, data, flags);
+		THROW_OPENGL_LASTERROR("glBufferData()");
+
+		return result;
+	}
+	// legacy
 	static owned create(GLenum bufferType, size_t size, void const* data = nullptr, GLenum usage = GL_STATIC_DRAW)
 	{
 		auto result = create();
@@ -268,7 +279,13 @@ struct BufferRef : glew_destroy<BufferRef, GLuint, glDeleteBuffers>
 
 		return result;
 	}
-
+	
+	template <class Range>
+	static owned init(GLenum bufferType, GLbitfield flags, Range const& range)
+	{
+		return create(bufferType, flags, sizeof(*range.data()) * range.size(), range.data());
+	}
+	// legacy
 	template <class Range>
 	static owned init(GLenum bufferType, Range const& range, GLenum usage = GL_STATIC_DRAW)
 	{
@@ -700,12 +717,12 @@ struct BindingInfo<void, void>
 template <class T, class BindInfo>
 struct BindGuard
 {
-	MOVE_GENERATE(BindGuard, MOVE_2, MEMBER, bindInfo, MEMBER, bound)
+	MOVE_GENERATE(BindGuard, MOVE_2, MEMBER, info, MEMBER, bound)
 
 	BindInfo info;
 	T* bound;
 
-	BindGuard(nullptr_t)
+	BindGuard(std::nullptr_t)
 		: bound(nullptr) { }
 	BindGuard(BindInfo info, T &bound)
 		: info(info)
@@ -855,7 +872,7 @@ struct FramebufferRef : glew_destroy<FramebufferRef, GLuint, glDeleteFramebuffer
 		return result;
 	}
 
-	static FramebufferRef default()
+	static FramebufferRef get_default()
 	{
 		return FramebufferRef(0U);
 	}
@@ -1018,7 +1035,7 @@ struct AutoViewport : Resource
 	GLint width;
 	GLint height;
 
-	AutoViewport(nullptr_t) : Resource(nullptr) { }
+	AutoViewport(std::nullptr_t) : Resource(nullptr) { }
 	AutoViewport(Resource resource, size_t width, size_t height, int x = 0, int y = 0)
 		: Resource(std::move(resource))
 		, x(GLint(x))
@@ -1353,13 +1370,41 @@ inline double diffMS(GLuint startEvent, GLuint endEvent, bool failQuiet = false)
 	return double(stopTime - startTime) / 1000000.0;
 }
 
+struct SyncRef : glew_destroy_single<SyncRef, GLsync, glDeleteSync>
+{
+	SyncRef(std::nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
+	SyncRef(GLsync ref) { this->ref = ref; }
+
+	static owned fence(GLenum condition, GLbitfield flags = 0)
+	{
+		owned r = nullptr;
+		r.ref = glFenceSync(condition, flags);
+		THROW_OPENGL_LASTERROR("Failed to create OGL fence");
+		return r;
+	}
+
+	bool hostSync(GLuint64 timeout, GLbitfield flags = GL_SYNC_FLUSH_COMMANDS_BIT)
+	{
+		auto r = glClientWaitSync(ref, flags, timeout);
+		THROW_OPENGL_LASTERROR("Failed to sync host");
+		return r == GL_CONDITION_SATISFIED || r == GL_ALREADY_SIGNALED;
+	}
+
+	void deviceSync(GLuint64 timeout = GL_TIMEOUT_IGNORED, GLbitfield flags = 0)
+	{
+		glWaitSync(ref, flags, timeout);
+		THROW_OPENGL_LASTERROR("Failed to sync device");
+	}
+};
+typedef SyncRef::owned Sync;
+
 struct NullVertexArray : VertexArrays
 {
 	MOVE_GENERATE(NullVertexArray, MOVE_2, BASE, VertexArrays, MEMBER, buffer)
 
 	Buffer buffer;
 
-	NullVertexArray(nullptr_t)
+	NullVertexArray(std::nullptr_t)
 		: VertexArrays(nullptr)
 		, buffer(nullptr)
 	{

@@ -1,5 +1,7 @@
 #pragma once
 
+#if USE_GML
+
 #define GLM_SWIZZLE
 #define GLM_ADL_FRIENDLY
 #define GLM_FORCE_CXX11
@@ -18,73 +20,61 @@
 	#define MATHX_API
 #endif
 
+namespace sml = glm;
 namespace glm
 {
-	// Vector type analysis
-	template <class Vec> struct vec_type;
-	template <class Component> struct vec_type< glm::detail::tvec1<Component> > { static size_t const dimension = 1; typedef Component component; };
-	template <class Component> struct vec_type< glm::detail::tvec2<Component> > { static size_t const dimension = 2; typedef Component component; };
-	template <class Component> struct vec_type< glm::detail::tvec3<Component> > { static size_t const dimension = 3; typedef Component component; };
-	template <class Component> struct vec_type< glm::detail::tvec4<Component> > { static size_t const dimension = 4; typedef Component component; };
 
-	// Vector type synthesis
-	template <class T, size_t N> struct vec_t;
-	template <class T> struct vec_t<T, 1> { typedef glm::detail::tvec1<T> type; };
-	template <class T> struct vec_t<T, 2> { typedef glm::detail::tvec2<T> type; };
-	template <class T> struct vec_t<T, 3> { typedef glm::detail::tvec3<T> type; };
-	template <class T> struct vec_t<T, 4> { typedef glm::detail::tvec4<T> type; };
 
-	template <class T, size_t N> struct vec;
-	// POD vector (no default initialization -> aggregate / value initialization)
-	template <class T, size_t N, bool NamedComponents = std::is_trivial<T>::value>
-	struct pod_vec
-	{
-		T c[N];
+#else
 
-	#define DEFINE_POD_VEC_METHODS(N) \
-		\
-		MATHX_API operator vec<T, N>&() { return *reinterpret_cast<vec<T, N>*>(reinterpret_cast<T*>(this)); } \
-		MATHX_API operator vec<T, N> const&() const { return *reinterpret_cast<vec<T, N> const*>(reinterpret_cast<T const*>(this)); } \
-		\
-		MATHX_API operator typename vec_t<T, N>::type() const \
-		{	return *reinterpret_cast<typename vec_t<T, N>::type const*>(reinterpret_cast<T const*>(this)); }
+#include <climits>
+#include <cfloat>
 
-	DEFINE_POD_VEC_METHODS(N)
-	};
-	template <class T, size_t N, bool NamedComponents>
-	struct vec_type< pod_vec<T, N, NamedComponents> > { static size_t const dimension = N; typedef T component; };
+#include <cmath>
+// fix cmath
+using std::abs; using std::acos; using std::asin;
+using std::atan; using std::atan2; using std::ceil;
+using std::cos; using std::cosh; using std::exp;
+using std::fabs; using std::floor; using std::fmod;
+using std::frexp; using std::ldexp; using std::log;
+using std::log10; using std::modf; using std::pow;
+using std::sin; using std::sinh; using std::sqrt;
+using std::tan; using std::tanh;
 
-	// provide named component attributes (x, y, z, w)
-	#define SPECIALIZE_POD_VEC(N, ...) template <class T> struct pod_vec<T, N, true> { union { __VA_ARGS__; T c[N]; }; DEFINE_POD_VEC_METHODS(N) }
-	SPECIALIZE_POD_VEC(1, struct { T x; });
-	SPECIALIZE_POD_VEC(2, struct { T x, y; });
-	SPECIALIZE_POD_VEC(3, struct { T x, y, z; }; pod_vec<T, 2, false> xy; struct { T _; pod_vec<T, 2, false> yz; } );
-	SPECIALIZE_POD_VEC(4, struct { T x, y, z, w; }; pod_vec<T, 3, false> xyz; struct { pod_vec<T, 2, false> xy, zw; }; struct { T _; union { pod_vec<T, 3, false> yzw; pod_vec<T, 2, false> yz; }; } );
-	#undef SPECIALIZE_POD_VEC
-	#undef DEFINE_POD_VEC_METHODS
-	
-	// vector (no-op default initialization)
-	template <class T, size_t N>
-	struct vec : pod_vec<T, N>
-	{
-		MATHX_API vec() { }
-		
-		MATHX_API vec(pod_vec<T, N> const& v): pod_vec<T, N>(v) { }
-		MATHX_API vec& operator =(pod_vec<T, N> const& v) { pod_vec<T, N>::operator =(v); return *this; }
-		
-		template <class Vec> 
-		MATHX_API vec(Vec const& v,
-			typename std::enable_if<std::is_same<typename vec_type<Vec>::component, T>::value && vec_type<Vec>::dimension == N>::type* = nullptr)
-			: pod_vec<T, N>( reinterpret_cast<pod_vec<T, N> const&>(reinterpret_cast<T const&>(v)) ) { }
-	};
-	template <class T, size_t N> struct vec_type< vec<T, N> > { static size_t const dimension = N; typedef T component; };
-	
-	template <class Vec> MATHX_API inline vec<typename vec_type<Vec>::component, vec_type<Vec>::dimension> to_pod(Vec const& v)
-	{	return reinterpret_cast<vec<typename vec_type<Vec>::component, vec_type<Vec>::dimension> const&>(reinterpret_cast<typename vec_type<Vec>::component const&>(v)); }
-	template <class T, size_t N>
-	inline MATHX_API typename vec_t<T, N>::type to_vec(pod_vec<T, N> const& v)
-	{	return reinterpret_cast<typename vec_t<T, N>::type const&>(reinterpret_cast<T const&>(v)); }
+#if _MSC_VER > 1700
+using std::acosh; using std::asinh; using std::atanh;
+using std::cbrt; using std::erf; using std::erfc;
+using std::expm1; using std::exp2;
+using std::hypot; using std::ilogb; using std::lgamma;
+using std::log1p; using std::log2; using std::logb;
+using std::llrint; using std::lrint; using std::nearbyint;
+using std::rint; using std::llround; using std::lround;
+using std::fdim; using std::fma; using std::fmax; using std::fmin;
+using std::round; using std::trunc;
+using std::remainder; using std::remquo;
+using std::copysign; using std::nan; using std::nextafter;
+using std::scalbn; using std::scalbln;
+using std::nexttoward; using std::tgamma;
 
+using std::fpclassify; using std::signbit;
+using std::isfinite;
+using std::isnan; using std::isnormal;
+using std::isgreater; using std::isgreaterequal;
+using std::isless; using std::islessequal;
+using std::islessgreater; using std::isunordered;
+#endif
+
+#include "vector_math.h"
+#include <type_traits>
+
+#ifndef MATHX_API
+	#define MATHX_API SML_API
+#endif
+
+namespace glm = sml;
+namespace sml
+{
+#endif
 	// POD AABB (no default initialization)
 	template <class Vec>
 	struct aabb { Vec min, max; };
@@ -203,7 +193,7 @@ namespace glm
 		MATHX_API rand_box(Uniform u)
 		{	for (size_t i = 0; i < N; ++i) c[i] = u; }
 		template <class E>
-		MATHX_API result_type operator ()(E& e) const
+		MATHX_API result_type operator ()(E& e)
 		{
 			result_type v;
 			for (size_t i = 0; i < N; ++i)
@@ -214,15 +204,15 @@ namespace glm
 
 	template <class T> MATHX_API inline T mipCount(T res) { T count(1); for (auto m = res; m > T(1); m /= T(2)) ++count; return count; }
 
-	template <class T> MATHX_API inline T signNZ(T v) { return (v < T(0)) ? T(-1) : T(1); }
-	template <class T> MATHX_API inline glm::tvec2<T> signNZ(glm::tvec2<T> v) { return glm::tvec2<T>(signNZ(v.x), signNZ(v.y)); }
-	template <class T> MATHX_API inline glm::tvec3<T> signNZ(glm::tvec3<T> v) { return glm::tvec3<T>(signNZ(v.x), signNZ(v.y), signNZ(v.z)); }
-	template <class T> MATHX_API inline glm::tvec4<T> signNZ(glm::tvec4<T> v) { return glm::tvec4<T>(signNZ(v.x), signNZ(v.y), signNZ(v.z), signNZ(v.w)); }
+	template <class T> MATHX_API inline typename std::enable_if<std::is_fundamental<T>::value, T>::type signNZ(T v) { return (v < T(0)) ? T(-1) : T(1); }
+	template <class T> MATHX_API inline glm::vec<T, 2> signNZ(glm::pod_vec<T, 2> v) { return glm::vec<T, 2>(signNZ(v.x), signNZ(v.y)); }
+	template <class T> MATHX_API inline glm::vec<T, 3> signNZ(glm::pod_vec<T, 3> v) { return glm::vec<T, 3>(signNZ(v.x), signNZ(v.y), signNZ(v.z)); }
+	template <class T> MATHX_API inline glm::vec<T, 4> signNZ(glm::pod_vec<T, 4> v) { return glm::vec<T, 4>(signNZ(v.x), signNZ(v.y), signNZ(v.z), signNZ(v.w)); }
 
-	template <class T> MATHX_API inline T nextPO2(T res) { T po2(1); while (po2 < res) po2 *= T(2); return po2; }
-	template <class T> MATHX_API inline glm::tvec2<T> nextPO2(glm::tvec2<T> res) { return glm::tvec2<T>(nextPO2(res.x), nextPO2(res.y)); }
-	template <class T> MATHX_API inline glm::tvec3<T> nextPO2(glm::tvec3<T> res) { return glm::tvec3<T>(nextPO2(res.x), nextPO2(res.y), nextPO2(res.z)); }
-	template <class T> MATHX_API inline glm::tvec4<T> nextPO2(glm::tvec4<T> res) { return glm::tvec4<T>(nextPO2(res.x), nextPO2(res.y), nextPO2(res.z), nextPO2(res.w)); }
+	template <class T> MATHX_API inline typename std::enable_if<std::is_fundamental<T>::value, T>::type nextPO2(T res) { T po2(1); while (po2 < res) po2 *= T(2); return po2; }
+	template <class T> MATHX_API inline glm::vec<T, 2> nextPO2(glm::pod_vec<T, 2> res) { return glm::vec<T, 2>(nextPO2(res.x), nextPO2(res.y)); }
+	template <class T> MATHX_API inline glm::vec<T, 3> nextPO2(glm::pod_vec<T, 3> res) { return glm::vec<T, 3>(nextPO2(res.x), nextPO2(res.y), nextPO2(res.z)); }
+	template <class T> MATHX_API inline glm::vec<T, 4> nextPO2(glm::pod_vec<T, 4> res) { return glm::vec<T, 4>(nextPO2(res.x), nextPO2(res.y), nextPO2(res.z), nextPO2(res.w)); }
 	
 	template <class T>
 	MATHX_API inline T ceil_div(T x, T d)
@@ -235,23 +225,23 @@ namespace glm
 		auto r = x % d;
 		return (r == 0) ? x : x + d - r;
 	}
-
+	
 #ifndef MATHX_MINIMAL
 	template <class Char, class Traits, class Comp>
-	std::basic_istream<Char, Traits>& operator >>(std::basic_istream<Char, Traits> &stream, glm::detail::tvec1<Comp> &v)
+	std::basic_istream<Char, Traits>& operator >>(std::basic_istream<Char, Traits> &stream, glm::vec<Comp, 1> &v)
 	{
 		stream >> v.x;
 		return stream;
 	}
 	template <class Char, class Traits, class Comp>
-	std::basic_istream<Char, Traits>& operator >>(std::basic_istream<Char, Traits> &stream, glm::detail::tvec2<Comp> &v)
+	std::basic_istream<Char, Traits>& operator >>(std::basic_istream<Char, Traits> &stream, glm::vec<Comp, 2> &v)
 	{
 		stream >> v.x;
 		stream >> v.y;
 		return stream;
 	}
 	template <class Char, class Traits, class Comp>
-	std::basic_istream<Char, Traits>& operator >>(std::basic_istream<Char, Traits> &stream, glm::detail::tvec3<Comp> &v)
+	std::basic_istream<Char, Traits>& operator >>(std::basic_istream<Char, Traits> &stream, glm::vec<Comp, 3> &v)
 	{
 		stream >> v.x;
 		stream >> v.y;
@@ -259,7 +249,7 @@ namespace glm
 		return stream;
 	}
 	template <class Char, class Traits, class Comp>
-	std::basic_istream<Char, Traits>& operator >>(std::basic_istream<Char, Traits> &stream, glm::detail::tvec4<Comp> &v)
+	std::basic_istream<Char, Traits>& operator >>(std::basic_istream<Char, Traits> &stream, glm::vec<Comp, 4> &v)
 	{
 		stream >> v.x;
 		stream >> v.y;
@@ -269,20 +259,20 @@ namespace glm
 	}
 
 	template <class Char, class Traits, class Comp>
-	std::basic_ostream<Char, Traits>& operator <<(std::basic_ostream<Char, Traits> &stream, glm::detail::tvec1<Comp> &v)
+	std::basic_ostream<Char, Traits>& operator <<(std::basic_ostream<Char, Traits> &stream, glm::vec<Comp, 1> &v)
 	{
 		stream << v.x;
 		return stream;
 	}
 	template <class Char, class Traits, class Comp>
-	std::basic_ostream<Char, Traits>& operator <<(std::basic_ostream<Char, Traits> &stream, glm::detail::tvec2<Comp> &v)
+	std::basic_ostream<Char, Traits>& operator <<(std::basic_ostream<Char, Traits> &stream, glm::vec<Comp, 2> &v)
 	{
 		stream << v.x << ' ';
 		stream << v.y;
 		return stream;
 	}
 	template <class Char, class Traits, class Comp>
-	std::basic_ostream<Char, Traits>& operator <<(std::basic_ostream<Char, Traits> &stream, glm::detail::tvec3<Comp> &v)
+	std::basic_ostream<Char, Traits>& operator <<(std::basic_ostream<Char, Traits> &stream, glm::vec<Comp, 3> &v)
 	{
 		stream << v.x << ' ';
 		stream << v.y << ' ';
@@ -290,7 +280,7 @@ namespace glm
 		return stream;
 	}
 	template <class Char, class Traits, class Comp>
-	std::basic_ostream<Char, Traits>& operator <<(std::basic_ostream<Char, Traits> &stream, glm::detail::tvec4<Comp> &v)
+	std::basic_ostream<Char, Traits>& operator <<(std::basic_ostream<Char, Traits> &stream, glm::vec<Comp, 4> &v)
 	{
 		stream << v.x << ' ';
 		stream << v.y << ' ';
@@ -299,7 +289,7 @@ namespace glm
 		return stream;
 	}
 #endif
-	
+
 	/// Puts a zero bit in-between each of the lower 16 bits of the given value.
 	MATHX_API inline unsigned bitsep1(unsigned x)
 	{
@@ -374,4 +364,4 @@ namespace glm
 
 } // namespace
 
-namespace math = glm;
+namespace math = sml;

@@ -48,10 +48,17 @@
 #define MOVE(x) static_cast<std::remove_reference<decltype(x)>::type&&>(x)
 #define MOVE_T(x) static_cast<typename std::remove_reference<decltype(x)>::type&&>(x)
 
+#ifdef _MSC_VER
 namespace std { struct random_access_iterator_tag; }
+#else
+#include <iterator>
+#endif
 
 namespace stdx
 {
+	using std::size_t;
+	using std::ptrdiff_t;
+
 	template <class T> inline T min_value(T a, T b) { return (a < b || !(b == b)) ? a : b; } // min by-value w/ preference for non-NaN
 	template <class T> inline T max_value(T a, T b) { return (a > b || !(b == b)) ? a : b; } // max by-value w/ preference for non-NaN
 
@@ -127,22 +134,22 @@ namespace stdx
 		iterator first, last;
 
 		static void assert_stride_compatible(iterator, iterator) { }
-		template <class Iterator>
-		static void assert_stride_compatible(iterator a, Iterator b)
+		template <class It2>
+		static void assert_stride_compatible(iterator a, It2 b)
 		{	static_assert(sizeof(*a) == sizeof(*b), "Range iterator type or stride mismatch"); (void) a; (void) b; }
 		
 		range() : first(), last() { }
 		range(iterator f, iterator l) : first((iterator&&) f), last((iterator&&) l) { }
 		template <class Range>
-		explicit range(Range& r) : first(r.begin()), last(r.end()) { assert_stride_compatible(r.begin(), r.begin()); }
+		explicit range(Range& r) : first(r.begin()), last(r.end()) { assert_stride_compatible(begin(), r.begin()); }
 		template <class Range>
-		explicit range(Range const& r) : first(r.begin()), last(r.end()) { assert_stride_compatible(r.begin(), r.begin()); }
+		explicit range(Range const& r) : first(r.begin()), last(r.end()) { assert_stride_compatible(begin(), r.begin()); }
 		template <class T>
-		range(range<T> const& r) : first(r.first), last(r.last) { assert_stride_compatible(r.first, r.first); }
+		range(range<T> const& r) : first(r.first), last(r.last) { assert_stride_compatible(first, r.first); }
 		
 		void assign(iterator begin, iterator end) { first = begin; last = end; }
 		template <class Range>
-		void assign(Range &range) { first = range.begin(); last = range.end(); assert_stride_compatible(range.begin(), range.begin()); }
+		void assign(Range &range) { first = range.begin(); last = range.end(); assert_stride_compatible(begin(), range.begin()); }
 
 		// const& to catch pre-POD usage
 		iterator const& begin() const { return first; }
@@ -173,16 +180,18 @@ namespace stdx
 	template <class Value, class Iterator = Value*>
 	struct data_range_param : range<Iterator>
 	{
+		using range<Iterator>::assert_stride_compatible;
+
 		data_range_param() { }
 		data_range_param(Iterator f, Iterator l) : range<Iterator>(f, l) { }
 		template <class Range>
 		data_range_param(Range& r
 			, typename enable_if_iterator_compatible<typename Range::pointer, Iterator>::type *enable_if_typematch = nullptr
-			) : range<Iterator>(r.data(), r.data() + r.size()) { assert_stride_compatible(r.data(), r.data()); }
+			) : range<Iterator>(r.data(), r.data() + r.size()) { assert_stride_compatible(this->data(), r.data()); }
 		template <class Range>
 		data_range_param(Range const& r
 			, typename enable_if_iterator_compatible<typename Range::const_pointer, Iterator>::type *enable_if_typematch = nullptr)
-			: range<Iterator>(r.data(), r.data() + r.size()) { assert_stride_compatible(r.data(), r.data()); }
+			: range<Iterator>(r.data(), r.data() + r.size()) { assert_stride_compatible(this->data(), r.data()); }
 	};
 
 	template <class Type> struct strided_ptr;
@@ -204,7 +213,7 @@ namespace stdx
 
 		template <class Value2>
 		range<typename Iterator::template reinterpret_t<Value2>::t> reinterpret() const
-		{	return range<typename Iterator::template reinterpret_t<Value2>::t>(this->first.reinterpret<Value2>(), this->last.reinterpret<Value2>()); }
+		{	return range<typename Iterator::template reinterpret_t<Value2>::t>(this->first.template reinterpret<Value2>(), this->last.template reinterpret<Value2>()); }
 	};
 
 	template <class Iterator>
@@ -626,7 +635,7 @@ namespace stdx
 		
 		dispatch_ptr dispatch;
 
-		fun_ref(nullptr_t) : dispatch(nullptr) { this->self = nullptr; }
+		fun_ref(std::nullptr_t) : dispatch(nullptr) { this->self = nullptr; }
 		template <class Callable>
 		fun_ref(Callable&& callable
 			, typename std::enable_if<!std::is_same<typename std::decay<Callable>::type, fun_ref>::value>::type *enable_if_not_copy = nullptr)
@@ -644,7 +653,7 @@ namespace stdx
 		typedef fun_ref<typename signature<MemFunT>::type> fun_ref;
 		return fun_ref(
 			  obj
-			, &fun_ref::template memfun_dispatcher<typename std::remove_reference<Class>::type, MemFun>::template dispatcher<typename fun_ref::signature_type>::call)
+			, &fun_ref::template memfun_dispatcher<typename std::remove_reference<Class>::type, MemFun>::template dispatcher<typename fun_ref::signature_type>::call);
 	}
 
 	struct freely_stored
@@ -729,7 +738,7 @@ namespace stdx
 		Ref ref;
 
 		ref_with_onetype_store() : ref() { }
-		ref_with_onetype_store(nullptr_t) : ref(nullptr) { }
+		ref_with_onetype_store(std::nullptr_t) : ref(nullptr) { }
 
 		template <class V>
 		ref_with_onetype_store& operator =(V&& v)
@@ -854,6 +863,6 @@ namespace stdx
 #define MOVE_MEMBER(clazz, member) MOVE_GENERATE(clazz, MOVE_1, MEMBER, member)
 #define MOVE_BASE_MEMBER(clazz, base, member) MOVE_GENERATE(clazz, MOVE_2, BASE, base, MEMBER, member)
 
-#define INPLACE_OSTREAM(t, x) static_cast<t&>(t() << x)
+#define INPLACE_OSTREAM(t, x) static_cast<t&&>(t() << x)
 #define INPLACE_SSTREAM(x) INPLACE_OSTREAM(std::stringstream, x)
 #define INPLACE_STR(x) INPLACE_SSTREAM(x).str()

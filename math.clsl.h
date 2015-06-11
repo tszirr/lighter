@@ -99,12 +99,10 @@ CLSL_INLINE float rayIntersectAABB(ray3 ray, aabb3 box, CLSL_OUT_PARAM(float3) p
 	}
 
 	float3 p = ray.o + (t + 0.0001f) * ray.d;
+	CLSL_DEREF_OUT_PARAM(pointOut) = p;
 
 	if (all(equal(CLSL_CTOR(ivec3)(ta), CLSL_CTOR(ivec3)(0, 1, 2)) CLSL_OR lessThanEqual(box.min, p) CLSL_AND lessThanEqual(p, box.max)))
-	{
-		CLSL_DEREF_OUT_PARAM(pointOut) = p;
 		return t;
-	}
 	else
 		return -1.0f;
 }
@@ -128,12 +126,10 @@ CLSL_INLINE float rayIntersectAABBBack(ray3 ray, aabb3 box, CLSL_OUT_PARAM(float
 	}
 
 	float3 p = ray.o + (t + 0.0001f) * ray.d;
+	CLSL_DEREF_OUT_PARAM(pointOut) = p;
 
 	if (all(equal(CLSL_CTOR(ivec3)(ta), CLSL_CTOR(ivec3)(0, 1, 2)) CLSL_OR lessThanEqual(box.min, p) CLSL_AND lessThanEqual(p, box.max)))
-	{
-		CLSL_DEREF_OUT_PARAM(pointOut) = p;
 		return t;
-	}
 	else
 		return -1.0f;
 }

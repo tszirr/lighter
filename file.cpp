@@ -1,12 +1,13 @@
-#include "filex"
 #include <algorithm>
 #include <iostream>
+#include "filex"
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/utime.h>
 
 #ifdef WIN32
+	#include <sys/utime.h>
+
 	#define NOMINMAX
 	#include <Windows.h>
 	#include <cstdlib>
@@ -19,6 +20,11 @@
 
 	#pragma comment(linker, "\"/manifestdependency:type='Win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 #else
+	#include <utime.h>
+	#include <fcntl.h>
+	#include <unistd.h>
+	#include <sys/mman.h>
+
 	#include <libgen.h>
 #endif
 
@@ -740,6 +746,104 @@ namespace stdx
 	}
 
 #else
+	
+	namespace detail
+	{
+		namespace generic_file
+		{
+			inline int get_posix_access_flags(unsigned access)
+			{
+				int sysaccess = O_RDONLY;
+				if (access & file_flags::write)
+					sysaccess = (access & file_flags::read) ? O_RDWR : O_WRONLY;
+				return sysaccess;
+			}
+
+			inline int get_posix_open_mode(file_flags::open_mode mode, unsigned access)
+			{
+				if (access & file_flags::write)
+					switch (mode)
+					{
+						case file_flags::nonexisting: return O_CREAT | O_EXCL;
+						case file_flags::existing: return 0;
+						case file_flags::new_overwrite: return O_CREAT | O_TRUNC;
+						default: case file_flags::open_or_new: return O_CREAT;
+					}
+				else
+					return 0;
+			}
+
+			template <class Pointer, int (*Deleter)(Pointer)>
+			struct unix_delete
+			{
+				typedef Pointer pointer;
+				void operator ()(pointer ptr) const
+				{
+					if (ptr > 0)
+						(*Deleter)(ptr);
+				}
+
+				typedef std::unique_ptr< Pointer, unix_delete<Pointer, Deleter> > pointer_type;
+				typedef stdx::unique_handle< Pointer, unix_delete<Pointer, Deleter> > handle_type;
+			};
+
+			typedef unix_delete<int, close>::handle_type fdhandle;
+		}
+	}
+
+	mapped_file::mapped_file(char const* name, size_t size, unsigned access, open_mode mode,
+	                         unsigned share, unsigned hints)
+	{
+		typedef detail::generic_file::fdhandle fdhandle;
+		
+		// always give read access (required by sys)
+		access |= file_flags::read;
+
+		fdhandle file( ::open(
+			  name
+			, detail::generic_file::get_posix_access_flags(access) | detail::generic_file::get_posix_open_mode(mode, access)
+			, (mode_t) 0600
+			) );
+		if (file.get() == -1)
+			throwx(std::runtime_error(name));
+
+		size_t mapSize;
+
+		// Resize first to avoid creating the mapping twice
+		if ((access & file_flags::write) && size != 0)
+		{
+			mapSize = size;
+			auto success = ::lseek(file, mapSize - 1, SEEK_SET) != -1
+				&& ::write(file, "", 1) == 1;
+			if (!success)
+				throwx(std::runtime_error(name));
+		}
+		// Always map full range
+		else
+			mapSize = ::lseek(file, 0, SEEK_END);
+
+		this->data = (char*) ::mmap(nullptr
+			, mapSize
+			, (access & file_flags::write) ? PROT_READ | PROT_WRITE : PROT_READ
+			, MAP_SHARED
+			, file
+			, 0);
+		if (!this->data)
+			throwx(std::runtime_error(name));
+
+		this->size = mapSize;
+	}
+
+	mapped_file::~mapped_file()
+	{
+		if (data)
+			::munmap(data, size);
+	}
+
+	void mapped_file::prefetchAll()
+	{
+	}
+
 
 	void init_shell_on_startup()
 	{

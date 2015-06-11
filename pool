@@ -63,8 +63,10 @@ public:
 		: own(value) { }
 
 	// movement
+#if defined(_MSC_VER) && _MSC_VER <= 1800
 	own_pooled(own_pooled&& right)
 		: own(MOVE_T(right)) { }
+#endif
 	using own::operator =;
 	
 	own_pooled acquire() const

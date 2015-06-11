@@ -50,12 +50,16 @@ struct Context : ContextRefWithDevice::owned
 {
 	MOVE_BASE(Context, owned)
 
-	Context(nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE)
+	Context(std::nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE)
 		: owned( ContextRefWithDevice(nullptr) ) { }
 
 	explicit Context(CUdevice device, unsigned int flags = 0)
 		: owned( ContextRefWithDevice(nullptr, device) )
 	{
+		int driverVersion = -1;
+		THROW_CUDA_ERROR(cuDriverGetVersion(&driverVersion); , "Unable to query CUDA driver version.");
+		std::cout << "CUDA Driver: " << driverVersion << std::endl;
+
 		char deviceName[2048];
 		THROW_CUDA_ERROR( cuDeviceGetName(deviceName, arraylen(deviceName), device), "Unable to query device name.");
 		std::cout << "CUDA Device: " << deviceName << std::endl;
@@ -63,7 +67,7 @@ struct Context : ContextRefWithDevice::owned
 		THROW_CUDA_ERROR(cuCtxCreate(&ref, flags, device), "cuDeviceGet");
 	}
 
-	static Context default(unsigned int flags = 0)
+	static Context create_default(unsigned int flags = 0)
 	{
 		CUdevice device;
 		THROW_CUDA_ERROR(cuDeviceGet(&device, 0), "cuDeviceGet");
@@ -75,7 +79,7 @@ struct CommandStreamRef : cuda_destroy<CommandStreamRef, CUstream, cuStreamDestr
 {
 	CommandStreamRef(CUstream ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
 
-	static CommandStreamRef default()
+	static CommandStreamRef get_default()
 	{
 		return CommandStreamRef(nullptr);
 	}
@@ -85,7 +89,7 @@ struct CommandStream : CommandStreamRef::owned
 {
 	MOVE_BASE(CommandStream, owned)
 
-	CommandStream(nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) : owned(nullptr) { }
+	CommandStream(std::nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) : owned(nullptr) { }
 	explicit CommandStream(CUstream ref) : owned(ref) { }
 
 	// New stream
@@ -200,7 +204,7 @@ typedef KernelRef Kernel;
 
 struct VariableRef : ref_base<VariableRef, CUdeviceptr>
 {
-	VariableRef(nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
+	VariableRef(std::nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
 	VariableRef(CUdeviceptr ref) { this->ref = ref; }
 
 	static VariableRef fromModule(CUmodule module, char const *name)
@@ -286,7 +290,7 @@ inline double diffMS(CUevent startEvent, CUevent endEvent, bool failQuiet = fals
 
 struct BufferRef : cuda_destroy<BufferRef, CUdeviceptr, cuMemFree>
 {
-	BufferRef(nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
+	BufferRef(std::nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
 	BufferRef(CUdeviceptr ref) { this->ref = ref; }
 	
 	static owned create(CUcontext context, size_t size)
@@ -572,7 +576,7 @@ inline CUDA_TEXTURE_DESC point_texture_desc(CUaddress_mode addressMode = CU_TR_A
 
 struct TextureRef : cuda_destroy<TextureRef, CUtexObject, cuTexObjectDestroy>
 {
-	TextureRef(nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
+	TextureRef(std::nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
 	TextureRef(CUtexObject ref) { this->ref = ref; }
 	
 	static owned create(CUcontext context, CUDA_RESOURCE_DESC const& resDesc, CUDA_TEXTURE_DESC const& texDesc, CUDA_RESOURCE_VIEW_DESC const* pRVDesc = nullptr)
@@ -638,7 +642,7 @@ inline CUDA_RESOURCE_DESC surface_resource_desc(CUarray res)
 
 struct SurfaceRef : cuda_destroy<SurfaceRef, CUsurfObject, cuSurfObjectDestroy>
 {
-	SurfaceRef(nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
+	SurfaceRef(std::nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = 0; }
 	SurfaceRef(CUsurfObject ref) { this->ref = ref; }
 	
 	static owned create(CUcontext context, CUDA_RESOURCE_DESC const& resDesc)
@@ -678,8 +682,8 @@ struct WithSurface : Resource
 	using Resource::operator =;
 	Surface surface;
 	WithSurface(Resource resource, Surface surface = nullptr)
-		: Resource(move(resource))
-		, surface(move(surface)) { }
+		: Resource(MOVE_T(resource))
+		, surface(MOVE_T(surface)) { }
 };
 template <class Resource>
 struct WithTexture : Resource
@@ -688,20 +692,20 @@ struct WithTexture : Resource
 	using Resource::operator =;
 	Texture texture;
 	WithTexture(Resource resource, Texture texture = nullptr)
-		: Resource(move(resource))
-		, texture(move(texture)) { }
+		: Resource(MOVE_T(resource))
+		, texture(MOVE_T(texture)) { }
 };
 template <class Resource>
 struct WithTextureAndSurface : WithSurface<WithTexture<Resource>>
 {
 	MOVE_BASE(WithTextureAndSurface, WithSurface<WithTexture<Resource>>)
 	using Resource::operator =;
+	typedef typename WithTextureAndSurface::WithSurface WithTextureAndSurfaceBase;
 	WithTextureAndSurface(Resource resource)
-		: resource(move(resource)) { }
+		: WithTextureAndSurfaceBase(MOVE_T(resource)) { }
 	WithTextureAndSurface(Resource resource, Texture texture, Surface surface)
-		: resource(move(resource))
-		, texture(move(texture))
-		, surface(move(surface)) { }
+		: WithTextureAndSurfaceBase(WithTexture<Resource>(MOVE_T(resource), MOVE_T(texture)), MOVE_T(surface))
+		{ }
 };
 
 struct GlBufferRef : cuda_destroy<GlBufferRef, CUgraphicsResource, cuGraphicsUnregisterResource>

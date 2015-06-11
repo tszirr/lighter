@@ -1,6 +1,6 @@
 #pragma once
 
-#include <glfw/glfw3.h>
+#include <GLFW/glfw3.h>
 
 #include "stdx"
 #include "mathx"
@@ -154,10 +154,12 @@ struct GLFWMouse
 	glm::ivec2 lastMousePos;
 	glm::ivec2 mouseDelta;
 
+	bool captureUnsupported;
 	bool mouseCaptured;
 
 	GLFWMouse()
-		: mouseCaptured(false)
+		: captureUnsupported(false)
+		, mouseCaptured(false)
 	{
 		reset();
 	}
@@ -179,7 +181,7 @@ struct GLFWMouse
 	void accept()
 	{
 		memset(buttonChanged, 0, sizeof(buttonChanged));
-		mouseDelta = glm::ivec2();
+		mouseDelta = glm::ivec2(0);
 	}
 
 	void moveHandler(int x, int y)
@@ -221,11 +223,12 @@ struct GLFWMouse
 
 	void setMouseCapture(GLFWwindow* wnd,  bool capture)
 	{
-		if (capture)
-			glfwSetInputMode(wnd, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-		else
-			glfwSetInputMode(wnd, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-		
+		if (!captureUnsupported) {
+			if (capture)
+				glfwSetInputMode(wnd, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+			else
+				glfwSetInputMode(wnd, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+		}
 		double x, y;
 		glfwGetCursorPos(wnd, &x, &y);
 		lastMousePos = glm::ivec2((int) x, (int) y);

@@ -60,7 +60,7 @@ struct Context : ContextRefWithDevice::owned
 {
 	MOVE_BASE(Context, owned)
 
-	Context(nullptr_t)
+	Context(std::nullptr_t)
 		: owned( ContextRefWithDevice(nullptr) ) { }
 	explicit Context(cl_context ref, cl_platform_id platform = nullptr, cl_device_id device = nullptr)
 		: owned( ContextRefWithDevice(ref, platform, device) ) { }
@@ -149,7 +149,7 @@ struct CommandStream : CommandStreamRef::owned
 {
 	MOVE_BASE(CommandStream, owned)
 
-	CommandStream(nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) : owned(nullptr) { }
+	CommandStream(std::nullptr_t DEFAULT_ASSIGN_NULL_REFERENCE) : owned(nullptr) { }
 	explicit CommandStream(cl_command_queue ref) : owned(ref) { }
 
 	explicit CommandStream(cl_context_with_device context, bool profiling = true)
@@ -553,7 +553,7 @@ struct BindGuard
 	cl_command_queue stream;
 	T* bound;
 
-	BindGuard(nullptr_t)
+	BindGuard(std::nullptr_t)
 		: bound(nullptr) { }
 	BindGuard(cl_command_queue stream, T &bound)
 		: stream(stream)

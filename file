@@ -53,6 +53,7 @@ namespace stdx
 		char* data;
 		size_t size;
 
+		mapped_file(std::nullptr_t) : data(), size() { }
 		mapped_file(char const* name, size_t size, unsigned access = file_flags::read, file_flags::open_mode mode = file_flags::new_overwrite,
 			unsigned share = file_flags::read, unsigned hints = file_flags::nohints);
 		~mapped_file();
