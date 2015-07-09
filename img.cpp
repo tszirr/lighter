@@ -68,7 +68,7 @@ inline void copy_channels(D* destBytes, unsigned destChannels, S const* srcBytes
 			srcByte += skipChannels;
 		}
 
-		srcLine += srcPitch;
+		srcLine = (S*) ((char*) srcLine + srcPitch);
 	}
 }
 
