@@ -82,8 +82,10 @@ struct GLFW : stdx::noncopyable
 		glGetError();
 		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
 		glGetError();
-		if (glDebugMessageControl)
-			glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
+		if (glDebugMessageControl) {
+			glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_MEDIUM, 0, nullptr, GL_TRUE);
+			glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_HIGH, 0, nullptr, GL_TRUE);
+		}
 		if (glDebugMessageCallback)
 			glDebugMessageCallback(&GLFW::debugCallback, NULL);
 	}
