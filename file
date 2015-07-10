@@ -21,8 +21,11 @@ namespace stdx
 	std::string filesys_relative_path(char const* from, char const* to);
 
 	std::string load_file(char const* name);
-	
 	std::vector<char> load_binary_file(char const* name, bool nullterminated = false);
+
+	std::string current_directory();
+	void current_directory(char const* dir);
+	std::string exe_directory();
 	
 	struct file_flags
 	{

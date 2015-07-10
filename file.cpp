@@ -41,6 +41,31 @@ namespace stdx
 	{
 		return utime(name, nullptr) == 0;
 	}
+
+	std::string current_directory()
+	{
+		return realpath(".");
+	}
+
+	void current_directory(char const* dir)
+	{
+#ifdef WIN32
+		SetCurrentDirectoryA(dir);
+#else
+		chdir(file);
+#endif
+	}
+	
+	std::string exe_directory()
+	{
+#ifdef WIN32
+		char path[MAX_PATH];
+		GetModuleFileNameA(NULL, path, MAX_PATH);
+		return stdx::dirname(path);
+#else
+		return stdx::dirname(realpath("/proc/self/exe").c_str());
+#endif
+	}
 	
 	namespace detail
 	{
