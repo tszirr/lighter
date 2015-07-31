@@ -123,11 +123,20 @@ namespace io_error_handlers
 
 } // namespace
 
+template <class Scene>
+void complete_texture_pool(Scene& scene)
+{
+	for (auto& m : scene.materials) {
+		m.tex.reflect();
+	}
+}
+
 template <class Scene, class ErrorHandler>
 char const* read(stdx::data_range_param<char const> src, Scene& scene, ErrorHandler&& errorHandler)
 {
 	ReadVisitor<ErrorHandler> v(src.first, src.last, errorHandler);
 	scene.reflect(scene, v);
+	complete_texture_pool(scene);
 	return v.src;
 }
 

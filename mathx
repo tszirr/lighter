@@ -108,10 +108,15 @@ namespace sml
 		return r;
 	}
 
-	MATHX_API inline vec2 viewportCoords(ivec2 screenPos, ivec2 screenDim)
+	MATHX_API inline vec2 viewportCoords(vec2 screenPos, ivec2 screenDim)
 	{
 		return (vec2(screenPos) + 0.5f) / vec2(screenDim) * 2.0f - 1.0f;
 	}
+	MATHX_API inline vec2 viewportCoords(ivec2 screenPos, ivec2 screenDim)
+	{
+		return viewportCoords(vec2(screenPos), screenDim);
+	}
+	
 	MATHX_API inline ray<vec3> rayFromVPI(vec2 viewportCoords, mat4 const& viewProjInverse)
 	{
 		ray<vec3> ray;

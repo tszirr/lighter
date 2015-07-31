@@ -61,9 +61,13 @@ CLSL_INLINE float4 transform4div4(mat4 matrix, float4 vector)
 	return CLSL_CTOR(float4)( CLSL_CTOR(float3)(r) / r.w, r.w );
 }
 
+CLSL_INLINE float2 viewportCoords(float2 screenPos, int2 screenDim)
+{
+	return (screenPos + 0.5f) / convert_float2(screenDim) * 2.0f - 1.0f;
+}
 CLSL_INLINE float2 viewportCoords(int2 screenPos, int2 screenDim)
 {
-	return (convert_float2(screenPos) + 0.5f) / convert_float2(screenDim) * 2.0f - 1.0f;
+	return viewportCoords(convert_float2(screenPos), screenDim);
 }
 
 CLSL_INLINE ray3 rayFromVPI(float2 viewportCoords, mat4 viewProjInverse)

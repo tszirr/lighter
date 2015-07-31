@@ -164,6 +164,14 @@ struct Material : MaterialProperties< math::vec<float, 3> >
 	}
 };
 
+struct Texture
+{
+	static unsigned const version = 1;
+
+	unsigned pathBegin;
+	unsigned attributes;
+};
+
 template <template <class T> class Storage = VectorStorage>
 struct SceneT : SceneGeometryT<Storage>
 {
@@ -180,7 +188,8 @@ struct SceneT : SceneGeometryT<Storage>
 	typename Storage<Mesh>::type meshes;
 
 	typename Storage<Material>::type materials;
-	typename Storage<char>::type textures;
+	typename Storage<Texture>::type textures;
+	typename Storage<char>::type texturePaths;
 
 	typename Storage<Instance>::type instances;
 
@@ -190,11 +199,12 @@ struct SceneT : SceneGeometryT<Storage>
 		SceneGeometryT::reflect(s, v);
 		v(s.meshes, "mesh");
 		v(s.materials, "mat");
-		v(s.textures, "tex");
+		v(s.textures, "texp");
+		v(s.texturePaths, "tex");
 		v(s.instances, "inst");
 	}
 
-	char const* getTexture(unsigned i) const { return (i) ? &textures[i] : nullptr; }
+	char const* getTexture(unsigned i) const { return (i) ? &texturePaths[i] : nullptr; }
 };
 
 typedef SceneT<> Scene;
