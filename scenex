@@ -123,11 +123,36 @@ namespace io_error_handlers
 
 } // namespace
 
+namespace detail {
+	struct TexCmp {
+		static unsigned pathOffset(Texture const& l) { return l.pathBegin; }
+		static unsigned pathOffset(unsigned l) { return l; }
+		template <class L, class R>
+		bool operator ()(L const& l, R const& r) const { return pathOffset(l) < pathOffset(r); }
+	};
+}
+
 template <class Scene>
 void complete_texture_pool(Scene& scene)
 {
+	if (!scene.textures.empty())
+		return;
+
+	// construct missing pool
+	for (unsigned i = 0, ie = (unsigned) scene.texturePaths.size(); i < ie; ++i)
+	{
+		Texture tex = Texture();
+		tex.pathBegin = i;
+		scene.textures.push_back(tex);
+		i += (unsigned) strlen(&scene.texturePaths[i]);
+	}
+
+	// convert old-style texture paths to new-style texture indices
 	for (auto& m : scene.materials) {
-		m.tex.reflect();
+		m.tex.reflect_tex(m.tex, [&](unsigned& pathOffsetToTexIdx, char const* name) {
+			auto it = std::lower_bound(scene.textures.begin(), scene.textures.end(), pathOffsetToTexIdx, detail::TexCmp());
+			pathOffsetToTexIdx = (it != scene.textures.end()) ? unsigned(it - scene.textures.begin()) : 0u;
+		});
 	}
 }
 

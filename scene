@@ -106,6 +106,17 @@ struct MaterialProperties
 	Source filter;
 	Source refract;
 
+	template <class M, class Visitor>
+	static void reflect(M& s, Visitor&& v)
+	{
+		v(s.diffuse, "diff");
+		v(s.emissive, "emit");
+		v(s.specular, "spec");
+		v(s.shininess, "shin");
+		v(s.reflectivity, "refl");
+		v(s.filter, "filt");
+		v(s.refract, "refr");
+	}
 	void reset_float_default()
 	{
 		memset(this, 0, sizeof(*this));
@@ -131,12 +142,25 @@ struct MaterialTextures : MaterialProperties<Texture>
 
 	Texture normal;
 
+	template <class M, class Visitor>
+	static void reflect_tex(M& s, Visitor&& v)
+	{
+		typename MaterialProperties::reflect(s, v);
+		v(s.bump, "bmp");
+		v(s.normal, "nrm");
+	}
+	template <class M, class Visitor>
+	static void reflect(M& s, Visitor&& v)
+	{
+		reflect_tex(s, v);
+		v(s.bumpScale, "bmps");
+	}
+
 	void reset_null_default()
 	{
 		memset(this, 0, sizeof(*this));
 		bumpScale = 1.0f;
 	}
-
 	static MaterialTextures null_default()
 	{
 		MaterialTextures r;
@@ -161,6 +185,12 @@ struct Material : MaterialProperties< math::vec<float, 3> >
 		Material r;
 		r.reset_default();
 		return r;
+	}
+	template <class M, class Visitor>
+	static void reflect(M& s, Visitor&& v)
+	{
+		typename MaterialProperties::reflect(s, v);
+		s.tex.reflect(s.tex, v);
 	}
 };
 
@@ -196,7 +226,7 @@ struct SceneT : SceneGeometryT<Storage>
 	template <class Scene, class Visitor>
 	static void reflect(Scene& s, Visitor&& v)
 	{
-		SceneGeometryT::reflect(s, v);
+		typename SceneGeometryT::reflect(s, v);
 		v(s.meshes, "mesh");
 		v(s.materials, "mat");
 		v(s.textures, "texp");
@@ -204,7 +234,7 @@ struct SceneT : SceneGeometryT<Storage>
 		v(s.instances, "inst");
 	}
 
-	char const* getTexture(unsigned i) const { return (i) ? &texturePaths[i] : nullptr; }
+	char const* getTexturePath(unsigned i) const { return (i) ? &texturePaths[i] : nullptr; }
 };
 
 typedef SceneT<> Scene;
