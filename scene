@@ -205,11 +205,12 @@ struct Texture
 template <template <class T> class Storage = VectorStorage>
 struct SceneT : SceneGeometryT<Storage>
 {
-	MOVE_GENERATE(SceneT, MOVE_5
+	MOVE_GENERATE(SceneT, MOVE_6
 		, BASE, SceneGeometryT
 		, MEMBER, meshes
 		, MEMBER, materials
 		, MEMBER, textures
+		, MEMBER, texturePaths
 		, MEMBER, instances
 		)
 

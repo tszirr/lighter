@@ -228,6 +228,9 @@ namespace stdx
 	template <class Range>
 	inline range<typename Range::const_iterator> make_range(Range const &r)
 	{	return range<typename Range::const_iterator>(r.begin(), r.end()); }
+	template <class E, size_t N>
+	inline range<E*> data_range(E(&r)[N])
+	{	return range<E*>(&r[0], &r[0] + N); }
 
 	template <class Iterator>
 	inline range<Iterator> str_range(Iterator cstr)
