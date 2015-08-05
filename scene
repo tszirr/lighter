@@ -122,8 +122,8 @@ struct MaterialProperties
 		memset(this, 0, sizeof(*this));
 		typedef float float_array[sizeof(Source) / sizeof(float)];
 		for (auto& v : reinterpret_cast<float_array&>(diffuse)) v = 1.0f;
-		for (auto& v : reinterpret_cast<float_array&>(specular)) v = 1.0f;
-		for (auto& v : reinterpret_cast<float_array&>(reflectivity)) v = 1.0f;
+		for (auto& v : reinterpret_cast<float_array&>(specular)) v = 0.0f;
+		for (auto& v : reinterpret_cast<float_array&>(reflectivity)) v = 0.03f;
 		for (auto& v : reinterpret_cast<float_array&>(refract)) v = 1.0f;
 	}
 	static MaterialProperties float_default()
