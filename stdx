@@ -222,6 +222,9 @@ namespace stdx
 	template <class Iterator, class Size>
 	inline range<Iterator> make_range_n(Iterator begin, Size len)
 	{	return range<Iterator>(begin, begin + len); }
+	template <class Element>
+	inline range<Element*> one_range(Element& begin)
+	{ return range<Element*>(&begin, &begin + 1); }
 	template <class Range>
 	inline range<typename Range::iterator> make_range(Range &r)
 	{	return range<typename Range::iterator>(r.begin(), r.end()); }
