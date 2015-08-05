@@ -191,6 +191,12 @@ struct GLFWMouse
 		lastMousePos = mousePos;
 	}
 
+	static glm::ivec2 flipY(GLFWwindow* wnd, glm::ivec2 pos)
+	{
+		glm::ivec2 wndRect;
+		glfwGetWindowSize(wnd, &wndRect.x, &wndRect.y);
+		return glm::ivec2(pos.x, wndRect.y - 1 - pos.y);
+	}
 	static glm::vec2 relativePos(GLFWwindow* wnd, glm::ivec2 pos)
 	{
 		glm::ivec2 wndRect;
