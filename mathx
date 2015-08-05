@@ -264,20 +264,20 @@ namespace sml
 	}
 
 	template <class Char, class Traits, class Comp>
-	std::basic_ostream<Char, Traits>& operator <<(std::basic_ostream<Char, Traits> &stream, glm::vec<Comp, 1> &v)
+	std::basic_ostream<Char, Traits>& operator <<(std::basic_ostream<Char, Traits> &stream, glm::vec<Comp, 1> const &v)
 	{
 		stream << v.x;
 		return stream;
 	}
 	template <class Char, class Traits, class Comp>
-	std::basic_ostream<Char, Traits>& operator <<(std::basic_ostream<Char, Traits> &stream, glm::vec<Comp, 2> &v)
+	std::basic_ostream<Char, Traits>& operator <<(std::basic_ostream<Char, Traits> &stream, glm::vec<Comp, 2> const &v)
 	{
 		stream << v.x << ' ';
 		stream << v.y;
 		return stream;
 	}
 	template <class Char, class Traits, class Comp>
-	std::basic_ostream<Char, Traits>& operator <<(std::basic_ostream<Char, Traits> &stream, glm::vec<Comp, 3> &v)
+	std::basic_ostream<Char, Traits>& operator <<(std::basic_ostream<Char, Traits> &stream, glm::vec<Comp, 3> const &v)
 	{
 		stream << v.x << ' ';
 		stream << v.y << ' ';
@@ -285,7 +285,7 @@ namespace sml
 		return stream;
 	}
 	template <class Char, class Traits, class Comp>
-	std::basic_ostream<Char, Traits>& operator <<(std::basic_ostream<Char, Traits> &stream, glm::vec<Comp, 4> &v)
+	std::basic_ostream<Char, Traits>& operator <<(std::basic_ostream<Char, Traits> &stream, glm::vec<Comp, 4> const &v)
 	{
 		stream << v.x << ' ';
 		stream << v.y << ' ';
