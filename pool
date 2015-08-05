@@ -141,6 +141,11 @@ namespace detail
 			{
 				return memcmp(&a, &b, sizeof(a)) < 0;
 			}
+			template <class T>
+			inline bool operator ==(T const& a, T const& b)
+			{
+				return memcmp(&a, &b, sizeof(a)) == 0;
+			}
 
 		} // namespace
 
@@ -197,6 +202,29 @@ struct resource_pool
 	own_pooled<typename Desc::resource::pointer> acquire(Desc const& desc)
 	{	return acquire<typename Desc::resource, typename Desc::resource::pointer>(desc, detail::resource_pool::no_context); }
 	
+	template <class Res, class ResRef, class Desc, class Context>
+	void keep(own_pooled<ResRef>& res, Desc const& desc, Context&& context)
+	{
+		using detail::resource_pool::generic_comparison::operator ==;
+		if (!res.pooled || !(desc == res.pooled->get_desc<Desc>())) {
+			res = acquire<Res, ResRef>(desc, FORWARD(Context, context));
+		}
+	}
+	template <class ResRef, class Desc, class Context>
+	void keep(own_pooled<ResRef>& res, Desc const& desc, Context&& context)
+	{
+		using detail::resource_pool::generic_comparison::operator ==;
+		if (!res.pooled || !(desc == res.pooled->get_desc<Desc>())) {
+			res = acquire(desc, FORWARD(Context, context));
+		}
+	}
+	template <class Res, class ResRef, class Desc>
+	void keep(own_pooled<ResRef>& res, Desc const& desc)
+	{ keep<Res>(res, desc, detail::resource_pool::no_context); }
+	template <class ResRef, class Desc>
+	void keep(own_pooled<ResRef>& res, Desc const& desc)
+	{ keep(res, desc, detail::resource_pool::no_context); }
+
 	// internals
 	typedef detail::resource_pool::pool_item pool_item;
 	typedef std::vector< std::unique_ptr<pool_item> > items_t;
