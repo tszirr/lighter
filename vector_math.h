@@ -33,13 +33,14 @@ namespace sml
 	
 	typedef unsigned uint;
 
-	using ::abs;
-	using ::sqrt;
-	using ::log;
-	using ::exp;
-	using ::pow;
-	using ::floor;
-	using ::ceil;
+	using std::abs;
+	using std::sqrt;
+	using std::log;
+	using std::exp;
+	using std::pow;
+	using std::floor;
+	using std::ceil;
+	using std::signbit;
 	template <class T> SML_API inline T fract(T x) { return x - floor(x); }
 	
 	template <class A, class B, class C>
@@ -161,6 +162,7 @@ namespace sml
 		};
 		
 		typedef vec<bool, dimension> bvec;
+		typedef vec<int , dimension> ivec;
 #ifdef SML_MSVC_LEGACY
 		typedef vec<T, dimension> vec;
 #endif
@@ -227,6 +229,8 @@ namespace sml
 		SML_API friend vec sqrt (SML_POD_VEC const& l) { vec s; s.x = sqrt (l.x); return s; }
 		SML_API friend vec floor(SML_POD_VEC const& l) { vec s; s.x = floor(l.x); return s; }
 		SML_API friend vec ceil (SML_POD_VEC const& l) { vec s; s.x = ceil (l.x); return s; }
+		
+		SML_API friend ivec signbit(SML_POD_VEC const& l) { ivec s; s.x = signbit(l.x); return s; }
 
 		SML_API friend vec mix(vec const& l, vec const& r, bvec const& p) { vec s; s.x = p.x ? r.x : l.x; return s; }
 		
@@ -327,6 +331,7 @@ namespace sml
 		};
 		
 		typedef vec<bool, dimension> bvec;
+		typedef vec<int , dimension> ivec;
 #ifdef SML_MSVC_LEGACY
 		typedef vec<T, dimension> vec;
 #endif
@@ -393,6 +398,8 @@ namespace sml
 		SML_API friend vec sqrt (SML_POD_VEC const& l) { vec s; s.x = sqrt (l.x); s.y = sqrt (l.y); return s; }
 		SML_API friend vec floor(SML_POD_VEC const& l) { vec s; s.x = floor(l.x); s.y = floor(l.y); return s; }
 		SML_API friend vec ceil (SML_POD_VEC const& l) { vec s; s.x = ceil (l.x); s.y = ceil (l.y); return s; }
+
+		SML_API friend ivec signbit(SML_POD_VEC const& l) { ivec s; s.x = signbit(l.x); s.y = signbit(l.y); return s; }
 
 		SML_API friend vec mix(vec const& l, vec const& r, bvec const& p) { vec s; s.x = p.x ? r.x : l.x; s.y = p.y ? r.y : l.y; return s; }
 		
@@ -498,6 +505,7 @@ namespace sml
 		};
 		
 		typedef vec<bool, dimension> bvec;
+		typedef vec<int , dimension> ivec;
 #ifdef SML_MSVC_LEGACY
 		typedef vec<T, dimension> vec;
 #endif
@@ -574,6 +582,8 @@ namespace sml
 		SML_API friend vec floor(SML_POD_VEC const& l) { vec s; s.x = floor(l.x); s.y = floor(l.y); s.z = floor(l.z); return s; }
 		SML_API friend vec ceil (SML_POD_VEC const& l) { vec s; s.x = ceil (l.x); s.y = ceil (l.y); s.z = ceil (l.z); return s; }
 		
+		SML_API friend ivec signbit(SML_POD_VEC const& l) { ivec s; s.x = signbit(l.x); s.y = signbit(l.y); s.z = signbit(l.z); return s; }
+
 		SML_API friend vec mix(vec const& l, vec const& r, bvec const& p) { vec s; s.x = p.x ? r.x : l.x; s.y = p.y ? r.y : l.y; s.z = p.z ? r.z : l.z; return s; }
 
 		SML_API friend T compMin(SML_POD_VEC const& l) { return min(min(l.x, l.y), l.z); }
@@ -680,6 +690,7 @@ namespace sml
 		};
 
 		typedef vec<bool, dimension> bvec;
+		typedef vec<int , dimension> ivec;
 #ifdef SML_MSVC_LEGACY
 		typedef vec<T, dimension> vec;
 #endif
@@ -746,6 +757,8 @@ namespace sml
 		SML_API friend vec sqrt (SML_POD_VEC const& l) { vec s; s.x = sqrt (l.x); s.y = sqrt (l.y); s.z = sqrt (l.z); s.w = sqrt (l.w); return s; }
 		SML_API friend vec floor(SML_POD_VEC const& l) { vec s; s.x = floor(l.x); s.y = floor(l.y); s.z = floor(l.z); s.w = floor(l.w); return s; }
 		SML_API friend vec ceil (SML_POD_VEC const& l) { vec s; s.x = ceil (l.x); s.y = ceil (l.y); s.z = ceil (l.z); s.w = ceil (l.w); return s; }
+
+		SML_API friend ivec signbit(SML_POD_VEC const& l) { ivec s; s.x = signbit(l.x); s.y = signbit(l.y); s.z = signbit(l.z); s.w = signbit(l.w); return s; }
 
 		SML_API friend vec mix(vec const& l, vec const& r, bvec const& p) { vec s; s.x = p.x ? r.x : l.x; s.y = p.y ? r.y : l.y; s.z = p.z ? r.z : l.z; s.w = p.w ? r.w : l.w; return s; }
 		
@@ -847,6 +860,7 @@ namespace sml
 		component c[dimension];
 		
 		typedef vec<bool, N> bvec;
+		typedef vec<int , N> ivec;
 #ifdef SML_MSVC_LEGACY
 		typedef vec<T, N> vec;
 #endif
@@ -913,6 +927,8 @@ namespace sml
 		SML_API friend vec sqrt(SML_POD_VEC const& l) { vec s; for (int i = 0; i < N; ++i) s.c[i] = sqrt (l.c[i]); return s; }
 		SML_API friend vec floor(SML_POD_VEC const& l) { vec s; for (int i = 0; i < N; ++i) s.c[i] = floor(l.c[i]); return s; }
 		SML_API friend vec ceil (SML_POD_VEC const& l) { vec s; for (int i = 0; i < N; ++i) s.c[i] = ceil (l.c[i]); return s; }
+
+		SML_API friend ivec signbit(SML_POD_VEC const& l) { ivec s; for (int i = 0; i < N; ++i) s.c[i] = signbit(l.c[i]); return s; }
 		
 		SML_API friend vec mix(vec const& l, vec const& r, bvec const& p) { vec s; for (int i = 0; i < N; ++i) s.c[i] = p.c[i] ? r.c[i] : l.c[i]; return s; }
 
