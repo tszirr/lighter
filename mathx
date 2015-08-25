@@ -95,12 +95,61 @@ namespace sml
 		return in_aabb(p, box.min, box.max);
 	}
 	
+	// > 0 if counter-clockwise seen from origin
 	MATHX_API inline float triangle_sign(glm::vec3 const& v0, glm::vec3 const& v1, glm::vec3 const& v2, glm::vec3 const& origin)
 	{
-		// > 0 if counter clock-wise seen from origin
 		return dot(cross(v1 - v0, v1 - origin), v2 - origin);
 	}
 
+	// t of _potential_ intersection
+	MATHX_API inline float t_aabb(ray<vec3> ray, aabb<vec3> box, int&& ta = 0)
+	{
+		vec3 delta = mix(box.min, box.max, notEqual(signbit(ray.d), 0)) - ray.o;
+		delta /= ray.d;
+
+		float t = delta.y;
+		ta = 1;
+		// NaN check
+		if (delta.x == delta.x)
+			t = delta.x, ta = 0;
+		if (delta.y > t)
+			t = delta.y, ta = 1;
+		if (delta.z > t)
+			t = delta.z, ta = 2;
+		
+		return t;
+	}
+	// t of _potential_ backface intersection
+	MATHX_API inline float t_aabb_back(ray<vec3> ray, aabb<vec3> box, int&& ta = 0)
+	{
+		vec3 delta = mix(box.max, box.min, notEqual(signbit(ray.d), 0)) - ray.o;
+		delta /= ray.d;
+
+		float t = delta.y;
+		ta = 1;
+		// NaN check
+		if (delta.x == delta.x)
+			t = delta.x, ta = 0;
+		if (delta.y > t)
+			t = delta.y, ta = 1;
+		if (delta.z > t)
+			t = delta.z, ta = 2;
+		
+		return t;
+	}
+
+	// integers to [-1, 1] pixel centers, no sign flip
+	MATHX_API inline vec2 viewportCoords(vec2 screenPos, ivec2 screenDim)
+	{
+		return (vec2(screenPos) + 0.5f) / vec2(screenDim) * 2.0f - 1.0f;
+	}
+	// integers to [-1, 1] pixel centers, no sign flip
+	MATHX_API inline vec2 viewportCoords(ivec2 screenPos, ivec2 screenDim)
+	{
+		return viewportCoords(vec2(screenPos), screenDim);
+	}
+	
+	// projective transformation, transform & divide by w
 	MATHX_API inline vec4 transformdiv(mat4 const& matrix, vec4 const& vector)
 	{
 		auto r = matrix * vector;
@@ -108,15 +157,7 @@ namespace sml
 		return r;
 	}
 
-	MATHX_API inline vec2 viewportCoords(vec2 screenPos, ivec2 screenDim)
-	{
-		return (vec2(screenPos) + 0.5f) / vec2(screenDim) * 2.0f - 1.0f;
-	}
-	MATHX_API inline vec2 viewportCoords(ivec2 screenPos, ivec2 screenDim)
-	{
-		return viewportCoords(vec2(screenPos), screenDim);
-	}
-	
+	// ray starting at near plane
 	MATHX_API inline ray<vec3> rayFromVPI(vec2 viewportCoords, mat4 const& viewProjInverse)
 	{
 		ray<vec3> ray;
@@ -125,6 +166,7 @@ namespace sml
 		ray.d = normalize(ray.o - rayBase);
 		return ray;
 	}
+	// ray starting at near plane, direction normalized to z = 1
 	MATHX_API inline ray<vec3> rayFromVPInrmZ(vec2 viewportCoords, mat4 const& viewProjInverse, vec3 const& viewDir)
 	{
 		auto ray = rayFromVPI(viewportCoords, viewProjInverse);
