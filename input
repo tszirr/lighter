@@ -248,6 +248,19 @@ struct GLFWMouse
 		wnd.buttons = [this](int key, bool pressed){ buttonHandler(key, pressed); };
 		wnd.mouse = [this](int x, int y){ moveHandler(x, y); };
 	}
+
+	// todo: at some point, this should become part of the input queue
+	template <class MouseState>
+	MouseState defaultUiMapping() const
+	{
+		MouseState state;
+		state.pos = lastMousePos;
+		state.primary = buttonState[GLFW_MOUSE_BUTTON_LEFT];
+		state.primaryChanged = buttonChanged[GLFW_MOUSE_BUTTON_LEFT];
+		state.secondary = buttonState[GLFW_MOUSE_BUTTON_RIGHT];
+		state.secondaryChanged = buttonChanged[GLFW_MOUSE_BUTTON_RIGHT];
+		return state;
+	}
 };
 
 typedef GLFWKeyboard Keyboard;
