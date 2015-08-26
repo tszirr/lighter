@@ -71,11 +71,11 @@ struct UiToText : UniversalInterface
 		stream->addItem(label, text);
 	}
 
-	void addInteractiveButton(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<ButtonEvent::T> interact, InteractionParam<Button> control = nullptr) override
+	void addInteractiveButton(UniqueElementIdentifier id, char const* label, char const* text, bool value, InteractionParam<ButtonEvent::T> interact, InteractionParam<Button> control = nullptr) override
 	{
 	}
 
-	void addButton(UniqueElementIdentifier id, char const* text, InteractionParam<void> interact, char const* fullText = nullptr, InteractionParam<Button> control = nullptr) override
+	void addButton(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<void> interact, char const* fullText = nullptr, InteractionParam<Button> control = nullptr) override
 	{
 //		auto key = keyFromLabel(label);
 //		(fullText) ? fullText : text;
@@ -240,11 +240,11 @@ struct TextToUi : UniversalInterface
 		}
 	}
 
-	void addInteractiveButton(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<ButtonEvent::T> interact, InteractionParam<Button> control = nullptr) override
+	void addInteractiveButton(UniqueElementIdentifier id, char const* label, char const* text, bool value, InteractionParam<ButtonEvent::T> interact, InteractionParam<Button> control = nullptr) override
 	{
 	}
 
-	void addButton(UniqueElementIdentifier id, char const* text, InteractionParam<void> interact, char const* fullText = nullptr, InteractionParam<Button> control = nullptr) override
+	void addButton(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<void> interact, char const* fullText = nullptr, InteractionParam<Button> control = nullptr) override
 	{
 //		auto key = keyFromLabel(label);
 //		(fullText) ? fullText : text;

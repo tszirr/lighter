@@ -562,8 +562,11 @@ struct TextUi : UserInterface, UniversalInterface
 		// warning: text may be invalid from here on
 	}
 
-	void addInteractiveButton(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<ButtonEvent::T> interact, InteractionParam<Button> control = nullptr) override
+	void addInteractiveButton(UniqueElementIdentifier id, char const* label, char const* text, bool value, InteractionParam<ButtonEvent::T> interact, InteractionParam<Button> control = nullptr) override
 	{
+		if (label && label[0])
+			prependLabel(label);
+
 		auto valBox = textRenderer->boundText(text);
 		
 		unsigned buttonPadding = 6;
@@ -624,15 +627,15 @@ struct TextUi : UserInterface, UniversalInterface
 		}
 	}
 
-	void addButton(UniqueElementIdentifier id, char const* text, InteractionParam<void> interact, char const* fullText = nullptr, InteractionParam<Button> control = nullptr) override
+	void addButton(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<void> interact, char const* fullText = nullptr, InteractionParam<Button> control = nullptr) override
 	{
 		// todo: might want to use fullText in tooltip later?
-		return addInteractiveButton(id, text, false, [&interact](ButtonEvent::T pressed) { if (pressed == ButtonEvent::UpAccept && interact) interact->trigger(); }, control);
+		return addInteractiveButton(id, label, text, false, [&interact](ButtonEvent::T pressed) { if (pressed == ButtonEvent::UpAccept && interact) interact->trigger(); }, control);
 	}
 
 	void addOption(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<bool> interact, InteractionParam<Button> control = nullptr) override
 	{
-		return addInteractiveButton(id, text, value, [&interact, value](ButtonEvent::T pressed) { if (pressed == ButtonEvent::UpAccept && interact) interact->updateValue(!value); }, control);
+		return addInteractiveButton(id, nullptr, text, value, [&interact, value](ButtonEvent::T pressed) { if (pressed == ButtonEvent::UpAccept && interact) interact->updateValue(!value); }, control);
 	}
 
 	void makeSlider(UniqueElementIdentifier id, char const* label, float value, float range, InteractionParam<float> interact, float ticks, float fullBarThreshold

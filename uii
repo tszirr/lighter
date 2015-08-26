@@ -105,14 +105,17 @@ struct UniversalInterfaceInteraction::InteractionParamHelper
 	template <class IA>
 	struct ParamStorage;
 
+	template <class ModifiedValue, class Value, bool IsCopy = std::is_same< typename std::decay<ModifiedValue>::type, InteractionParam<Value> >::value >
+	struct enable_if_value { };
 	template <class ModifiedValue, class Value>
-	struct enable_if_value : std::enable_if<
-		!std::is_same< typename std::decay<ModifiedValue>::type, InteractionParam<Value> >::value && std::is_assignable<ModifiedValue, Value>::value
-	> { };
+	struct enable_if_value<ModifiedValue, Value, false>
+		: std::enable_if< std::is_assignable<ModifiedValue, Value>::value > { };
+
+	template <class Function, class Value, bool IsCopy = std::is_same< typename std::decay<Function>::type, InteractionParam<Value> >::value >
+	struct enable_if_function { };
 	template <class Function, class Value>
-	struct enable_if_function : std::enable_if<
-		!std::is_same< typename std::decay<Function>::type, InteractionParam<Value> >::value && !std::is_assignable<Function, Value>::value
-	> { };
+	struct enable_if_function<Function, Value, false>
+		: std::enable_if< !std::is_assignable<Function, Value>::value > { };
 };
 
 template <class IA = void>
@@ -207,9 +210,15 @@ struct UniversalInterface : UniversalInterfaceInteraction
 	struct Button;
 	struct ButtonEvent { enum T { Down, UpAccept, UpDismiss }; };
 	// Adds a clickable button.
-	virtual void addButton(UniqueElementIdentifier id, char const* text, InteractionParam<void> interact, char const* fullText = nullptr, InteractionParam<Button> control = nullptr) = 0;
+	virtual void addButton(UniqueElementIdentifier id, char const* label, char const* text, InteractionParam<void> interact, char const* fullText = nullptr, InteractionParam<Button> control = nullptr) = 0;
+	// Adds a clickable button.
+	void addButton(UniqueElementIdentifier id, char const* text, InteractionParam<void> interact, char const* fullText = nullptr, InteractionParam<Button> control = nullptr)
+	{ addButton(id, nullptr, text, interact, fullText, control); }
 	// Adds a button with custom mouse interaction.
-	virtual void addInteractiveButton(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<ButtonEvent::T> interact, InteractionParam<Button> control = nullptr) = 0;
+	virtual void addInteractiveButton(UniqueElementIdentifier id, char const* label, char const* text, bool value, InteractionParam<ButtonEvent::T> interact, InteractionParam<Button> control = nullptr) = 0;
+	// Adds a button with custom mouse interaction.
+	void addInteractiveButton(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<ButtonEvent::T> interact, InteractionParam<Button> control = nullptr)
+	{ addInteractiveButton(id, nullptr, text, value, interact, control); }
 	// Adds a toggle button.
 	virtual void addOption(UniqueElementIdentifier id, char const* text, bool value, InteractionParam<bool> interact, InteractionParam<Button> control = nullptr) = 0;
 	

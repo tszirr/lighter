@@ -872,3 +872,8 @@ namespace stdx
 #define INPLACE_OSTREAM(t, x) static_cast<t&&>(t() << x)
 #define INPLACE_SSTREAM(x) INPLACE_OSTREAM(std::stringstream, x)
 #define INPLACE_STR(x) INPLACE_SSTREAM(x).str()
+
+#define ENUM_ENTRY_DEFINE(name, ...) name __VA_ARGS__,
+#define ENUM_ENTRY_C_STR_SWITCH_CASE(name, ...) case c_str_enum_type::name: return #name;
+#define ENUM_ENTRIES(x) x(ENUM_ENTRY_DEFINE)
+#define ENUM_C_STR(type, x) inline char const* c_str(type e) { typedef type c_str_enum_type; switch (e) { x(ENUM_ENTRY_C_STR_SWITCH_CASE) } return "unknown_enum_value"; }
