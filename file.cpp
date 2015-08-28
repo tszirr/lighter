@@ -233,6 +233,35 @@ namespace stdx
 		return data;
 	}
 
+	module_symbol get_symbol(void* module, char const* name)
+	{
+#ifdef WIN32
+		return (void(WINAPI*)()) ::GetProcAddress((HMODULE)module, name);
+#else
+		return ::dlsym(module, name);
+#endif
+	}
+
+	module::module(char const* name)
+	{
+#ifdef WIN32
+		handle = ::LoadLibraryA(name);
+#else
+		handle = ::dlopen(name, RTLD_LAZY | RTLD_LOCAL);
+#endif
+		if (!handle)
+			throwx(std::runtime_error(name));
+	}
+
+	module::~module()
+	{
+#ifdef WIN32
+		::FreeLibrary((HMODULE)handle);
+#else
+		::dlclose(handle);
+#endif
+	}
+
 #ifdef WIN32
 	namespace detail
 	{

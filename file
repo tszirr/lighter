@@ -84,6 +84,38 @@ namespace stdx
 		mapped_file(mapped_file const&);
 	};
 	
+#ifdef WIN32
+	typedef void (__stdcall *module_symbol)();
+#else
+	typedef void (*module_symbol)();
+#endif
+	module_symbol get_symbol(void* module, char const* name);
+
+	struct module {
+		void* handle;
+
+		module(std::nullptr_t) : handle() { }
+		module(char const* name);
+		~module();
+
+		module(module &&right)
+			: handle(right.handle)
+		{
+			right.handle = nullptr;
+		}
+		module& operator =(module right)
+		{
+			std::swap(handle, right.handle);
+			return *this;
+		}
+
+		module_symbol symbol(char const* name) const { return get_symbol(handle, name); }
+
+	// MSVC compatibility
+	private:
+		module(module const&);
+	};
+
 	inline char const* read_binary(void const* stream)
 	{	return static_cast<char const*>(stream); }
 	inline char* write_binary(void* stream)
