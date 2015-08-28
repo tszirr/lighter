@@ -64,6 +64,16 @@ using std::isless; using std::islessequal;
 using std::islessgreater; using std::isunordered;
 #endif
 
+#ifndef M_PI
+	#define M_PI 3.14159265358979323846264338327950288419716939937510
+#endif
+#ifndef M_PId
+	#define M_PId 3.14159265358979323846264338327950288419716939937510
+#endif
+#ifndef M_PIf
+	#define M_PIf 3.14159265358979323846264338327950288419716939937510f
+#endif
+
 #include "vector_math.h"
 #include <type_traits>
 

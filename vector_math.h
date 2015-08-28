@@ -43,6 +43,8 @@ namespace sml
 	using std::signbit;
 	template <class T> SML_API inline T fract(T x) { return x - floor(x); }
 	
+	template <class T> SML_API inline T sincos(T a, T* s, T* c) { *s = sin(a); *c = cos(a); }
+
 	template <class A, class B, class C>
 	SML_API inline auto clamp(A const& v, B const& min_v, C const& max_v) -> decltype(min(max(v, min_v), max_v)) { return min(max(v, min_v), max_v); }
 	template <class A, class B, class C>
