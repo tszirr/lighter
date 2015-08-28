@@ -203,27 +203,31 @@ struct resource_pool
 	{	return acquire<typename Desc::resource, typename Desc::resource::pointer>(desc, detail::resource_pool::no_context); }
 	
 	template <class Res, class ResRef, class Desc, class Context>
-	void keep(own_pooled<ResRef>& res, Desc const& desc, Context&& context)
+	bool keep(own_pooled<ResRef>& res, Desc const& desc, Context&& context)
 	{
 		using detail::resource_pool::generic_comparison::operator ==;
 		if (!res.pooled || !(desc == res.pooled->get_desc<Desc>())) {
 			res = acquire<Res, ResRef>(desc, FORWARD(Context, context));
+			return false;
 		}
+		return true;
 	}
 	template <class ResRef, class Desc, class Context>
-	void keep(own_pooled<ResRef>& res, Desc const& desc, Context&& context)
+	bool keep(own_pooled<ResRef>& res, Desc const& desc, Context&& context)
 	{
 		using detail::resource_pool::generic_comparison::operator ==;
 		if (!res.pooled || !(desc == res.pooled->get_desc<Desc>())) {
 			res = acquire(desc, FORWARD(Context, context));
+			return false;
 		}
+		return true;
 	}
 	template <class Res, class ResRef, class Desc>
-	void keep(own_pooled<ResRef>& res, Desc const& desc)
-	{ keep<Res>(res, desc, detail::resource_pool::no_context); }
+	bool keep(own_pooled<ResRef>& res, Desc const& desc)
+	{ return keep<Res>(res, desc, detail::resource_pool::no_context); }
 	template <class ResRef, class Desc>
-	void keep(own_pooled<ResRef>& res, Desc const& desc)
-	{ keep(res, desc, detail::resource_pool::no_context); }
+	bool keep(own_pooled<ResRef>& res, Desc const& desc)
+	{ return keep(res, desc, detail::resource_pool::no_context); }
 
 	// internals
 	typedef detail::resource_pool::pool_item pool_item;
