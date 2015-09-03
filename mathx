@@ -148,6 +148,24 @@ namespace sml
 		return t;
 	}
 
+	// t of front-most sphere intersection (may be behind), NaN if none
+	MATHX_API inline float t_sphere(ray<vec3> ray, vec3 center, float radius)
+	{
+		auto d_c = center - ray.o;
+		auto t_c = dot(d_c, ray.d);
+		auto t_d = radius * radius - (length2(d_c) - t_c * t_c);
+		return t_c - sqrt(t_d);
+	}
+
+	// t of front-most sphere intersection (may be behind), NaN if none
+	MATHX_API inline float t_sphere_back(ray<vec3> ray, vec3 center, float radius)
+	{
+		auto d_c = center - ray.o;
+		auto t_c = dot(d_c, ray.d);
+		auto t_d = radius * radius - (length2(d_c) - t_c * t_c);
+		return t_c + sqrt(t_d);
+	}
+
 	// integers to [-1, 1] pixel centers, no sign flip
 	MATHX_API inline vec2 viewportCoords(vec2 screenPos, ivec2 screenDim)
 	{
