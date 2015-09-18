@@ -229,6 +229,28 @@ struct UniversalInterface : UniversalInterfaceInteraction
 	virtual void addColor(UniqueElementIdentifier id, char const* label, glm::vec3 const& value, float valueRange, InteractionParam<glm::vec3> interact, float valueTicks = 0.0f) = 0;
 };
 
+struct Context : stdx::noncopyable
+{
+	UniqueElementIdentifier id;
+	UniversalInterface* ui;
+	bool groupVisible;
+
+	Context(std::nullptr_t) : id(nullptr), ui(nullptr), groupVisible(false) { }
+	Context(UniversalInterface& ui, UniqueElementIdentifier id) : id(id), ui(&ui), groupVisible(ui.pushContext(id)) { }
+	Context(Context&& right) : id(right.id), ui(right.ui), groupVisible(right.groupVisible) { right.id = nullptr; right.ui = nullptr; right.groupVisible = false; }
+	~Context() { if (ui) ui->popContext(id); }
+
+	Context& operator =(Context right)
+	{
+		std::swap(id, right.id);
+		std::swap(ui, right.ui);
+		std::swap(groupVisible, right.groupVisible);
+		return *this;
+	}
+
+	operator bool() const { return groupVisible; }
+};
+
 struct Group : stdx::noncopyable
 {
 	UniqueElementIdentifier id;
