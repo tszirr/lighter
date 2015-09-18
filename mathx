@@ -223,6 +223,57 @@ namespace sml
 		return r;
 	}
 
+	template <class T>
+	struct cubic {
+		T a, b, c, d;
+
+		T operator ()(float t) const {
+			return a + t * (b + t * (c + t * d));
+		}
+	};
+
+	template <class T>
+	MATHX_API inline void make_cubic_sline(cubic<T>* spline, T* const points, size_t pointCount)
+	{
+		// The following code is based on the article from http://graphicsrunner.blogspot.co.uk/2008/05/camera-animation-part-ii.html
+		static const T kZero = T(0);
+		static const T kHalf = T(.5f);
+		static const T kOne = T(1);
+		static const T kTwo = T(2);
+		static const T kThree = T(3);
+		static const T kFour = T(4);
+
+		// Calculate Gamma =: spline.a
+		spline[0].a = kHalf;
+		for (size_t i = 1; i < pointCount - 1; i++) {
+			spline[i].a = kOne / (kFour - spline[i - 1].a);
+		}
+		spline[pointCount - 1].a = kOne / (kTwo - spline[pointCount - 2].a);
+
+		// Calculate Delta =: spline.b
+		spline[0].b = kThree * (points[1] - points[0]) * spline[0].a;
+		for (size_t i = 1; i < pointCount; i++) {
+			auto nextIdx = (i < pointCount - 1) ? i + 1 : i;
+			spline[i].b = (kThree * (points[nextIdx] - points[i - 1]) - spline[i - 1].b) * spline[i].a;
+		}
+
+		// Calculate D := spline.d
+		spline[pointCount - 1].d = spline[pointCount - 1].b;
+		for (size_t i = pointCount - 1; i-- > 0; ) {
+			spline[i].d = spline[i].b - spline[i].a * spline[i + 1].d;
+		}
+
+		// Calculate actual spline
+		for (size_t i = 0; i < pointCount - 1; i++) {
+			spline[i].a = points[i];
+			spline[i].b = spline[i].d;
+			spline[i].c = kThree * (points[i + 1] - points[i]) - kTwo * spline[i].d - spline[i + 1].d;
+			spline[i].d = kTwo * (points[i] - points[i + 1]) + spline[i].d + spline[i + 1].d;
+		}
+		spline[pointCount - 1].a = points[pointCount - 1];
+		spline[pointCount - 1].b = spline[pointCount - 1].c = spline[pointCount - 1].d = kZero;
+	}
+
 	// integers to [-1, 1] pixel centers, no sign flip
 	MATHX_API inline vec2 viewportCoords(vec2 screenPos, ivec2 screenDim)
 	{
