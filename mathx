@@ -233,7 +233,7 @@ namespace sml
 	};
 
 	template <class T>
-	MATHX_API inline void make_cubic_sline(cubic<T>* spline, T* const points, size_t pointCount, float* const durations)
+	MATHX_API inline void make_cubic_sline(cubic<T>* spline, T* const points, size_t pointCount, float const* durations)
 	{
 		// The following code is based on the article from http://graphicsrunner.blogspot.co.uk/2008/05/camera-animation-part-ii.html
 		// http://math.stackexchange.com/questions/62360/natural-cubic-splines-vs-piecewise-hermite-splines
