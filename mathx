@@ -238,41 +238,45 @@ namespace sml
 		// The following code is based on the article from http://graphicsrunner.blogspot.co.uk/2008/05/camera-animation-part-ii.html
 		// http://math.stackexchange.com/questions/62360/natural-cubic-splines-vs-piecewise-hermite-splines
 		// https://en.wikipedia.org/wiki/Tridiagonal_matrix_algorithm
+		if (pointCount >= 2)
+		{
+			// Calculate Gamma =: spline.a
+			spline[0].a = T(.5f);
+			for (size_t i = 1; i < pointCount - 1; i++) {
+				spline[i].a = durations[i] / (T(2.f) * (durations[i - 1] + durations[i]) - durations[i - 1] * spline[i - 1].a);
+			}
+			spline[pointCount - 1].a = 1.0f / (T(2) - spline[pointCount - 2].a);
 
-		// Calculate Gamma =: spline.a
-		spline[0].a = T(.5f);
-		for (size_t i = 1; i < pointCount - 1; i++) {
-			spline[i].a = durations[i] / (T(2.f) * (durations[i - 1] + durations[i]) - durations[i - 1] * spline[i - 1].a);
-		}
-		spline[pointCount - 1].a = 1.0f / (T(2) - spline[pointCount - 2].a);
+			// Calculate Delta =: spline.b
+			spline[0].b = T(3) / durations[0] * (points[1] - points[0]) * spline[0].a;
+			for (size_t i = 1; i < pointCount - 1; i++) {
+				spline[i].b = (T(3) / (durations[i - 1] * durations[i]) * (
+					  durations[i - 1] * durations[i - 1] * (points[i + 1] - points[i])
+					+ durations[i] * durations[i] * (points[i] - points[i - 1])
+					)
+					- durations[i - 1] * spline[i - 1].b) * spline[i].a / durations[i];
+			}
+			spline[pointCount - 1].b = (T(3) / durations[pointCount - 2] * (points[pointCount - 1] - points[pointCount - 2]) - spline[pointCount - 2].b) * spline[pointCount - 1].a;
 
-		// Calculate Delta =: spline.b
-		spline[0].b = T(3) / durations[0] * (points[1] - points[0]) * spline[0].a;
-		for (size_t i = 1; i < pointCount - 1; i++) {
-			auto nextIdx = (i < pointCount - 1) ? i + 1 : i;
-			spline[i].b = (T(3) / (durations[i - 1] * durations[i]) * (
-				  durations[i - 1] * durations[i - 1] * (points[nextIdx] - points[i])
-				+ durations[i] * durations[i] * (points[i] - points[i - 1])
-				)
-				- durations[i - 1] * spline[i - 1].b) * spline[i].a / durations[i];
-		}
-		spline[pointCount - 1].b = (T(3) / durations[pointCount - 2] * (points[pointCount - 1] - points[pointCount - 2]) - spline[pointCount - 2].b) * spline[pointCount - 1].a;
+			// Calculate D := spline.d
+			spline[pointCount - 1].d = spline[pointCount - 1].b;
+			for (size_t i = pointCount - 1; i-- > 0; ) {
+				spline[i].d = spline[i].b - spline[i].a * spline[i + 1].d;
+			}
 
-		// Calculate D := spline.d
-		spline[pointCount - 1].d = spline[pointCount - 1].b;
-		for (size_t i = pointCount - 1; i-- > 0; ) {
-			spline[i].d = spline[i].b - spline[i].a * spline[i + 1].d;
+			// Calculate actual spline
+			for (size_t i = 0; i < pointCount - 1; i++) {
+				spline[i].a = points[i];
+				spline[i].b = spline[i].d * durations[i];
+				spline[i].c = T(3) * (points[i + 1] - points[i]) - T(2) * spline[i].d * durations[i] - spline[i + 1].d * durations[i];
+				spline[i].d = T(2) * (points[i] - points[i + 1]) + spline[i].d * durations[i] + spline[i + 1].d * durations[i];
+			}
 		}
-
-		// Calculate actual spline
-		for (size_t i = 0; i < pointCount - 1; i++) {
-			spline[i].a = points[i];
-			spline[i].b = spline[i].d * durations[i];
-			spline[i].c = T(3) * (points[i + 1] - points[i]) - T(2) * spline[i].d * durations[i] - spline[i + 1].d * durations[i];
-			spline[i].d = T(2) * (points[i] - points[i + 1]) + spline[i].d * durations[i] + spline[i + 1].d * durations[i];
+		if (pointCount > 0)
+		{
+			spline[pointCount - 1].a = points[pointCount - 1];
+			spline[pointCount - 1].b = spline[pointCount - 1].c = spline[pointCount - 1].d = T(0);
 		}
-		spline[pointCount - 1].a = points[pointCount - 1];
-		spline[pointCount - 1].b = spline[pointCount - 1].c = spline[pointCount - 1].d = T(0);
 	}
 
 	// integers to [-1, 1] pixel centers, no sign flip
