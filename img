@@ -73,17 +73,17 @@ template <class Element, unsigned Channels>
 Image<Element> load_image(stdx::data_range_param<const char> imageData)
 {
 	Image<Element> image;
-	load_image(&image, ElementToImageType<Element>::value, Channels, &allocate_image<decltype(image)>, imageData);
+	load_image(&image, ElementToImageType<Element>::value, Channels, &detail::allocate_image<decltype(image)>, imageData);
 	return image;
 }
 
 template <class Element, unsigned Channels>
-void save_image(char const* filename, stdx::data_range_param<const char> imageData, glm::uvec2 dim)
+void save_image(char const* filename, stdx::data_range_param<Element const> imageData, glm::uvec2 dim)
 {
 	ImageDesc imgDesc;
 	imgDesc.dim = glm::uvec3(dim, 0);
 	imgDesc.channels = Channels;
-	save_image(nullptr, filename, nullptr, imageData, elementType, imgDesc);
+	save_image(nullptr, filename, nullptr, imageData.iterator_cast<char const*>(), ElementToImageType<Element>::value, imgDesc);
 }
 
 // inline image writing

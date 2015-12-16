@@ -171,6 +171,9 @@ namespace stdx
 		pointer data() const { return first; }
 		/// Same as begin.
 		const_pointer cdata() const { return first; }
+
+		template <class Iterator2>
+		range<Iterator2> iterator_cast() const { return range<Iterator2>((Iterator2) first, (Iterator2) last); }
 	};
 
 	template <class SrcIt, class DestIt>
