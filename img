@@ -56,12 +56,18 @@ struct Image : ImageDesc
 ImageDesc load_image_desc(stdx::data_range_param<const char> imageData);
 void load_image(void* image, ImageType::T elementType, unsigned channels, void* (*allocate)(ImageDesc const& desc, void* image),
 				stdx::data_range_param<const char> imageData);
+void save_image(void* image, char const* filename, void* (*allocate)(size_t size, void* image),
+				stdx::data_range_param<const char> imageData, ImageType::T elementType, ImageDesc const& desc);
 
-template <class Image>
-void* allocate_image(ImageDesc const& desc, void* image)
+namespace detail
 {
-	return (*static_cast<Image*>(image) = Image(desc)).pixels.data();
-}
+	template <class Image>
+	void* allocate_image(ImageDesc const& desc, void* image)
+	{
+		return (*static_cast<Image*>(image) = Image(desc)).pixels.data();
+	}
+
+} // namespace
 
 template <class Element, unsigned Channels>
 Image<Element> load_image(stdx::data_range_param<const char> imageData)
@@ -69,6 +75,15 @@ Image<Element> load_image(stdx::data_range_param<const char> imageData)
 	Image<Element> image;
 	load_image(&image, ElementToImageType<Element>::value, Channels, &allocate_image<decltype(image)>, imageData);
 	return image;
+}
+
+template <class Element, unsigned Channels>
+void save_image(char const* filename, stdx::data_range_param<const char> imageData, glm::uvec2 dim)
+{
+	ImageDesc imgDesc;
+	imgDesc.dim = glm::uvec3(dim, 0);
+	imgDesc.channels = Channels;
+	save_image(nullptr, filename, nullptr, imageData, elementType, imgDesc);
 }
 
 // inline image writing
