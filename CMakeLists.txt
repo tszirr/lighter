@@ -1,5 +1,11 @@
 project(lighter)
 
+option(LIGHTER_USE_FREEIMAGE "Enable image loading using freeimage" ON)
+option(LIGHTER_USE_FREETYPE "Enable font rendering using freetype" ON)
+option(LIGHTER_USE_SCENE "Enable scene-related functionality" ON)
+option(LIGHTER_INSTALL_DATA_DIRECTORY "Install data files that lighter functionality depends on" ON)
+option(LIGHTER_INSTALL_LIB "Install generated library" OFF)
+
 set(LIGHTER_SHADER_SRC
   text.glsl
   ui.glsl
@@ -79,6 +85,6 @@ target_link_libraries(lighter PUBLIC ${LIGHTER_DEPENDENCIES})
 if (LIGHTER_INSTALL_DATA_DIRECTORY)
 	install (FILES ${LIGHTER_DATA_FILES} DESTINATION ${LIGHTER_INSTALL_DATA_DIRECTORY})
 endif()
-if (LIGHTER_LIB_INSTALL)
+if (LIGHTER_INSTALL_LIB)
     install (TARGETS lighter DESTINATION lib)
 endif()
