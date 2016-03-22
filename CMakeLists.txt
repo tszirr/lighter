@@ -1,11 +1,84 @@
-include("CMakeSrc.txt")
+project(lighter)
 
-if(LIGHTER_IMPORT_SRC)
-  set(LIGHTER_SRC ${LIGHTER_SRC} PARENT_SCOPE)
-  set(LIGHTER_SHADER_SRC ${LIGHTER_SHADER_SRC} PARENT_SCOPE)
-  set(LIGHTER_DATA_FILES ${LIGHTER_DATA_FILES} PARENT_SCOPE)
+set(LIGHTER_SHADER_SRC
+  text.glsl
+  ui.glsl
+)
+set(LIGHTER_DATA_FILES
+  ${LIGHTER_SHADER_SRC}
+)
+set(LIGHTER_SRC
+  stdx
+  debug
+  debug.cpp
+  file
+  filex
+  file.cpp
+  mathx
+  appx
+  input
+  oglbase
+  ogl
+  ogl.cpp
+  oclbase
+  ocl
+  cudabase
+  cuda
+  cudax
+  pool
+  pool.cpp
+  img
+  text
+  textx
+  text.glsl
+  uii
+  uiix
+  ui
+  uix
+  ui.glsl
+  uii.cpp
+  scene
+  scenex
+)
+if (LIGHTER_USE_FREEIMAGE)
+  list(APPEND LIGHTER_SRC
+	img.cpp
+  )
+  list(APPEND LIGHTER_DEPENDENCIES freeimage)
+endif()
+if (LIGHTER_USE_FREETYPE)
+  list(APPEND LIGHTER_SRC
+	ui.cpp
+  )
+  list(APPEND LIGHTER_DEPENDENCIES freetype)
+endif()
+if (LIGHTER_USE_SCENE)
+  list(APPEND LIGHTER_SRC
+	scene.cpp
+  )
 endif()
 
-if(LIGHTER_TARGET_FACTORY)
-  include("${LIGHTER_TARGET_FACTORY}")
+#--------------------------------------------------------------------
+# Source dependencies
+#--------------------------------------------------------------------
+set(LIGHTER_DATA_STAMP ${PROJECT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/lighter_data.stamp)
+add_custom_command(OUTPUT ${LIGHTER_DATA_STAMP}
+    COMMAND ${CMAKE_COMMAND} -E touch \"${LIGHTER_DATA_STAMP}\"
+    DEPENDS ${LIGHTER_DATA_FILES})
+
+#--------------------------------------------------------------------
+# Create target
+#--------------------------------------------------------------------
+source_group("Source Files" FILES ${LIGHTER_SRC})
+add_library(lighter ${LIGHTER_SRC} ${LIGHTER_DATA_STAMP})
+target_link_libraries(lighter PUBLIC ${LIGHTER_DEPENDENCIES})
+
+#--------------------------------------------------------------------
+# Install files?
+#--------------------------------------------------------------------
+if (LIGHTER_INSTALL_DATA_DIRECTORY)
+	install (FILES ${LIGHTER_DATA_FILES} DESTINATION ${LIGHTER_INSTALL_DATA_DIRECTORY})
+endif()
+if (LIGHTER_LIB_INSTALL)
+    install (TARGETS lighter DESTINATION lib)
 endif()
