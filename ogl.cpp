@@ -15,7 +15,7 @@ namespace ogl
 		std::cerr << "GLFW error #" << error << ": " << description << std::endl;
 	}
 
-	void APIENTRY GLFW::debugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, GLvoid* userParam)
+	void GLAPIENTRY GLFW::debugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const GLvoid* userParam)
 	{
 		bool Error = false;
 		bool Info = false;

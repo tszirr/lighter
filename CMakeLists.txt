@@ -1,5 +1,6 @@
 project(lighter)
 
+option(LIGHTER_USE_OPENGL "Enable OpenGL" ON)
 option(LIGHTER_USE_FREEIMAGE "Enable image loading using freeimage" ON)
 option(LIGHTER_USE_FREETYPE "Enable font rendering using freetype" ON)
 option(LIGHTER_USE_SCENE "Enable scene-related functionality" ON)
@@ -25,7 +26,6 @@ set(LIGHTER_SRC
   input
   oglbase
   ogl
-  ogl.cpp
   oclbase
   ocl
   cudabase
@@ -46,6 +46,12 @@ set(LIGHTER_SRC
   scene
   scenex
 )
+if (LIGHTER_USE_OPENGL)
+  list(APPEND LIGHTER_SRC
+	ogl.cpp
+  )
+  list(APPEND LIGHTER_DEPENDENCIES libglew_static glfw)
+endif()
 if (LIGHTER_USE_FREEIMAGE)
   list(APPEND LIGHTER_SRC
 	img.cpp
@@ -77,6 +83,7 @@ add_custom_command(OUTPUT ${LIGHTER_DATA_STAMP}
 #--------------------------------------------------------------------
 source_group("Source Files" FILES ${LIGHTER_SRC})
 add_library(lighter ${LIGHTER_SRC} ${LIGHTER_DATA_STAMP})
+target_include_directories(lighter INTERFACE ${PROJECT_SOURCE_DIR})
 target_link_libraries(lighter PUBLIC ${LIGHTER_DEPENDENCIES})
 
 #--------------------------------------------------------------------
