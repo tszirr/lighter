@@ -46,28 +46,24 @@ set(LIGHTER_SRC
   scene
   scenex
 )
-if (LIGHTER_USE_OPENGL)
+if (LIGHTER_USE_OPENGL AND TARGET libglew_static AND TARGET glfw)
   list(APPEND LIGHTER_SRC
 	ogl.cpp
   )
   list(APPEND LIGHTER_DEPENDENCIES libglew_static glfw)
 endif()
-if (LIGHTER_USE_FREEIMAGE)
-  list(APPEND LIGHTER_SRC
-	img.cpp
-  )
-  list(APPEND LIGHTER_DEPENDENCIES freeimage)
-endif()
-if (LIGHTER_USE_FREETYPE)
+if (LIGHTER_USE_FREETYPE AND TARGET freetype)
   list(APPEND LIGHTER_SRC
 	ui.cpp
   )
   list(APPEND LIGHTER_DEPENDENCIES freetype)
 endif()
+if (LIGHTER_USE_FREEIMAGE AND TARGET freeimage)
+  list(APPEND LIGHTER_SRC img.cpp)
+  list(APPEND LIGHTER_DEPENDENCIES freeimage)
+endif()
 if (LIGHTER_USE_SCENE)
-  list(APPEND LIGHTER_SRC
-	scene.cpp
-  )
+  list(APPEND LIGHTER_SRC scene.cpp)
 endif()
 
 #--------------------------------------------------------------------
