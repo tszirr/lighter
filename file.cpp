@@ -554,42 +554,59 @@ namespace stdx
 
 		// Initial folder
 		com_handle_t<IShellItem>::t currentFolderItem;
-		if (current)
+		std::string parentDir;
+		for (; current; )
 		{
-			auto path = utfcvt.from_bytes(current);
-
-			SFGAOF folderAtt = 0;
+			try
 			{
-				struct abs_iid_deleter {
-					void operator ()(ITEMIDLIST_ABSOLUTE* ptr) const {
-						if (ptr)
-							ILFree(ptr);
-					}
-				};
-				stdx::unique_handle<ITEMIDLIST_ABSOLUTE, abs_iid_deleter> iidl;
-			
-				if (auto pathLen = GetFullPathNameW(path.c_str(), 0, nullptr, nullptr))
+				auto path = utfcvt.from_bytes(current);
+
+				SFGAOF folderAtt = 0;
 				{
-					std::wstring fullPath;
-					fullPath.resize(pathLen);
-					if (GetFullPathNameW(path.c_str(), pathLen, &fullPath[0], nullptr))
-						path = std::move(fullPath);
+					struct abs_iid_deleter {
+						void operator ()(ITEMIDLIST_ABSOLUTE* ptr) const {
+							if (ptr)
+								ILFree(ptr);
+						}
+					};
+					stdx::unique_handle<ITEMIDLIST_ABSOLUTE, abs_iid_deleter> iidl;
+			
+					if (auto pathLen = GetFullPathNameW(path.c_str(), 0, nullptr, nullptr))
+					{
+						std::wstring fullPath;
+						fullPath.resize(pathLen);
+						if (GetFullPathNameW(path.c_str(), pathLen, &fullPath[0], nullptr))
+							path = std::move(fullPath);
+					}
+
+					throw_com_error(SHParseDisplayName(path.c_str(), nullptr, iidl.rebind(), SFGAO_FOLDER, &folderAtt));
+					throw_com_error(SHCreateItemFromIDList(iidl, IID_PPV_ARGS(currentFolderItem.rebind())));
 				}
 
-				throw_com_error(SHParseDisplayName(path.c_str(), nullptr, iidl.rebind(), SFGAO_FOLDER, &folderAtt));
-				throw_com_error(SHCreateItemFromIDList(iidl, IID_PPV_ARGS(currentFolderItem.rebind())));
-			}
+				if (~folderAtt & SFGAO_FOLDER || mode == dialog::folder)
+				{
+					com_handle_t<IShellItem>::t folder;
+					throw_com_error(currentFolderItem->GetParent(folder.rebind()));
+					currentFolderItem = std::move(folder);
 
-			if (~folderAtt & SFGAO_FOLDER || mode == dialog::folder)
+					throw_com_error(pfd->SetFileName(path.c_str()));
+				}
+
+				throw_com_error(pfd->SetFolder(currentFolderItem));
+
+				// success
+				break;
+			}
+			catch (...)
 			{
-				com_handle_t<IShellItem>::t folder;
-				throw_com_error(currentFolderItem->GetParent(folder.rebind()));
-				currentFolderItem = std::move(folder);
-
-				throw_com_error(pfd->SetFileName(path.c_str()));
+				if (current != parentDir.c_str())
+				{
+					parentDir = dirname(current);
+					current = parentDir.c_str();
+				}
+				else
+					current = nullptr;
 			}
-
-			throw_com_error(pfd->SetFolder(currentFolderItem));
 		}
 
 		// Show the dialog

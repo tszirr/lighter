@@ -41,6 +41,7 @@ namespace sml
 	using std::floor;
 	using std::ceil;
 	using std::signbit;
+	using std::copysign;
 	template <class T> SML_API inline T fract(T x) { return x - floor(x); }
 	
 	template <class T> SML_API inline T sincos(T a, T* s, T* c) { *s = sin(a); *c = cos(a); }
@@ -233,6 +234,7 @@ namespace sml
 		SML_API friend vec ceil (SML_POD_VEC const& l) { vec s; s.x = ceil (l.x); return s; }
 		
 		SML_API friend ivec signbit(SML_POD_VEC const& l) { ivec s; s.x = signbit(l.x); return s; }
+		SML_API friend vec copysign(SML_POD_VEC const& m, SML_POD_VEC const& s) { vec r; r.x = copysign(m.x, s.x); return r; }
 
 		SML_API friend vec mix(vec const& l, vec const& r, bvec const& p) { vec s; s.x = p.x ? r.x : l.x; return s; }
 		
@@ -402,6 +404,7 @@ namespace sml
 		SML_API friend vec ceil (SML_POD_VEC const& l) { vec s; s.x = ceil (l.x); s.y = ceil (l.y); return s; }
 
 		SML_API friend ivec signbit(SML_POD_VEC const& l) { ivec s; s.x = signbit(l.x); s.y = signbit(l.y); return s; }
+		SML_API friend vec copysign(SML_POD_VEC const& m, SML_POD_VEC const& s) { vec r; r.x = copysign(m.x, s.x); r.y = copysign(m.y, s.y); return r; }
 
 		SML_API friend vec mix(vec const& l, vec const& r, bvec const& p) { vec s; s.x = p.x ? r.x : l.x; s.y = p.y ? r.y : l.y; return s; }
 		
@@ -585,6 +588,7 @@ namespace sml
 		SML_API friend vec ceil (SML_POD_VEC const& l) { vec s; s.x = ceil (l.x); s.y = ceil (l.y); s.z = ceil (l.z); return s; }
 		
 		SML_API friend ivec signbit(SML_POD_VEC const& l) { ivec s; s.x = signbit(l.x); s.y = signbit(l.y); s.z = signbit(l.z); return s; }
+		SML_API friend vec copysign(SML_POD_VEC const& m, SML_POD_VEC const& s) { vec r; r.x = copysign(m.x, s.x); r.y = copysign(m.y, s.y); r.z = copysign(m.z, s.z); return r; }
 
 		SML_API friend vec mix(vec const& l, vec const& r, bvec const& p) { vec s; s.x = p.x ? r.x : l.x; s.y = p.y ? r.y : l.y; s.z = p.z ? r.z : l.z; return s; }
 
@@ -761,6 +765,7 @@ namespace sml
 		SML_API friend vec ceil (SML_POD_VEC const& l) { vec s; s.x = ceil (l.x); s.y = ceil (l.y); s.z = ceil (l.z); s.w = ceil (l.w); return s; }
 
 		SML_API friend ivec signbit(SML_POD_VEC const& l) { ivec s; s.x = signbit(l.x); s.y = signbit(l.y); s.z = signbit(l.z); s.w = signbit(l.w); return s; }
+		SML_API friend vec copysign(SML_POD_VEC const& m, SML_POD_VEC const& s) { vec r; r.x = copysign(m.x, s.x); r.y = copysign(m.y, s.y); r.z = copysign(m.z, s.z); r.w = copysign(m.w, s.w); return r; }
 
 		SML_API friend vec mix(vec const& l, vec const& r, bvec const& p) { vec s; s.x = p.x ? r.x : l.x; s.y = p.y ? r.y : l.y; s.z = p.z ? r.z : l.z; s.w = p.w ? r.w : l.w; return s; }
 		

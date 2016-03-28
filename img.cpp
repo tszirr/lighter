@@ -41,9 +41,9 @@ template <class T> struct copy_channel_identity::is_identity { static bool const
 template <> struct copy_channel_identity::is_identity<copy_channel_identity> { static bool const value = true; };
 
 template <class D, class S, class Transform>
-inline void copy_channels(D* destBytes, unsigned destChannels, S const* srcBytes, unsigned srcChannels, unsigned srcPitch, glm::uvec2 dim, D zero, D one, Transform&& transform)
+inline void copy_channels(D* destBytes, unsigned destChannels, S const* srcBytes, unsigned srcChannels, unsigned srcPitch, glm::uvec2 dim, D zero, D one, Transform&& transform, unsigned destPitch = 0)
 {
-	auto destByte = destBytes;
+	auto destLine = destBytes;
 	auto srcLine = srcBytes;
 	auto copyChannels = stdx::min_value(destChannels, srcChannels);
 	auto skipChannels = srcChannels - copyChannels;
@@ -51,6 +51,7 @@ inline void copy_channels(D* destBytes, unsigned destChannels, S const* srcBytes
 	for (unsigned y = 0; y < dim.y; ++y)
 	{
 		auto srcByte = srcLine;
+		auto destByte = destLine;
 
 		for (unsigned x = 0; x < dim.x; ++x)
 		{
@@ -69,6 +70,11 @@ inline void copy_channels(D* destBytes, unsigned destChannels, S const* srcBytes
 		}
 
 		srcLine = (S*) ((char*) srcLine + srcPitch);
+
+		if (destPitch)
+			destLine = (D*) ((char*) srcLine + destPitch);
+		else
+			destLine = destByte;
 	}
 }
 
@@ -82,6 +88,58 @@ bmp_handle load_bmp(stdx::data_range_param<const char> imageData, int flags = 0)
 
 	bmp_handle bmp( FreeImage_LoadFromMemory(fifType, fifStream, flags) );
 	if (!bmp.valid()) throwx(img_error("Unsupported image type or format (FreeImage)"));
+
+	return bmp;
+}
+
+FREE_IMAGE_TYPE free_image_type(ImageType::T destElementType, unsigned destChannels)
+{
+	switch (destElementType)
+	{
+	case ImageType::int8bpp: return FIT_BITMAP;
+	case ImageType::int16bpp:
+		if (destChannels == 1)  return FIT_UINT16;
+		else if (destChannels == 3)  return FIT_RGB16;
+		else if (destChannels == 4)  return FIT_RGBA16;
+	case ImageType::float32bpp:
+		if (destChannels == 1)  return FIT_FLOAT;
+		else if (destChannels == 3)  return FIT_RGBF;
+		else if (destChannels == 4)  return FIT_RGBAF;
+	}
+	return FIT_UNKNOWN;
+}
+
+unsigned bits_per_pixel(ImageType::T destElementType, unsigned destChannels)
+{
+	switch (destElementType)
+	{
+	case ImageType::int8bpp: return destChannels * 8;
+	case ImageType::int16bpp: return destChannels * 16;
+	case ImageType::float32bpp: return destChannels * 32;
+	}
+	return 0;
+}
+
+bmp_handle make_bmp(stdx::data_range_param<const char> imageData, unsigned width, unsigned height, ImageType::T destElementType, unsigned destChannels, int flags = 0)
+{
+	bmp_handle bmp( FreeImage_AllocateT(free_image_type(destElementType, destChannels), width, height, bits_per_pixel(destElementType, destChannels)) );
+	if (!bmp.valid()) throwx(img_error("Unsupported image type or format (FreeImage)"));
+
+	// copy to FI bmp
+	{
+		auto bytes = FreeImage_GetBits(bmp);
+		auto pitch = FreeImage_GetPitch(bmp);
+		auto srcBytesPerLine = imageData.size() / height;
+
+		if (pitch * height == imageData.size())
+			memcpy(bytes, imageData.data(), imageData.size());
+		else if (srcBytesPerLine < pitch && srcBytesPerLine * height == imageData.size()) {
+			for (auto srcLine = imageData.first; srcLine != imageData.last; srcLine += srcBytesPerLine, bytes += pitch)
+				memcpy(bytes, srcLine, srcBytesPerLine);
+		}
+		else
+			throwx(img_error("Invalid pitch"));
+	}
 
 	return bmp;
 }
@@ -258,6 +316,65 @@ void load_image(void* destImage, ImageType::T destElementType, unsigned destChan
 		throwx(img_error("Unsupported image format"));
 	}
 }
+
+void save_image(void* image, char const* filename, void* (*allocate)(size_t size, void* image),
+	stdx::data_range_param<const char> imageData, ImageType::T elementType, ImageDesc const& desc)
+{
+	prepareFreeImage();
+
+	auto fiformat = FreeImage_GetFIFFromFilename(filename);
+	if (fiformat == FIF_UNKNOWN)
+		throwx(img_error("Unsupported image format"));
+	
+	// Convert to free image
+	auto bmp = make_bmp(imageData, desc.dim.x, desc.dim.y, elementType, desc.channels);
+
+	bool result = false;
+
+	if (!image || !allocate)
+		result = FreeImage_Save(fiformat, bmp, filename) != 0;
+	else {
+		FreeImageIO fio;
+		struct IOData {
+			void* image;
+			void* (*allocate)(size_t size, void* image);
+			void* memory;
+			size_t offset;
+			size_t waterMark;
+		} ioData = { image, allocate, nullptr, 0, 0 };
+		fio.write_proc = [](void *buffer, unsigned size, unsigned count, fi_handle handle) -> unsigned {
+			IOData& ioData = *(IOData*) handle;
+			auto byteCount = size * count;
+			auto endOffset = ioData.offset + byteCount;
+			if (endOffset > ioData.waterMark) {
+				ioData.memory = ioData.allocate(endOffset, ioData.image);
+				ioData.waterMark = endOffset;
+			}
+			memcpy(ioData.memory, buffer,  byteCount);
+			ioData.offset = endOffset;
+			return byteCount;
+		};
+		fio.seek_proc = [](fi_handle handle, long offset, int start) -> int {
+			IOData& ioData = *(IOData*) handle;
+			if (start == SEEK_END)
+				ioData.offset = ioData.waterMark + offset;
+			else if (start == SEEK_SET)
+				ioData.offset = offset;
+			else
+				ioData.offset += offset;
+			return 0;
+		};
+		fio.tell_proc = [](fi_handle handle) -> long {
+			IOData& ioData = *(IOData*) handle;
+			return (long) ioData.offset;
+		};
+		result = FreeImage_SaveToHandle(fiformat, bmp, &fio, (fi_handle) &ioData) != 0;
+	}
+
+	if (!result)
+		throwx(img_error("Error saving image"));
+}
+
 
 namespace
 {
