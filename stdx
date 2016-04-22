@@ -398,10 +398,10 @@ namespace stdx
 		// Inherit constructors
 		unique_handle(std::nullptr_t = nullptr) { }
 		explicit unique_handle(pointer value)
-			: typename unique_handle::unique_ptr(MOVE_T(value)) { }
+			: unique_handle::unique_ptr(MOVE_T(value)) { }
 			
 		unique_handle(unique_handle &&right)
-			: typename unique_handle::unique_ptr(MOVE_T(right)) { }
+			: unique_handle::unique_ptr(MOVE_T(right)) { }
 		unique_handle& operator =(unique_handle &&right)
 		{
 			typedef typename unique_handle::unique_ptr unique_ptr_t;

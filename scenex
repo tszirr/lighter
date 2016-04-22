@@ -18,7 +18,7 @@ struct WriteVisitor
 	{
 		if (c.begin() < c.end())
 		{
-			auto header = DataHeader::make(id, c.size(), DataHeader::make_version(Collection::value_type()), sizeof(*c.data()));
+			auto header = DataHeader::make(id, c.size(), DataHeader::make_version(typename Collection::value_type()), sizeof(*c.data()));
 			memcpy(dest, &header, sizeof(header));
 			dest += sizeof(header);
 			memcpy(dest, c.data(), header.size);
@@ -56,7 +56,7 @@ struct ReadVisitor
 				{
 					size_t count = header.size / header.elementSize;
 
-					auto currentVersion = DataHeader::make_version(Collection::value_type());
+					auto currentVersion = DataHeader::make_version(typename Collection::value_type());
 					if (header.version > currentVersion)
 						errors(id, "format not supported yet");
 					else if (header.version < currentVersion)
