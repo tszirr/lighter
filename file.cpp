@@ -20,12 +20,13 @@
 
 	#pragma comment(linker, "\"/manifestdependency:type='Win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 #else
+	#include <libgen.h> // basname / dirname
 	#include <utime.h>
 	#include <fcntl.h>
 	#include <unistd.h>
 	#include <sys/mman.h>
 
-	#include <libgen.h>
+	#include <dlfcn.h> // dlopen ...
 #endif
 
 namespace stdx
