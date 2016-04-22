@@ -53,7 +53,7 @@ namespace stdx
 #ifdef WIN32
 		SetCurrentDirectoryA(dir);
 #else
-		chdir(file);
+		chdir(dir);
 #endif
 	}
 	

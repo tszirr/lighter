@@ -206,7 +206,7 @@ struct resource_pool
 	bool keep(own_pooled<ResRef>& res, Desc const& desc, Context&& context)
 	{
 		using detail::resource_pool::generic_comparison::operator ==;
-		if (!res.pooled || !(desc == res.pooled->get_desc<Desc>())) {
+		if (!res.pooled || !(desc == res.pooled->template get_desc<Desc>())) {
 			res = acquire<Res, ResRef>(desc, FORWARD(Context, context));
 			return false;
 		}
@@ -216,7 +216,7 @@ struct resource_pool
 	bool keep(own_pooled<ResRef>& res, Desc const& desc, Context&& context)
 	{
 		using detail::resource_pool::generic_comparison::operator ==;
-		if (!res.pooled || !(desc == res.pooled->get_desc<Desc>())) {
+		if (!res.pooled || !(desc == res.pooled->template get_desc<Desc>())) {
 			res = acquire(desc, FORWARD(Context, context));
 			return false;
 		}

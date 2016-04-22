@@ -939,8 +939,7 @@ struct FramebufferAttachments : FramebufferAttachments<MaxTextures, 0, TextureTy
 	template <size_t MT, GLuint DBT>
 	void assign(FramebufferAttachments<MT, DBT, TextureType> const& other)
 	{
-		typedef typename FramebufferAttachments::without_depth without_depth_t;
-		this->without_depth_t::assign(other);
+		this->without_depth::assign(other);
 		static_assert(DBT == 0 || DBT == DepthBufferType, "Depth buffer type mismatch");
 		this->depth = other.depth;
 	}
