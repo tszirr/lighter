@@ -14,10 +14,10 @@
 #endif
 
 #ifdef _MSC_VER
-	#if !defined(__clang__) // no C++11 today: && !defined(__CUDA_ARCH__)
+	#if defined(__CUDACC__) // no C++11 today
+		#define SML_TRIVIAL_UNIONS
+	#elif !defined(__clang__)
 		#define SML_MSVC_LEGACY
-	#endif
-	#if !defined(__clang__) && !defined(__CUDACC__)
 		#define SML_MSVC_WORKAROUNDS
 	#endif
 #endif
@@ -504,8 +504,10 @@ namespace sml
 		{
 			struct { T x, y, z; };
 			struct { T r, g, b; };
+#ifndef SML_TRIVIAL_UNIONS
 			SML_POD_VEC<T, 2> xy;
 			struct { T _; SML_POD_VEC<T, 2> yz; };
+#endif
 			component c[dimension];
 		};
 		
@@ -689,9 +691,11 @@ namespace sml
 		{
 			struct { T x, y, z, w; };
 			struct { T r, g, b, a; };
+#ifndef SML_TRIVIAL_UNIONS
 			SML_POD_VEC<T, 3> xyz;
 			struct { SML_POD_VEC<T, 2> xy, zw; };
 			struct { T _; union { SML_POD_VEC<T, 3> yzw; SML_POD_VEC<T, 2> yz; }; };
+#endif
 			component c[dimension];
 		};
 
@@ -1074,12 +1078,16 @@ namespace sml
 		typedef vec<T, R> column;
 		typedef vec<T, R - 1> col_dehom;
 
+#ifdef SML_TRIVIAL_UNIONS
+		SML_POD_VEC<T, R> a;
+#else
 		union
 		{
 			SML_POD_VEC<T, R> a;
 			SML_POD_VEC<T, R> cls[columns];
 			T e[columns][rows];
 		};
+#endif
 
 		SML_API mat() { }
 		SML_API explicit mat(T x) { this->a = column::template base<0>(x); }
@@ -1088,14 +1096,14 @@ namespace sml
 
 		template <class T2, int C2, int R2>
 		SML_API explicit mat(mat<T2, C2, R2> const& v, typename enable_if<C2 >= columns && R2 >= R>::type* assert_size = nullptr)
-		{ this->a = column(v.cls[0]); }
+		{ this->a = column(v.a); }
 
 		typedef mat<bool, columns, R> bmat;
 		typedef mat<T, columns, columns> mat_s;
 		typedef mat<T, R, columns> mat_t;
 		
-		SML_API column& operator [](int i) { return (column&) (T(&)[rows]) cls[i]; }
-		SML_API column  operator [](int i) const { return cls[i]; }
+		SML_API column& operator [](int i) { return (column&) ((T(&)[columns][rows]) a)[i]; }
+		SML_API column  operator [](int i) const { return ((SML_POD_VEC<T, R>(&)[columns]) a)[i]; }
 		
 		SML_API mat& operator +=(mat const& r) { a += r.a; return *this; }
 		SML_API mat& operator -=(mat const& r) { a -= r.a; return *this; }
@@ -1115,7 +1123,7 @@ namespace sml
 		SML_API static mat from_transposed(mat_t const& l)
 		{
 			mat s;
-			s.a = column::transpose(l.cls[0].c + 0, stride_literal<mat_t::rows>());
+			s.a = column::transpose(l.a.c + 0, stride_literal<mat_t::rows>());
 			return s;
 		}
 		SML_API friend mat_t transpose(mat const& l) { return mat_t::from_transposed(l); }
@@ -1130,7 +1138,7 @@ namespace sml
 		SML_API static vec<T, columns> transposed_transform(mat_t const& l, vec<T, R> const& r)
 		{
 			return vec<T, columns>(
-				  column::dot_transposed(l.cls[0].c + 0, stride_literal<mat_t::rows>(), r)
+				  column::dot_transposed(l.a.c + 0, stride_literal<mat_t::rows>(), r)
 				); 
 		}
 		SML_API friend vec<T, R> operator *(mat const& l, vec<T, columns> const& r) { return mat_t::transposed_transform(l, r); }
@@ -1164,12 +1172,16 @@ namespace sml
 		typedef vec<T, R> column;
 		typedef vec<T, R - 1> col_dehom;
 		
+#ifdef SML_TRIVIAL_UNIONS
+		SML_POD_VEC<T, R> a, b;
+#else
 		union
 		{
 			struct { SML_POD_VEC<T, R> a, b; };
 			SML_POD_VEC<T, R> cls[columns];
 			T e[columns][rows];
 		};
+#endif
 		
 		SML_API mat() { }
 		SML_API explicit mat(T x) { this->a = column::template base<0>(x); this->b = column::template base<1>(x); }
@@ -1180,14 +1192,14 @@ namespace sml
 
 		template <class T2, int C2, int R2>
 		SML_API explicit mat(mat<T2, C2, R2> const& v, typename enable_if<C2 >= columns && R2 >= R>::type* assert_size = nullptr)
-		{ this->a = column(v.cls[0]); this->b = column(v.cls[1]); }
+		{ this->a = column(v.ca); this->b = column(v.b); }
 		
 		typedef mat<bool, columns, R> bmat;
 		typedef mat<T, columns, columns> mat_s;
 		typedef mat<T, R, columns> mat_t;
 		
-		SML_API column& operator [](int i) { return (column&) (T(&)[rows]) cls[i]; }
-		SML_API column  operator [](int i) const { return cls[i]; }
+		SML_API column& operator [](int i) { return (column&) ((T(&)[columns][rows]) a)[i]; }
+		SML_API column  operator [](int i) const { return ((SML_POD_VEC<T, R>(&)[columns]) a)[i]; }
 		
 		SML_API mat& operator +=(mat const& r) { a += r.a; b += r.b; return *this; }
 		SML_API mat& operator -=(mat const& r) { a -= r.a; b -= r.b; return *this; }
@@ -1207,8 +1219,8 @@ namespace sml
 		SML_API static mat from_transposed(mat_t const& l)
 		{
 			mat s;
-			s.a = column::transpose(l.cls[0].c + 0, stride_literal<mat_t::rows>());
-			s.b = column::transpose(l.cls[0].c + 1, stride_literal<mat_t::rows>());
+			s.a = column::transpose(l.a.c + 0, stride_literal<mat_t::rows>());
+			s.b = column::transpose(l.a.c + 1, stride_literal<mat_t::rows>());
 			return s;
 		}
 		SML_API friend mat_t transpose(mat const& l) { return mat_t::from_transposed(l); }
@@ -1224,8 +1236,8 @@ namespace sml
 		SML_API static vec<T, columns> transposed_transform(mat_t const& l, vec<T, R> const& r)
 		{
 			return vec<T, columns>(
-				  column::dot_transposed(l.cls[0].c + 0, stride_literal<mat_t::rows>(), r)
-				, column::dot_transposed(l.cls[0].c + 1, stride_literal<mat_t::rows>(), r)
+				  column::dot_transposed(l.a.c + 0, stride_literal<mat_t::rows>(), r)
+				, column::dot_transposed(l.a.c + 1, stride_literal<mat_t::rows>(), r)
 				);
 		}
 		SML_API friend vec<T, R> operator *(mat const& l, vec<T, columns> const& r) { return mat_t::transposed_transform(l, r); }
@@ -1259,12 +1271,16 @@ namespace sml
 		typedef vec<T, R> column;
 		typedef vec<T, R - 1> col_dehom;
 
+#ifdef SML_TRIVIAL_UNIONS
+		SML_POD_VEC<T, R> a, b, c;
+#else
 		union
 		{
 			struct { SML_POD_VEC<T, R> a, b, c; };
 			SML_POD_VEC<T, R> cls[columns];
 			T e[columns][rows];
 		};
+#endif
 		
 		SML_API mat() { }
 		SML_API explicit mat(T x) { this->a = column::template base<0>(x); this->b = column::template base<1>(x); this->c = column::template base<2>(x); }
@@ -1279,15 +1295,15 @@ namespace sml
 
 		template <class T2, int C2, int R2>
 		SML_API explicit mat(mat<T2, C2, R2> const& v, typename enable_if<C2 >= columns && R2 >= R>::type* assert_size = nullptr)
-		{ this->a = column(v.cls[0]); this->b = column(v.cls[1]); this->c = column(v.cls[2]); }
+		{ this->a = column(v.a); this->b = column(v.b); this->c = column(v.c); }
 		
 		typedef mat<bool, columns, R> bmat;
 		typedef mat<T, columns, columns> mat_s;
 		typedef mat<T, R, columns> mat_t;
 		
-		SML_API column& operator [](int i) { return (column&) (T(&)[rows]) cls[i]; }
-		SML_API column  operator [](int i) const { return cls[i]; }
-		
+		SML_API column& operator [](int i) { return (column&) ((T(&)[columns][rows]) a)[i]; }
+		SML_API column  operator [](int i) const { return ((SML_POD_VEC<T, R>(&)[columns]) a)[i]; }
+
 		SML_API mat& operator +=(mat const& r) { a += r.a; b += r.b; c += r.c; return *this; }
 		SML_API mat& operator -=(mat const& r) { a -= r.a; b -= r.b; c -= r.c; return *this; }
 		
@@ -1306,9 +1322,9 @@ namespace sml
 		SML_API static mat from_transposed(mat_t const& l)
 		{
 			mat s;
-			s.a = column::transpose(l.cls[0].c + 0, stride_literal<mat_t::rows>());
-			s.b = column::transpose(l.cls[0].c + 1, stride_literal<mat_t::rows>());
-			s.c = column::transpose(l.cls[0].c + 2, stride_literal<mat_t::rows>());
+			s.a = column::transpose(l.a.c + 0, stride_literal<mat_t::rows>());
+			s.b = column::transpose(l.a.c + 1, stride_literal<mat_t::rows>());
+			s.c = column::transpose(l.a.c + 2, stride_literal<mat_t::rows>());
 			return s;
 		}
 		SML_API friend mat_t transpose(mat const& l) { return mat_t::from_transposed(l); }
@@ -1325,9 +1341,9 @@ namespace sml
 		SML_API static vec<T, columns> transposed_transform(mat_t const& l, vec<T, R> const& r)
 		{
 			return vec<T, columns>(
-				  column::dot_transposed(l.cls[0].c + 0, stride_literal<mat_t::rows>(), r)
-				, column::dot_transposed(l.cls[0].c + 1, stride_literal<mat_t::rows>(), r)
-				, column::dot_transposed(l.cls[0].c + 2, stride_literal<mat_t::rows>(), r)
+				  column::dot_transposed(l.a.c + 0, stride_literal<mat_t::rows>(), r)
+				, column::dot_transposed(l.a.c + 1, stride_literal<mat_t::rows>(), r)
+				, column::dot_transposed(l.a.c + 2, stride_literal<mat_t::rows>(), r)
 				); 
 		}
 		SML_API friend vec<T, R> operator *(mat const& l, vec<T, columns> const& r) { return mat_t::transposed_transform(l, r); }
@@ -1361,12 +1377,16 @@ namespace sml
 		typedef vec<T, R> column;
 		typedef vec<T, R - 1> col_dehom;
 
+#ifdef SML_TRIVIAL_UNIONS
+		SML_POD_VEC<T, R> a, b, c, d;
+#else
 		union
 		{
 			struct { SML_POD_VEC<T, R> a, b, c, d; };
 			SML_POD_VEC<T, R> cls[columns];
 			T e[columns][rows];
 		};
+#endif
 
 		SML_API mat() { }
 		SML_API explicit mat(T x) { this->a = column::template base<0>(x); this->b = column::template base<1>(x); this->c = column::template base<2>(x); this->d = column::template base<3>(x); }
@@ -1381,14 +1401,14 @@ namespace sml
 
 		template <class T2, int C2, int R2>
 		SML_API explicit mat(mat<T2, C2, R2> const& v, typename enable_if<C2 >= columns && R2 >= R>::type* assert_size = nullptr)
-		{ this->a = column(v.cls[0]); this->b = column(v.cls[1]); this->c = column(v.cls[2]); this->d = column(v.cls[3]); }
+		{ this->a = column(v.a); this->b = column(v.b); this->c = column(v.c); this->d = column(v.d); }
 		
 		typedef mat<bool, columns, R> bmat;
 		typedef mat<T, columns, columns> mat_s;
 		typedef mat<T, R, columns> mat_t;
 		
-		SML_API column& operator [](int i) { return (column&) (T(&)[rows]) cls[i]; }
-		SML_API column  operator [](int i) const { return cls[i]; }
+		SML_API column& operator [](int i) { return (column&) ((T(&)[columns][rows]) a)[i]; }
+		SML_API column  operator [](int i) const { return ((SML_POD_VEC<T, R>(&)[columns]) a)[i]; }
 		
 		SML_API mat& operator +=(mat const& r) { a += r.a; b += r.b; c += r.c; d += r.d; return *this; }
 		SML_API mat& operator -=(mat const& r) { a -= r.a; b -= r.b; c -= r.c; d -= r.d; return *this; }
@@ -1408,10 +1428,10 @@ namespace sml
 		SML_API static mat from_transposed(mat_t const& l)
 		{
 			mat s;
-			s.a = column::transpose(l.cls[0].c + 0, stride_literal<mat_t::rows>());
-			s.b = column::transpose(l.cls[0].c + 1, stride_literal<mat_t::rows>());
-			s.c = column::transpose(l.cls[0].c + 2, stride_literal<mat_t::rows>());
-			s.d = column::transpose(l.cls[0].c + 3, stride_literal<mat_t::rows>());
+			s.a = column::transpose(l.a.c + 0, stride_literal<mat_t::rows>());
+			s.b = column::transpose(l.a.c + 1, stride_literal<mat_t::rows>());
+			s.c = column::transpose(l.a.c + 2, stride_literal<mat_t::rows>());
+			s.d = column::transpose(l.a.c + 3, stride_literal<mat_t::rows>());
 			return s;
 		}
 		SML_API friend mat_t transpose(mat const& l) { return mat_t::from_transposed(l); }
@@ -1429,10 +1449,10 @@ namespace sml
 		SML_API static vec<T, columns> transposed_transform(mat_t const& l, vec<T, R> const& r)
 		{
 			return vec<T, columns>(
-				  column::dot_transposed(l.cls[0].c + 0, stride_literal<mat_t::rows>(), r)
-				, column::dot_transposed(l.cls[0].c + 1, stride_literal<mat_t::rows>(), r)
-				, column::dot_transposed(l.cls[0].c + 2, stride_literal<mat_t::rows>(), r)
-				, column::dot_transposed(l.cls[0].c + 3, stride_literal<mat_t::rows>(), r)
+				  column::dot_transposed(l.a.c + 0, stride_literal<mat_t::rows>(), r)
+				, column::dot_transposed(l.a.c + 1, stride_literal<mat_t::rows>(), r)
+				, column::dot_transposed(l.a.c + 2, stride_literal<mat_t::rows>(), r)
+				, column::dot_transposed(l.a.c + 3, stride_literal<mat_t::rows>(), r)
 				); 
 		}
 		SML_API friend vec<T, R> operator *(mat const& l, vec<T, columns> const& r) { return mat_t::transposed_transform(l, r); }
@@ -1465,11 +1485,15 @@ namespace sml
 		static int const rows = R;
 		typedef vec<T, R> column;
 		
+#ifdef SML_TRIVIAL_UNIONS
+		SML_POD_VEC<T, R> cls[columns];
+#else
 		union
 		{
 			SML_POD_VEC<T, R> cls[columns];
 			T e[columns][rows];
 		};
+#endif
 
 		SML_API mat() { }
 		SML_API explicit mat(T x) { for (int i = 0; i < C; ++i) cls[i] = column::base(i, x); }
