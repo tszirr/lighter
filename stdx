@@ -34,7 +34,12 @@
 	#pragma warning(disable : 4510)
 	#pragma warning(disable : 4610)
 
-	#define CPP11_NO_VARIADIC_TEMPLATES
+	#if _MSC_VER < 1800
+		#define CPP11_NO_VARIADIC_TEMPLATES
+	#endif
+	#if _MSC_VER < 1900
+		#define CPP11_NO_MOVE_DEFAULTS
+	#endif
 #endif
 
 #ifndef CPP11_NO_VARIADIC_TEMPLATES
@@ -849,34 +854,42 @@ namespace stdx
 
 #define AUTO_VAR auto VALUE_CONCAT(autoVar, __COUNTER__)
 
-// MSVC 2013 shame
-#define MSVC_EXPAND(x) x
+// MSVC <= 2013 shame
+#ifdef CPP11_NO_MOVE_DEFAULTS
 
-#define MOVE_GENERATE(clazz, generator, ...) \
-	clazz(clazz &&right) : MSVC_EXPAND(generator##_CONSTRUCT(right, __VA_ARGS__)) { } \
-	clazz& operator =(clazz &&right) { MSVC_EXPAND(generator##_ASSIGN(right, __VA_ARGS__)) return *this; }
+	#define MSVC_EXPAND(x) x
 
-#define MOVE_BASE_CONSTRUCT(right, base) base(std::move(right))
-#define MOVE_BASE_ASSIGN(right, base) base::operator =(std::move(right))
-#define MOVE_MEMBER_CONSTRUCT(right, member) member(std::move(right.member))
-#define MOVE_MEMBER_ASSIGN(right, member) std::swap(member, right.member)
+	#define MOVE_GENERATE(clazz, generator, ...) \
+		clazz(clazz &&right) : MSVC_EXPAND(generator##_CONSTRUCT(right, __VA_ARGS__)) { } \
+		clazz& operator =(clazz &&right) { MSVC_EXPAND(generator##_ASSIGN(right, __VA_ARGS__)) return *this; }
 
-#define MOVE_1_CONSTRUCT(right, what, that) MOVE_##what##_CONSTRUCT(right, that)
-#define MOVE_1_ASSIGN(right, what, that) MOVE_##what##_ASSIGN(right, that);
-#define MOVE_2_CONSTRUCT(right, what, that, ...) MOVE_##what##_CONSTRUCT(right, that), MSVC_EXPAND(MOVE_1_CONSTRUCT(right, __VA_ARGS__))
-#define MOVE_2_ASSIGN(right, what, that, ...) MOVE_##what##_ASSIGN(right, that); MSVC_EXPAND(MOVE_1_ASSIGN(right, __VA_ARGS__))
-#define MOVE_3_CONSTRUCT(right, what, that, ...) MOVE_##what##_CONSTRUCT(right, that), MSVC_EXPAND(MOVE_2_CONSTRUCT(right, __VA_ARGS__))
-#define MOVE_3_ASSIGN(right, what, that, ...) MOVE_##what##_ASSIGN(right, that); MSVC_EXPAND(MOVE_2_ASSIGN(right, __VA_ARGS__))
-#define MOVE_4_CONSTRUCT(right, what, that, ...) MOVE_##what##_CONSTRUCT(right, that), MSVC_EXPAND(MOVE_3_CONSTRUCT(right, __VA_ARGS__))
-#define MOVE_4_ASSIGN(right, what, that, ...) MOVE_##what##_ASSIGN(right, that); MSVC_EXPAND(MOVE_3_ASSIGN(right, __VA_ARGS__))
-#define MOVE_5_CONSTRUCT(right, what, that, ...) MOVE_##what##_CONSTRUCT(right, that), MSVC_EXPAND(MOVE_4_CONSTRUCT(right, __VA_ARGS__))
-#define MOVE_5_ASSIGN(right, what, that, ...) MOVE_##what##_ASSIGN(right, that); MSVC_EXPAND(MOVE_4_ASSIGN(right, __VA_ARGS__))
-#define MOVE_6_CONSTRUCT(right, what, that, ...) MOVE_##what##_CONSTRUCT(right, that), MSVC_EXPAND(MOVE_5_CONSTRUCT(right, __VA_ARGS__))
-#define MOVE_6_ASSIGN(right, what, that, ...) MOVE_##what##_ASSIGN(right, that); MSVC_EXPAND(MOVE_5_ASSIGN(right, __VA_ARGS__))
-#define MOVE_7_CONSTRUCT(right, what, that, ...) MOVE_##what##_CONSTRUCT(right, that), MSVC_EXPAND(MOVE_6_CONSTRUCT(right, __VA_ARGS__))
-#define MOVE_7_ASSIGN(right, what, that, ...) MOVE_##what##_ASSIGN(right, that); MSVC_EXPAND(MOVE_6_ASSIGN(right, __VA_ARGS__))
-#define MOVE_8_CONSTRUCT(right, what, that, ...) MOVE_##what##_CONSTRUCT(right, that), MSVC_EXPAND(MOVE_7_CONSTRUCT(right, __VA_ARGS__))
-#define MOVE_8_ASSIGN(right, what, that, ...) MOVE_##what##_ASSIGN(right, that); MSVC_EXPAND(MOVE_7_ASSIGN(right, __VA_ARGS__))
+	#define MOVE_BASE_CONSTRUCT(right, base) base(std::move(right))
+	#define MOVE_BASE_ASSIGN(right, base) this->base::operator =(std::move(right))
+	#define MOVE_MEMBER_CONSTRUCT(right, member) member(std::move(right.member))
+	#define MOVE_MEMBER_ASSIGN(right, member) std::swap(member, right.member)
+
+	#define MOVE_1_CONSTRUCT(right, what, that) MOVE_##what##_CONSTRUCT(right, that)
+	#define MOVE_1_ASSIGN(right, what, that) MOVE_##what##_ASSIGN(right, that);
+	#define MOVE_2_CONSTRUCT(right, what, that, ...) MOVE_##what##_CONSTRUCT(right, that), MSVC_EXPAND(MOVE_1_CONSTRUCT(right, __VA_ARGS__))
+	#define MOVE_2_ASSIGN(right, what, that, ...) MOVE_##what##_ASSIGN(right, that); MSVC_EXPAND(MOVE_1_ASSIGN(right, __VA_ARGS__))
+	#define MOVE_3_CONSTRUCT(right, what, that, ...) MOVE_##what##_CONSTRUCT(right, that), MSVC_EXPAND(MOVE_2_CONSTRUCT(right, __VA_ARGS__))
+	#define MOVE_3_ASSIGN(right, what, that, ...) MOVE_##what##_ASSIGN(right, that); MSVC_EXPAND(MOVE_2_ASSIGN(right, __VA_ARGS__))
+	#define MOVE_4_CONSTRUCT(right, what, that, ...) MOVE_##what##_CONSTRUCT(right, that), MSVC_EXPAND(MOVE_3_CONSTRUCT(right, __VA_ARGS__))
+	#define MOVE_4_ASSIGN(right, what, that, ...) MOVE_##what##_ASSIGN(right, that); MSVC_EXPAND(MOVE_3_ASSIGN(right, __VA_ARGS__))
+	#define MOVE_5_CONSTRUCT(right, what, that, ...) MOVE_##what##_CONSTRUCT(right, that), MSVC_EXPAND(MOVE_4_CONSTRUCT(right, __VA_ARGS__))
+	#define MOVE_5_ASSIGN(right, what, that, ...) MOVE_##what##_ASSIGN(right, that); MSVC_EXPAND(MOVE_4_ASSIGN(right, __VA_ARGS__))
+	#define MOVE_6_CONSTRUCT(right, what, that, ...) MOVE_##what##_CONSTRUCT(right, that), MSVC_EXPAND(MOVE_5_CONSTRUCT(right, __VA_ARGS__))
+	#define MOVE_6_ASSIGN(right, what, that, ...) MOVE_##what##_ASSIGN(right, that); MSVC_EXPAND(MOVE_5_ASSIGN(right, __VA_ARGS__))
+	#define MOVE_7_CONSTRUCT(right, what, that, ...) MOVE_##what##_CONSTRUCT(right, that), MSVC_EXPAND(MOVE_6_CONSTRUCT(right, __VA_ARGS__))
+	#define MOVE_7_ASSIGN(right, what, that, ...) MOVE_##what##_ASSIGN(right, that); MSVC_EXPAND(MOVE_6_ASSIGN(right, __VA_ARGS__))
+	#define MOVE_8_CONSTRUCT(right, what, that, ...) MOVE_##what##_CONSTRUCT(right, that), MSVC_EXPAND(MOVE_7_CONSTRUCT(right, __VA_ARGS__))
+	#define MOVE_8_ASSIGN(right, what, that, ...) MOVE_##what##_ASSIGN(right, that); MSVC_EXPAND(MOVE_7_ASSIGN(right, __VA_ARGS__))
+
+#else
+
+	#define MOVE_GENERATE(clazz, generator, ...) // move constructors & operators automatically defined, welcome to the future!
+
+#endif
 
 #define MOVE_BASE(clazz, base) MOVE_GENERATE(clazz, MOVE_1, BASE, base)
 #define MOVE_MEMBER(clazz, member) MOVE_GENERATE(clazz, MOVE_1, MEMBER, member)

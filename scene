@@ -56,7 +56,7 @@ template <template <class T> class Storage>
 struct SceneGeometryT : SceneVerticesT<Storage>
 {
 	MOVE_GENERATE(SceneGeometryT, MOVE_2
-		, BASE, SceneVerticesT
+		, BASE, SceneGeometryT::SceneVerticesT
 		, MEMBER, indices
 		)
 
@@ -206,7 +206,7 @@ template <template <class T> class Storage = VectorStorage>
 struct SceneT : SceneGeometryT<Storage>
 {
 	MOVE_GENERATE(SceneT, MOVE_6
-		, BASE, SceneGeometryT
+		, BASE, SceneT::SceneGeometryT
 		, MEMBER, meshes
 		, MEMBER, materials
 		, MEMBER, textures

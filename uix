@@ -751,7 +751,7 @@ struct TextUi : UserInterface, UniversalInterface
 			);
 	}
 
-	void addColor(UniqueElementIdentifier id, char const* label, glm::vec3 const& value, float valueRange, InteractionParam<glm::vec3> interact, float valueTicks = 0.0f)
+	void addColor(UniqueElementIdentifier id, char const* label, glm::vec3 const& value, float valueRange, InteractionParam<glm::vec3> interact, float valueTicks = 0.0f) override
 	{
 		if (auto uiGroup = ui::Group(*this, id))
 		{
