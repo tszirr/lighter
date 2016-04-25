@@ -35,11 +35,13 @@ inline __host__ __device__ CUdeviceptr asDriverPtr(T* ptr)
 }
 
 template <class T, class X>
-inline __host__ __device__ T const& as_(X const& x)
+inline __host__ __device__ T as_(X const& x)
 {
 	static_assert(sizeof(T) == sizeof(X), "size mismatch");
-	union U { X x; T t; char c[sizeof(T)]; };
-	return reinterpret_cast<U const&>(x).t;
+	union U { X x; T t; char c[sizeof(T)]; } u;
+	u.x = x;
+	return u.t;
+//	return reinterpret_cast<U const&>(x).t;
 }
 
 template <class T, size_t S>
