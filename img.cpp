@@ -20,15 +20,13 @@ FreeImage& prepareFreeImage()
 	return fi;
 }
 
-template <class Handle>
 struct FreeImageDeleter
 {
-	typedef Handle pointer;
 	void operator ()(FIMEMORY* mem) { if (mem) FreeImage_CloseMemory(mem); }
 	void operator ()(FIBITMAP* bmp) { if (bmp) FreeImage_Unload(bmp); }
 };
-typedef stdx::unique_handle< FIMEMORY*, FreeImageDeleter<FIMEMORY*> > mem_handle;
-typedef stdx::unique_handle< FIBITMAP*, FreeImageDeleter<FIBITMAP*> > bmp_handle;
+typedef stdx::unique_handle< FIMEMORY, FreeImageDeleter> mem_handle;
+typedef stdx::unique_handle< FIBITMAP, FreeImageDeleter> bmp_handle;
 
 struct copy_channel_identity
 {
