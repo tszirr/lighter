@@ -390,12 +390,11 @@ namespace sml
 		}
 	};
 
-	template <class T> MATHX_API inline T mipCount(T res) { T count(1); for (auto m = res; m > T(1); m /= T(2)) ++count; return count; }
+	template <class T> MATHX_API inline T signNZ(T v) { return copysign(T(1), v); }
+	template <class T> MATHX_API inline T ispositivef(T v) { return max(T(0), copysign(T(1), v)); }
+	template <class T> MATHX_API inline T isnegativef(T v) { return max(T(0), copysign(T(1), -v)); }
 
-	template <class T> MATHX_API inline typename std::enable_if<std::is_fundamental<T>::value, T>::type signNZ(T v) { return (v < T(0)) ? T(-1) : T(1); }
-	template <class T> MATHX_API inline glm::vec<T, 2> signNZ(glm::pod_vec<T, 2> v) { return glm::vec<T, 2>(signNZ(v.x), signNZ(v.y)); }
-	template <class T> MATHX_API inline glm::vec<T, 3> signNZ(glm::pod_vec<T, 3> v) { return glm::vec<T, 3>(signNZ(v.x), signNZ(v.y), signNZ(v.z)); }
-	template <class T> MATHX_API inline glm::vec<T, 4> signNZ(glm::pod_vec<T, 4> v) { return glm::vec<T, 4>(signNZ(v.x), signNZ(v.y), signNZ(v.z), signNZ(v.w)); }
+	template <class T> MATHX_API inline T mipCount(T res) { T count(1); for (auto m = res; m > T(1); m /= T(2)) ++count; return count; }
 
 	template <class T> MATHX_API inline typename std::enable_if<std::is_fundamental<T>::value, T>::type nextPO2(T res) { T po2(1); while (po2 < res) po2 *= T(2); return po2; }
 	template <class T> MATHX_API inline glm::vec<T, 2> nextPO2(glm::pod_vec<T, 2> res) { return glm::vec<T, 2>(nextPO2(res.x), nextPO2(res.y)); }
