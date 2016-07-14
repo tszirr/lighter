@@ -1595,11 +1595,11 @@ namespace sml
 	SML_API mat<T, 2> inverse(mat<T, 2> const& m)
 	{
 		mat<T, 2> s;
-		T one_over_determinant = T(1) / (m.e[0][0] * m.e[1][1] - m.e[1][0] * m.e[0][1]);
-		s.e[0][0] = +m.e[1][1] * one_over_determinant;
-		s.e[0][1] = -m.e[0][1] * one_over_determinant;
-		s.e[1][0] = -m.e[1][0] * one_over_determinant;
-		s.e[1][1] = +m.e[0][0] * one_over_determinant;
+		T one_over_determinant = T(1) / (m.a.c[0] * m.b.c[1] - m.b.c[0] * m.a.c[1]);
+		s.a.c[0] = +m.b.c[1] * one_over_determinant;
+		s.a.c[1] = -m.a.c[1] * one_over_determinant;
+		s.b.c[0] = -m.b.c[0] * one_over_determinant;
+		s.b.c[1] = +m.a.c[0] * one_over_determinant;
 		return s;
 	}
 
@@ -1608,19 +1608,19 @@ namespace sml
 	{
 		mat<T, 3> s;
 		T one_over_determinant = T(1) / (
-			+ m.e[0][0] * (m.e[1][1] * m.e[2][2] - m.e[2][1] * m.e[1][2])
-			- m.e[1][0] * (m.e[0][1] * m.e[2][2] - m.e[2][1] * m.e[0][2])
-			+ m.e[2][0] * (m.e[0][1] * m.e[1][2] - m.e[1][1] * m.e[0][2])
+			+ m.a[0] * (m.b.c[1] * m.c.c[2] - m.c.c[1] * m.b.c[2])
+			- m.b[0] * (m.a.c[1] * m.c.c[2] - m.c.c[1] * m.a.c[2])
+			+ m.c[0] * (m.a.c[1] * m.b.c[2] - m.b.c[1] * m.a.c[2])
 			);
-		s.e[0][0] = + (m.e[1][1] * m.e[2][2] - m.e[2][1] * m.e[1][2]) * one_over_determinant;
-		s.e[1][0] = - (m.e[1][0] * m.e[2][2] - m.e[2][0] * m.e[1][2]) * one_over_determinant;
-		s.e[2][0] = + (m.e[1][0] * m.e[2][1] - m.e[2][0] * m.e[1][1]) * one_over_determinant;
-		s.e[0][1] = - (m.e[0][1] * m.e[2][2] - m.e[2][1] * m.e[0][2]) * one_over_determinant;
-		s.e[1][1] = + (m.e[0][0] * m.e[2][2] - m.e[2][0] * m.e[0][2]) * one_over_determinant;
-		s.e[2][1] = - (m.e[0][0] * m.e[2][1] - m.e[2][0] * m.e[0][1]) * one_over_determinant;
-		s.e[0][2] = + (m.e[0][1] * m.e[1][2] - m.e[1][1] * m.e[0][2]) * one_over_determinant;
-		s.e[1][2] = - (m.e[0][0] * m.e[1][2] - m.e[1][0] * m.e[0][2]) * one_over_determinant;
-		s.e[2][2] = + (m.e[0][0] * m.e[1][1] - m.e[1][0] * m.e[0][1]) * one_over_determinant;
+		s.a.c[0] = + (m.b.c[1] * m.c.c[2] - m.c.c[1] * m.b.c[2]) * one_over_determinant;
+		s.b.c[0] = - (m.b.c[0] * m.c.c[2] - m.c.c[0] * m.b.c[2]) * one_over_determinant;
+		s.c.c[0] = + (m.b.c[0] * m.c.c[1] - m.c.c[0] * m.b.c[1]) * one_over_determinant;
+		s.a.c[1] = - (m.a.c[1] * m.c.c[2] - m.c.c[1] * m.a.c[2]) * one_over_determinant;
+		s.b.c[1] = + (m.a.c[0] * m.c.c[2] - m.c.c[0] * m.a.c[2]) * one_over_determinant;
+		s.c.c[1] = - (m.a.c[0] * m.c.c[1] - m.c.c[0] * m.a.c[1]) * one_over_determinant;
+		s.a.c[2] = + (m.a.c[1] * m.b.c[2] - m.b.c[1] * m.a.c[2]) * one_over_determinant;
+		s.b.c[2] = - (m.a.c[0] * m.b.c[2] - m.b.c[0] * m.a.c[2]) * one_over_determinant;
+		s.c.c[2] = + (m.a.c[0] * m.b.c[1] - m.b.c[0] * m.a.c[1]) * one_over_determinant;
 		return s;
 	}
 
