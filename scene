@@ -56,7 +56,7 @@ template <template <class T> class Storage>
 struct SceneGeometryT : SceneVerticesT<Storage>
 {
 	MOVE_GENERATE(SceneGeometryT, MOVE_2
-		, BASE, SceneVerticesT
+		, BASE, SceneGeometryT::SceneVerticesT
 		, MEMBER, indices
 		)
 
@@ -67,7 +67,7 @@ struct SceneGeometryT : SceneVerticesT<Storage>
 	template <class Scene, class Visitor>
 	static void reflect(Scene&& s, Visitor&& v)
 	{
-		SceneVerticesT::reflect(s, v);
+		SceneGeometryT::SceneVerticesT::reflect(s, v);
 		v(s.indices, "ind");
 	}
 };
@@ -145,7 +145,7 @@ struct MaterialTextures : MaterialProperties<Texture>
 	template <class M, class Visitor>
 	static void reflect_tex(M& s, Visitor&& v)
 	{
-		typename MaterialProperties::reflect(s, v);
+		MaterialTextures::MaterialProperties::reflect(s, v);
 		v(s.bump, "bmp");
 		v(s.normal, "nrm");
 	}
@@ -189,7 +189,7 @@ struct Material : MaterialProperties< math::vec<float, 3> >
 	template <class M, class Visitor>
 	static void reflect(M& s, Visitor&& v)
 	{
-		typename MaterialProperties::reflect(s, v);
+		Material::MaterialProperties::reflect(s, v);
 		s.tex.reflect(s.tex, v);
 	}
 };
@@ -206,7 +206,7 @@ template <template <class T> class Storage = VectorStorage>
 struct SceneT : SceneGeometryT<Storage>
 {
 	MOVE_GENERATE(SceneT, MOVE_6
-		, BASE, SceneGeometryT
+		, BASE, SceneT::SceneGeometryT
 		, MEMBER, meshes
 		, MEMBER, materials
 		, MEMBER, textures
@@ -227,7 +227,7 @@ struct SceneT : SceneGeometryT<Storage>
 	template <class Scene, class Visitor>
 	static void reflect(Scene& s, Visitor&& v)
 	{
-		typename SceneGeometryT::reflect(s, v);
+		SceneT::SceneGeometryT::reflect(s, v);
 		v(s.meshes, "mesh");
 		v(s.materials, "mat");
 		v(s.textures, "texp");

@@ -129,7 +129,7 @@ CLSL_INLINE float rayIntersectAABBBack(ray3 ray, aabb3 box, CLSL_OUT_PARAM(float
 		ta = 2;
 	}
 
-	float3 p = ray.o + (t + 0.0001f) * ray.d;
+	float3 p = ray.o + (t - 0.0001f) * ray.d;
 	CLSL_DEREF_OUT_PARAM(pointOut) = p;
 
 	if (all(equal(CLSL_CTOR(ivec3)(ta), CLSL_CTOR(ivec3)(0, 1, 2)) CLSL_OR lessThanEqual(box.min, p) CLSL_AND lessThanEqual(p, box.max)))

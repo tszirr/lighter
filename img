@@ -83,7 +83,7 @@ void save_image(char const* filename, stdx::data_range_param<Element const> imag
 	ImageDesc imgDesc;
 	imgDesc.dim = glm::uvec3(dim, 0);
 	imgDesc.channels = Channels;
-	save_image(nullptr, filename, nullptr, imageData.iterator_cast<char const*>(), ElementToImageType<Element>::value, imgDesc);
+	save_image(nullptr, filename, nullptr, imageData.template iterator_cast<char const*>(), ElementToImageType<Element>::value, imgDesc);
 }
 
 // inline image writing

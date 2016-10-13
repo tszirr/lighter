@@ -20,12 +20,13 @@
 
 	#pragma comment(linker, "\"/manifestdependency:type='Win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 #else
+	#include <libgen.h> // basname / dirname
 	#include <utime.h>
 	#include <fcntl.h>
 	#include <unistd.h>
 	#include <sys/mman.h>
 
-	#include <libgen.h>
+	#include <dlfcn.h> // dlopen ...
 #endif
 
 namespace stdx
@@ -52,7 +53,7 @@ namespace stdx
 #ifdef WIN32
 		SetCurrentDirectoryA(dir);
 #else
-		chdir(file);
+		chdir(dir);
 #endif
 	}
 	
@@ -326,13 +327,10 @@ namespace stdx
 			struct win_delete
 			{
 				typedef Pointer pointer;
-				void operator ()(pointer ptr) const
-				{
-					if (ptr)
-						(*Deleter)(ptr);
+				void operator ()(pointer ptr) const {
+					(*Deleter)(ptr);
 				}
 
-				typedef std::unique_ptr< Pointer, win_delete<Pointer, Deleter> > pointer_type;
 				typedef stdx::unique_handle< Pointer, win_delete<Pointer, Deleter> > handle_type;
 			};
 
@@ -452,10 +450,8 @@ namespace stdx
 
 			struct com_delete
 			{
-				void operator ()(IUnknown* ptr) const
-				{
-					if (ptr)
-						ptr->Release();
+				void operator ()(IUnknown* ptr) const {
+					ptr->Release();
 				}
 			};
 			
@@ -565,8 +561,7 @@ namespace stdx
 				{
 					struct abs_iid_deleter {
 						void operator ()(ITEMIDLIST_ABSOLUTE* ptr) const {
-							if (ptr)
-								ILFree(ptr);
+							ILFree(ptr);
 						}
 					};
 					stdx::unique_handle<ITEMIDLIST_ABSOLUTE, abs_iid_deleter> iidl;
@@ -616,8 +611,7 @@ namespace stdx
 			{
 				struct co_str_deleter {
 					void operator ()(PWSTR ptr) const {
-						if (ptr)
-							CoTaskMemFree(ptr);
+						CoTaskMemFree(ptr);
 					}
 				};
 				stdx::unique_handle<WCHAR, co_str_deleter> pszFilePath;
@@ -844,21 +838,19 @@ namespace stdx
 					return 0;
 			}
 
-			template <class Pointer, int (*Deleter)(Pointer)>
+			template <class Pointer, Pointer Invalid, int (*Deleter)(Pointer)>
 			struct unix_delete
 			{
-				typedef Pointer pointer;
-				void operator ()(pointer ptr) const
-				{
-					if (ptr > 0)
-						(*Deleter)(ptr);
+				typedef stdx::nullable_handle<Pointer, Invalid> pointer;
+
+				void operator ()(Pointer ptr) const {
+					(*Deleter)(ptr);
 				}
 
-				typedef std::unique_ptr< Pointer, unix_delete<Pointer, Deleter> > pointer_type;
-				typedef stdx::unique_handle< Pointer, unix_delete<Pointer, Deleter> > handle_type;
+				typedef stdx::unique_handle< Pointer, unix_delete<Pointer, Invalid, Deleter> > handle_type;
 			};
 
-			typedef unix_delete<int, close>::handle_type fdhandle;
+			typedef unix_delete<int, -1, close>::handle_type fdhandle;
 		}
 	}
 
@@ -932,8 +924,7 @@ namespace stdx
 
 		struct process_close {
 			void operator ()(FILE* ptr) const {
-				if (ptr)
-					pclose(ptr);
+				pclose(ptr);
 			}
 		};
 		stdx::unique_handle<FILE, process_close> pipe( popen(dialog.str().c_str(), "r") );

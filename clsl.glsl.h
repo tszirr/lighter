@@ -63,3 +63,6 @@
 #define float_from_bool4(x) vec4(x)
 
 #define fabs(x) abs(x)
+#define fast_log2(x) log2(x)
+#define fast_exp2(x) exp2(x)
+#define copysign(x, y) (abs(x) * sign(y))

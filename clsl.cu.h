@@ -73,6 +73,8 @@ namespace clsl
 	#define float_from_bool4(x) vec4(x)
 
 	template <class T>
-	CLSL_INLINE auto fabs(T const& v) -> decltype(abs(v)) { return abs(v); }
+	CLSL_INLINE auto fabs(T v) -> decltype(abs(v)) { return abs(v); }
+	CLSL_INLINE float fast_log2(float v) { return __log2f(v); }
+	CLSL_INLINE float fast_exp2(float v) { return exp2f(v); }
 
 } // namespace
