@@ -14,7 +14,7 @@
 #endif
 
 #ifdef _MSC_VER
-	#if defined(__CUDACC__) // no C++11 today
+	#if defined(__NVCC__) && __CUDACC_VER_MAJOR__ < 8 // no C++11 today
 		#define SML_TRIVIAL_UNIONS
 	#elif !defined(__clang__)
 		#define SML_MSVC_LEGACY
