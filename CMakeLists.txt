@@ -1,6 +1,7 @@
 project(lighter)
 
 option(LIGHTER_USE_OPENGL "Enable OpenGL" ON)
+option(LIGHTER_USE_OPTIX "Enable OptiX" OFF)
 option(LIGHTER_USE_FREEIMAGE "Enable image loading using freeimage" ON)
 option(LIGHTER_USE_FREETYPE "Enable font rendering using freetype" ON)
 option(LIGHTER_USE_SCENE "Enable scene-related functionality" ON)
@@ -31,6 +32,9 @@ set(LIGHTER_SRC
   cudabase
   cuda
   cudax
+  optixbase
+  optix
+  optixfix.cu.h
   pool
   pool.cpp
   img
@@ -64,6 +68,9 @@ if (LIGHTER_USE_FREEIMAGE AND TARGET freeimage)
 endif()
 if (LIGHTER_USE_SCENE)
   list(APPEND LIGHTER_SRC scene.cpp)
+endif()
+if (LIGHTER_USE_OPENGL AND LIGHTER_USE_OPTIX)
+  list(APPEND LIGHTER_SRC optixgl.cpp)
 endif()
 
 #--------------------------------------------------------------------

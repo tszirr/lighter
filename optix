@@ -1,0 +1,715 @@
+#pragma once
+
+#include "optixbase"
+#include <optix_gl_interop.h>
+
+#include "stdx"
+#include "file"
+#include <cstdio>
+
+#ifndef DEFAULT_ASSIGN_NULL_REFERENCE
+	#define DEFAULT_ASSIGN_NULL_REFERENCE = nullptr
+#endif
+
+#define THROW_OPTIX_ERROR_PRINT(error, ctx) THROW_OPTIX_ERROR(optx::printError(context, error), ctx)
+
+namespace optx
+{
+
+struct VariableRef : stdx::ref_base<RTvariable>
+{
+	VariableRef(RTvariable ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
+
+	char const* name() const
+	{
+		char const* name = nullptr;
+		rtVariableGetName(ref, &name);
+		return name;
+	}
+
+	void set(float v)
+	{
+		THROW_OPTIX_ERROR( rtVariableSet1f(ref, v), "rtVariableSet1f" );
+	}
+	float getF() const
+	{
+		float v = 0;
+		rtVariableGet1f(ref, &v);
+		return v;
+	}
+
+	void set(int i)
+	{
+		THROW_OPTIX_ERROR( rtVariableSet1i(ref, i), "rtVariableSet1i" );
+	}
+	int getI() const
+	{
+		int i = 0;
+		rtVariableGet1i(ref, &i);
+		return i;
+	}
+
+	void set(unsigned i)
+	{
+		THROW_OPTIX_ERROR( rtVariableSet1ui(ref, i), "rtVariableSet1ui" );
+	}
+	unsigned getUI() const
+	{
+		unsigned i = 0;
+		rtVariableGet1ui(ref, &i);
+		return i;
+	}
+
+	void setObject(RTobject obj)
+	{
+		if (obj)
+			THROW_OPTIX_ERROR( rtVariableSetObject(ref, obj), "rtVariableSetObj" );
+	}
+	RTobject getObject() const
+	{
+		RTobject obj = nullptr;
+		rtVariableGetObject(ref, &obj);
+		return obj;
+	}
+
+	template <class T>
+	void setData(T const& val)
+	{
+		THROW_OPTIX_ERROR( rtVariableSetUserData(ref, sizeof(val), &val), "rtVariableSetUserData" );
+	}
+	template <class T>
+	bool getData(T& val) const
+	{
+		return rtVariableGetUserData(ref, sizeof(val), &val) == RT_SUCCESS;
+	}
+	template <class T>
+	T getData() const
+	{
+		T val;
+		getData(val);
+		return val;
+	}
+};
+typedef VariableRef Variable;
+
+template <class Base
+	, RTresult (*rtDeclareVariable)(typename Base::pointer, char const*, RTvariable*)
+	, RTresult (*rtQueryVariable)(typename Base::pointer, char const*, RTvariable*)>
+struct HasVariabes : Base
+{
+	Variable declare(char const* name)
+	{
+		RTvariable v;
+		THROW_OPTIX_ERROR( rtDeclareVariable(ref, name, &v), "rtDeclareVariable" );
+		return v;
+	}
+
+	Variable query(char const* name) const
+	{
+		RTvariable v;
+		rtQueryVariable(ref, name, &v);
+		return v;
+	}
+
+	Variable operator [](char const* name)
+	{
+		RTvariable v;
+		rtQueryVariable(ref, name, &v);
+		return (v) ? v : declare(name);
+	}
+};
+
+struct ContextRef : HasVariabes< optix_destroy<ContextRef, RTcontext, rtContextDestroy>
+	, rtContextDeclareVariable, rtContextQueryVariable >
+{
+	ContextRef(RTcontext ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
+	~ContextRef() {	}
+
+	static owned create(bool debug = true)
+	{
+		owned r = nullptr;
+		THROW_OPTIX_ERROR( r.printError(rtContextCreate(&r.ref)), "rtContextCreate" );
+		if (debug) {
+			THROW_OPTIX_ERROR( r.printError(rtContextSetPrintEnabled(r.ref, 1)), "rtContextSetPrintEnabled" );
+		}
+		return r;
+	}
+
+	void compile()
+	{
+		THROW_OPTIX_ERROR( printError(rtContextCompile(ref)), "rtContextCompile" );
+	}
+
+	char const* errorString(RTresult error)
+	{
+		char const* str = nullptr;
+		rtContextGetErrorString(ref, error, &str);
+		return str;
+	}
+
+	RTresult printError(RTresult error)
+	{
+		if (error != RT_SUCCESS)
+			puts(errorString(error));
+		return error;
+	}
+
+	void validate()
+	{
+		THROW_OPTIX_ERROR( printError(rtContextValidate(ref)), "rtContextValidate" );
+	}
+};
+typedef ContextRef::owned Context;
+
+inline char const* errorString(ContextRef context, RTresult res) { return context.errorString(res); }
+inline RTresult printError(ContextRef context, RTresult res) { return context.printError(res); }
+
+struct BufferRef : optix_destroy<BufferRef, RTbuffer, rtBufferDestroy>
+{
+	BufferRef(RTbuffer ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
+
+	enum Types
+	{
+		Default = RT_BUFFER_INPUT_OUTPUT | RT_BUFFER_GPU_LOCAL,
+		Constant = RT_BUFFER_INPUT,
+		ReadBack = RT_BUFFER_INPUT_OUTPUT,
+		ReadBackOnly = RT_BUFFER_OUTPUT,
+	};
+
+	static owned create(RTcontext context, unsigned type = Default)
+	{
+		owned r = nullptr;
+		THROW_OPTIX_ERROR_PRINT(rtBufferCreate(context, type, &r.ref), "rtBufferCreate");
+		return r;
+	}
+	template <class Range>
+	static owned init(RTcontext context, Range const& range, unsigned type = Default)
+	{
+		auto r = create(context, type);
+		r.reformat(sizeof(*range.data()), range.size());
+		r.write(range);
+		return r;
+	}
+
+	void* map()
+	{
+		void* ptr;
+		THROW_OPTIX_ERROR( rtBufferMap(ref, &ptr), "rtBufferMap" );
+		return ptr;
+	}
+	void unmap()
+	{
+		THROW_OPTIX_ERROR( rtBufferUnmap(ref), "rtBufferUnmap" );
+	}
+
+	void resize(size_t countX, size_t countY = 0, size_t countZ = 0)
+	{
+		THROW_OPTIX_ERROR(
+			  (countZ > 0) ? rtBufferSetSize3D(ref, countX, countY, countZ)
+			: (countY > 0) ? rtBufferSetSize2D(ref, countX, countY)
+			: rtBufferSetSize1D(ref, countX)
+			, "rtBufferSetSize"
+			);
+	}
+	void reformat(RTformat format, size_t countX = 0, size_t countY = 0, size_t countZ = 0)
+	{
+		THROW_OPTIX_ERROR( rtBufferSetFormat(ref, format), "rtBufferSetFormat" );
+		if (countX > 0)
+			resize(countX, countY, countZ);
+	}
+	void reformat(size_t elementSize, size_t countX = 0, size_t countY = 0, size_t countZ = 0)
+	{
+		THROW_OPTIX_ERROR( rtBufferSetFormat(ref, RT_FORMAT_USER), "rtBufferSetFormat" );
+		THROW_OPTIX_ERROR( rtBufferSetElementSize(ref, elementSize), "rtBufferSetElementSize" );
+		if (countX > 0)
+			resize(countX, countY, countZ);
+	}
+
+	size_t size() const
+	{
+		size_t cnt = 0;
+		rtBufferGetSize1D(ref, &cnt);
+		return cnt;
+	}
+	
+	template <class Range>
+	void write(Range const& range, size_t destOffset = 0)
+	{
+		memcpy(static_cast<char*>(map()) + destOffset * sizeof(*range.data()), range.data(), sizeof(*range.data()) * range.size());
+		unmap();
+	}
+	template <class Range>
+	void read(Range& range, size_t srcOffset = 0)
+	{
+		memcpy(range.data(), static_cast<char const*>(map()) + srcOffset * sizeof(*range.data()), sizeof(*range.data()) * range.size());
+		unmap();
+	}
+};
+typedef BufferRef::owned Buffer;
+
+#pragma pack(push, 1)
+struct BufferDesc
+{
+	typedef Buffer resource;
+	typedef std::true_type is_shared;
+
+	RTcontext context;
+	unsigned int type;
+
+	static BufferDesc make(RTcontext context, unsigned type = Buffer::Default)
+	{
+		BufferDesc desc = { context, type };
+		return desc;
+	}
+
+	resource create() const
+	{
+		return resource::create(context, type);
+	}
+};
+#pragma pack(pop)
+
+struct SamplerRef : optix_destroy<SamplerRef, RTtexturesampler, rtTextureSamplerDestroy>
+{
+	typedef stdx::own<SamplerRef> owned;
+
+	SamplerRef(RTtexturesampler ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
+
+	static owned create(RTcontext context)
+	{
+		owned r = nullptr;
+		THROW_OPTIX_ERROR_PRINT(rtTextureSamplerCreate(context, &r.ref), "rtTextureSamplerCreate");
+		THROW_OPTIX_ERROR_PRINT(rtTextureSamplerSetIndexingMode(r.ref, RT_TEXTURE_INDEX_NORMALIZED_COORDINATES), "rtTextureSamplerSetIndexingMode");
+		return r;
+	}
+
+	int bindless_id() const
+	{
+		int id = 0;
+		if (ref) {
+			THROW_OPTIX_ERROR(rtTextureSamplerGetId(ref, &id), "rtTextureSamplerGetId");
+			assert(ref != 0);
+		}
+		return id;
+	}
+};
+typedef SamplerRef::owned Sampler;
+
+struct InteropBufferRef : BufferRef
+{
+	typedef stdx::own<InteropBufferRef> owned;
+
+	enum Types
+	{
+		Read = RT_BUFFER_INPUT,
+		ReadWrite = RT_BUFFER_INPUT_OUTPUT,
+		Write = RT_BUFFER_OUTPUT,
+	};
+
+	InteropBufferRef(RTbuffer ref DEFAULT_ASSIGN_NULL_REFERENCE) : BufferRef(ref) { }
+
+	static owned from(RTcontext context, unsigned glid, unsigned type = ReadWrite)
+	{
+		owned r = nullptr;
+		THROW_OPTIX_ERROR_PRINT(rtBufferCreateFromGLBO(context, type, glid, &r.ref), "rtBufferCreateFromGLBO");
+		return r;
+	}
+
+	void unregister()
+	{
+		THROW_OPTIX_ERROR( rtBufferGLUnregister(ref), "rtBufferGLUnregister" );
+	}
+
+	void reregister()
+	{
+		THROW_OPTIX_ERROR( rtBufferGLRegister(ref), "rtBufferGLRegister" );
+	}
+};
+typedef InteropBufferRef::owned InteropBuffer;
+
+#pragma pack(push, 1)
+struct InteropBufferDesc
+{
+	typedef InteropBuffer resource;
+	typedef std::true_type is_shared;
+
+	RTcontext context;
+	unsigned original;
+	unsigned int type;
+
+	static InteropBufferDesc make(RTcontext context, unsigned original, unsigned type = InteropBuffer::ReadWrite)
+	{
+		InteropBufferDesc desc = { context, original, type };
+		return desc;
+	}
+
+	resource create() const
+	{
+		return resource::from(context, original, type);
+	}
+};
+#pragma pack(pop)
+
+struct InteropSamplerRef : optix_destroy<InteropSamplerRef, RTtexturesampler, rtTextureSamplerDestroy, SamplerRef>
+{
+	typedef stdx::own<InteropSamplerRef> owned;
+
+	InteropSamplerRef(RTtexturesampler ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
+
+	static owned from(RTcontext context, unsigned glid, RTgltarget target);
+	static Sampler clone(RTcontext context, unsigned glid, RTgltarget optixTarget, Buffer& buffer, unsigned bufferType = Buffer::Default);
+
+	void unregister()
+	{
+		THROW_OPTIX_ERROR( rtTextureSamplerGLUnregister(ref), "rtTextureSamplerGLUnregister" );
+	}
+
+	void reregister()
+	{
+		THROW_OPTIX_ERROR( rtTextureSamplerGLRegister(ref), "rtTextureSamplerGLRegister" );
+	}
+};
+typedef InteropSamplerRef::owned InteropSampler;
+
+#pragma pack(push, 1)
+struct InteropSamplerDesc
+{
+	typedef InteropSampler resource;
+	typedef std::true_type is_shared;
+
+	RTcontext context;
+	unsigned original;
+	RTgltarget type;
+
+	static InteropSamplerDesc make(RTcontext context, unsigned original, RTgltarget type)
+	{
+		InteropSamplerDesc desc = { context, original, type };
+		return desc;
+	}
+
+	resource create() const
+	{
+		return resource::from(context, original, type);
+	}
+};
+#pragma pack(pop)
+
+struct ProgramRef : HasVariabes< optix_destroy<ProgramRef, RTprogram
+	, rtProgramDestroy>, rtProgramDeclareVariable, rtProgramQueryVariable >
+{
+	ProgramRef(RTprogram ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
+
+	static owned create(ContextRef context, char const* name, char const* data)
+	{
+		owned r = nullptr;
+		THROW_OPTIX_ERROR_PRINT(context.printError(rtProgramCreateFromPTXString(context, data, name, &r.ref)), "rtProgramCreateFromPTXString");
+		return r;
+	}
+	static owned createFromFile(ContextRef context, char const* name, char const* file)
+	{
+		owned r = nullptr;
+		THROW_OPTIX_ERROR_PRINT(context.printError(rtProgramCreateFromPTXFile(context, file, name, &r.ref)), "rtProgramCreateFromPTXFile");
+		return r;
+	}
+};
+typedef ProgramRef::owned Program;
+
+struct GeometryRef : HasVariabes< optix_destroy<GeometryRef, RTgeometry, rtGeometryDestroy>
+	, rtGeometryDeclareVariable, rtGeometryQueryVariable >
+{
+	GeometryRef(RTgeometry ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
+
+	static owned create(RTcontext context)
+	{
+		owned r = nullptr;
+		THROW_OPTIX_ERROR_PRINT(rtGeometryCreate(context, &r.ref), "rtGeometryCreate");
+		return r;
+	}
+
+	static char const* vertexBufferVarName() { return "vertex_buffer"; }
+	static char const* normalBufferVarName() { return "normal_buffer"; }
+	static char const* texcoordBufferVarName() { return "texcoord_buffer"; }
+	static char const* tangentBufferVarName() { return "tangent_buffer"; }
+	static char const* indexBufferVarName() { return "index_buffer"; }
+	static char const* materialBufferVarName() { return "material_buffer"; }
+
+	void setVertices(RTbuffer buffer, RTbuffer nrmBuffer = nullptr, RTbuffer texBuffer = nullptr, RTbuffer tanBuffer = nullptr)
+	{
+		(*this)[vertexBufferVarName()].setObject(buffer);
+		if (nrmBuffer) setNormals(nrmBuffer);
+		if (texBuffer) setTexCoords(texBuffer);
+		if (tanBuffer) setTangents(tanBuffer);
+	}
+	void setNormals(RTbuffer buffer)
+	{
+		(*this)[normalBufferVarName()].setObject(buffer);
+	}
+	void setTexCoords(RTbuffer buffer)
+	{
+		(*this)[texcoordBufferVarName()].setObject(buffer);
+	}
+	void setTangents(RTbuffer buffer)
+	{
+		(*this)[tangentBufferVarName()].setObject(buffer);
+	}
+	void setFaces(RTbuffer buffer, size_t numPrimitives, RTbuffer materials = nullptr)
+	{
+		(*this)[indexBufferVarName()].setObject(buffer);
+		THROW_OPTIX_ERROR( rtGeometrySetPrimitiveCount(ref, unsigned(numPrimitives)), "rtGeometrySetPrimitiveCount" );
+		if (materials)
+			setMaterials(materials);
+	}
+	void setMaterials(RTbuffer buffer)
+	{
+		(*this)[materialBufferVarName()].setObject(buffer);
+	}
+	
+	void setBounding(RTprogram program)
+	{
+		THROW_OPTIX_ERROR( rtGeometrySetBoundingBoxProgram(ref, program), "rtGeometrySetBoundingBoxProgram" );
+	}
+	void setIntersection(RTprogram program)
+	{
+		THROW_OPTIX_ERROR( rtGeometrySetIntersectionProgram(ref, program), "rtGeometrySetIntersectionProgram" );
+	}
+};
+typedef GeometryRef::owned Geometry;
+
+struct MaterialRef : HasVariabes< optix_destroy<MaterialRef, RTmaterial
+	, rtMaterialDestroy>, rtMaterialDeclareVariable, rtMaterialQueryVariable >
+{
+	MaterialRef(RTmaterial ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
+
+	static owned create(RTcontext context)
+	{
+		owned r = nullptr;
+		THROW_OPTIX_ERROR_PRINT(rtMaterialCreate(context, &r.ref), "rtMaterialCreate");
+		return r;
+	}
+	
+	void setClosestHit(unsigned rayType, RTprogram program)
+	{
+		THROW_OPTIX_ERROR( rtMaterialSetClosestHitProgram(ref, rayType, program), "rtMaterialSetClosestHitProgram" );
+	}
+	void setAnyHit(unsigned rayType, RTprogram program)
+	{
+		THROW_OPTIX_ERROR( rtMaterialSetAnyHitProgram(ref, rayType, program), "rtMaterialSetAnyHitProgram" );
+	}
+};
+typedef MaterialRef::owned Material;
+
+struct GeometryInstanceRef : HasVariabes< optix_destroy<GeometryInstanceRef, RTgeometryinstance
+	, rtGeometryInstanceDestroy>, rtGeometryInstanceDeclareVariable, rtGeometryInstanceQueryVariable >
+{
+	GeometryInstanceRef(RTgeometryinstance ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
+
+	static owned create(RTcontext context)
+	{
+		owned r = nullptr;
+		THROW_OPTIX_ERROR_PRINT(rtGeometryInstanceCreate(context, &r.ref), "rtGeometryInstanceCreate");
+		return r;
+	}
+	template <class Range>
+	static owned init(RTcontext context, RTgeometry geom, Range const& materials)
+	{
+		auto r = create(context);
+		THROW_OPTIX_ERROR_PRINT(rtGeometryInstanceSetGeometry(r.ref, geom), "rtGeometryInstanceSetGeometry");
+		THROW_OPTIX_ERROR_PRINT(rtGeometryInstanceSetMaterialCount(r.ref, unsigned(materials.size())), "rtGeometryInstanceSetMaterialCount");
+		for (size_t i = 0, ie = materials.size(); i < ie; ++i)
+			THROW_OPTIX_ERROR_PRINT(rtGeometryInstanceSetMaterial(r.ref, unsigned(i), materials[i]), "rtGeometryInstanceSetMaterial");
+		return r;
+	}
+};
+typedef GeometryInstanceRef::owned GeometryInstance;
+
+struct AccelerationRef : optix_destroy<AccelerationRef, RTacceleration, rtAccelerationDestroy>
+{
+	AccelerationRef(RTacceleration ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
+
+	static owned create(RTcontext context)
+	{
+		owned r = nullptr;
+		THROW_OPTIX_ERROR_PRINT(rtAccelerationCreate(context, &r.ref), "rtAccelerationCreate");
+		r.setProperty(vertexBufferVarName(), Geometry::vertexBufferVarName());
+		r.setProperty(indexBufferVarName(), Geometry::indexBufferVarName());
+		return r;
+	}
+	static owned create(RTcontext context, char const* builder, char const* traverser)
+	{
+		auto r = create(context);
+		THROW_OPTIX_ERROR_PRINT(rtAccelerationSetBuilder(r.ref, builder), "rtAccelerationSetBuilder");
+		THROW_OPTIX_ERROR_PRINT(rtAccelerationSetTraverser(r.ref, traverser), "rtAccelerationSetTraverser");
+		return r;
+	}
+	static owned createDynamic(RTcontext context) { return create(context, "Lbvh", "Bvh"); }
+	static owned createStatic(RTcontext context) { return create(context, "Trbvh", "Bvh"); }
+	static owned createStaticOffline(RTcontext context) { return create(context, "Sbvh", "Bvh"); }
+
+	static owned createGroup(RTcontext context) { return create(context, "Bvh", "Bvh"); }
+	static owned createGroupDynamic(RTcontext context) { return create(context, "MedianBvh", "Bvh"); }
+	static owned createNone(RTcontext context) { return create(context, "NoAccel", "NoAccel"); }
+
+	void rebuild() { THROW_OPTIX_ERROR(rtAccelerationMarkDirty(ref), "rtAccelerationMarkDirty"); }
+
+	static char const* vertexBufferVarName() { return "vertex_buffer_name"; }
+	static char const* vertexStrideVarName() { return "vertex_buffer_stride"; }
+	static char const* indexBufferVarName() { return "index_buffer_name"; }
+	static char const* indexStrideVarName() { return "index_buffer_stride"; }
+
+	void setProperty(char const* name, char const* val)
+	{
+		THROW_OPTIX_ERROR( rtAccelerationSetProperty(ref, name, val), "rtAccelerationSetProperty" );
+	}
+};
+typedef AccelerationRef::owned Acceleration;
+
+struct GeometryGroupRef : optix_destroy<GeometryGroupRef, RTgeometrygroup, rtGeometryGroupDestroy>
+{
+	GeometryGroupRef(RTgeometrygroup ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
+
+	static owned create(RTcontext context)
+	{
+		owned r = nullptr;
+		THROW_OPTIX_ERROR_PRINT(rtGeometryGroupCreate(context, &r.ref), "rtGeometryGroupCreate");
+		return r;
+	}
+	template <class Range>
+	static owned init(RTcontext context, Range const& children, RTacceleration acc = nullptr)
+	{
+		auto r = create(context);
+		THROW_OPTIX_ERROR_PRINT(rtGeometryGroupSetChildCount(r.ref, unsigned(children.size())), "rtGeometryGroupSetChildCount");
+		for (size_t i = 0, ie = children.size(); i < ie; ++i)
+			THROW_OPTIX_ERROR_PRINT(rtGeometryGroupSetChild(r.ref, unsigned(i), children[i]), "rtGeometryGroupSetChild");
+		if (acc)
+			r.setAcceleration(acc);
+		return r;
+	}
+
+	void setAcceleration(RTacceleration acc)
+	{
+		THROW_OPTIX_ERROR( rtGeometryGroupSetAcceleration(ref, acc), "rtGeometryGroupSetAcceleration" );
+	}
+};
+typedef GeometryGroupRef::owned GeometryGroup;
+
+struct GroupRef : optix_destroy<GroupRef, RTgroup, rtGroupDestroy>
+{
+	GroupRef(RTgroup ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
+
+	static owned create(RTcontext context)
+	{
+		owned r = nullptr;
+		THROW_OPTIX_ERROR_PRINT(rtGroupCreate(context, &r.ref), "rtGroupCreate");
+		return r;
+	}
+	template <class Range>
+	static owned init(RTcontext context, Range const& children, RTacceleration acc = nullptr)
+	{
+		auto r = create(context);
+		r.setChildren(children, acc);
+		return r;
+	}
+
+	void setChildCount(size_t cnt) 	{
+		THROW_OPTIX_ERROR(rtGroupSetChildCount(ref, unsigned(cnt)), "rtGroupSetChildCount");
+	}
+	void setChild(size_t i, RTobject c) {
+		THROW_OPTIX_ERROR(rtGroupSetChild(ref, unsigned(i), c), "rtGroupSetChild");
+	}
+	template <class Range>
+	void setChildren(Range const& children, RTacceleration acc = nullptr)
+	{
+		setChildCount(children.size());
+		for (size_t i = 0, ie = children.size(); i < ie; ++i)
+			setChild(i, children[i]);
+		if (acc)
+			setAcceleration(acc);
+	}
+
+	void setAcceleration(RTacceleration acc)
+	{
+		THROW_OPTIX_ERROR(rtGroupSetAcceleration(ref, acc), "rtGroupSetAcceleration");
+	}
+};
+typedef GroupRef::owned Group;
+
+struct TransformRef : optix_destroy<TransformRef, RTtransform, rtTransformDestroy>
+{
+	TransformRef(RTtransform ref DEFAULT_ASSIGN_NULL_REFERENCE) { this->ref = ref; }
+
+	static owned create(RTcontext context, RTobject child = nullptr)
+	{
+		owned r = nullptr;
+		THROW_OPTIX_ERROR_PRINT(rtTransformCreate(context, &r.ref), "rtTransformCreate");
+		if (child)
+			r.setChild(child);
+		return r;
+	}
+
+	void setChild(RTobject child)
+	{
+		THROW_OPTIX_ERROR(rtTransformSetChild(ref, child), "rtTransformSetChild");
+	}
+
+	template <class Matrix>
+	void set(Matrix const& m)
+	{
+		static_assert(sizeof(Matrix) == 16 * sizeof(float), "4x4 matrix required");
+		THROW_OPTIX_ERROR(rtTransformSetMatrix(ref, 1, (const float(&)[16]) m, nullptr), "rtTransformSetMatrix");
+	}
+	template <class Matrix>
+	void set(Matrix const& m, Matrix const& mI)
+	{
+		static_assert(sizeof(Matrix) == 16 * sizeof(float), "4x4 matrix required");
+		THROW_OPTIX_ERROR(rtTransformSetMatrix(ref, 1, (const float(&)[16]) m, (const float(&)[16]) mI), "rtTransformSetMatrix");
+	}
+	template <class Matrix>
+	void get(Matrix& m)
+	{
+		static_assert(sizeof(Matrix) == 16 * sizeof(float), "4x4 matrix required");
+		THROW_OPTIX_ERROR(rtTransformGetMatrix(ref, 1, (float(&)[16]) m, nullptr), "rtTransformGetMatrix");
+	}
+	template <class Matrix>
+	void get(Matrix& m, Matrix& mI)
+	{
+		static_assert(sizeof(Matrix) == 16 * sizeof(float), "4x4 matrix required");
+		THROW_OPTIX_ERROR(rtTransformGetMatrix(ref, 1, (float(&)[16]) m, (float(&)[16]) mI), "rtTransformGetMatrix");
+	}
+};
+typedef TransformRef::owned Transform;
+
+struct ProgramWithTime : Program
+{
+	ContextRef* context;
+	std::string name;
+	std::string file;
+	time_t time;
+
+	using Program::operator =;
+
+	explicit ProgramWithTime(ContextRef* context, std::string name, std::string file)
+		: Program(nullptr)
+		, context(context)
+		, name(MOVE(name))
+		, file(MOVE(file))
+		, time(0)
+	{
+		load();
+	}
+	void load()
+	{
+		*this = Program::createFromFile(*context, name.c_str(), file.c_str());
+		time = stdx::file_time(file.c_str());
+	}
+	int maybeReload()
+	{
+		if (stdx::file_time(file.c_str()) > time)
+		{
+			try { load(); return 1; }
+			catch (optix_error const &) { return -1; }
+		}
+		return 0;
+	}
+};
+
+} // namespace

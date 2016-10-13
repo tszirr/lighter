@@ -1,0 +1,36 @@
+#pragma once
+
+#include <optix.h>
+
+#include "stdx"
+
+namespace optx
+{
+
+struct optix_tag;
+typedef stdx::error<optix_tag> optix_error;
+
+#define THROW_OPTIX_ERROR(error, ctx) do { auto _uniqueerrorval = error; if (_uniqueerrorval != RT_SUCCESS) throwx( ::optx::optix_error(ctx) ); } while (false)
+
+template <class RefClass, class Pointer>
+struct ref_base : stdx::ref_base<Pointer>
+{
+	typedef Pointer pointer;
+	void forget()
+	{
+		this->ref = 0;
+	}
+};
+
+template < class RefClass, class Pointer, RTresult (*Deleter)(Pointer), class Base = ref_base<RefClass, Pointer> >
+struct optix_destroy : Base
+{
+	typedef stdx::own<RefClass> owned;
+	void destroy() const
+	{
+		if (this->ref)
+			(*Deleter)(this->ref);
+	}
+};
+
+} // namespace
