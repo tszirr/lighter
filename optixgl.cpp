@@ -211,7 +211,7 @@ namespace optx
 		} else {
 			THROW_OPTIX_ERROR_PRINT(rtBufferSetSize2D(r, width, height), "rtBufferSetSize2D");
 		}
-		THROW_OPTIX_ERROR(rtBufferSetMipLevelCount(r, numLevels), "rtBufferSetMipLevelCount");
+		THROW_OPTIX_ERROR_PRINT(rtBufferSetMipLevelCount(r, numLevels), "rtBufferSetMipLevelCount");
 
 		GLint internalFormat = 0;
 		THROW_OPENGL_VERROR(glGetTextureLevelParameterivEXT(glid, glTarget, 0, GL_TEXTURE_INTERNAL_FORMAT, &internalFormat), "glGetTextureParameterivEXT(FORMAT)");
@@ -219,8 +219,8 @@ namespace optx
 		GLenum glComponents, glType;
 		auto optixFormat = optixFormatFromGl(internalFormat, elementSize, dimension, glComponents, glType);
 		if (optixFormat == RT_FORMAT_UNKNOWN)
-			THROW_OPTIX_ERROR(RT_ERROR_INVALID_IMAGE, "RT_ERROR_INVALID_IMAGE");
-		THROW_OPTIX_ERROR(rtBufferSetFormat(r, optixFormat), "rtBufferSetFormat");
+			THROW_OPTIX_ERROR_PRINT(RT_ERROR_INVALID_IMAGE, "RT_ERROR_INVALID_IMAGE");
+		THROW_OPTIX_ERROR_PRINT(rtBufferSetFormat(r, optixFormat), "rtBufferSetFormat");
 
 		for (unsigned level = 0; level < numLevels; ++level) {
 			GLint width = 0, height = 0, depth = 0;
@@ -229,7 +229,7 @@ namespace optx
 			THROW_OPENGL_VERROR(glGetTextureLevelParameterivEXT(glid, glTarget, level, GL_TEXTURE_DEPTH, &depth), "glGetTextureLevelParameterivEXT(DEPTH)");
 
 			void* dest = nullptr;
-			THROW_OPTIX_ERROR(rtBufferMapEx(r, RT_BUFFER_MAP_WRITE, level, nullptr, &dest), "rtBufferMapEx");
+			THROW_OPTIX_ERROR_PRINT(rtBufferMapEx(r, RT_BUFFER_MAP_WRITE, level, nullptr, &dest), "rtBufferMapEx");
 			glGetTextureImageEXT(glid, glTarget, level, glComponents, glType, dest);
 			rtBufferUnmapEx(r, level);
 
@@ -237,7 +237,7 @@ namespace optx
 		}
 
 		auto r2 = Sampler::create(context);
-		THROW_OPTIX_ERROR(rtTextureSamplerSetBuffer(r2, 0, 0, r), "rtTextureSamplerSetBuffer");
+		THROW_OPTIX_ERROR_PRINT(rtTextureSamplerSetBuffer(r2, 0, 0, r), "rtTextureSamplerSetBuffer");
 		transferGLParameters(r2, glTarget, glid);
 
 		buffer = std::move(r);

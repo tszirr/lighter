@@ -383,8 +383,7 @@ namespace stdx
 
 	template <class Exception>
 	inline bool break_on_error(error<Exception> const&) { return error<Exception>::break_on_error; }
-	CPP11_IF_VARIADIC_TEMPLATES(template <class... Args>)
-	inline bool break_on_error(CPP11_IF_VARIADIC_TEMPLATES(Args&&)...) { return false; }
+	inline bool break_on_error(...) { return false; }
 	
 	template <class Pointer>
 	struct no_delete
