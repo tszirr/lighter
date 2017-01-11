@@ -16,7 +16,7 @@
 #ifdef _MSC_VER
 	#if defined(__NVCC__) && __CUDACC_VER_MAJOR__ < 8 // no C++11 today
 		#define SML_TRIVIAL_UNIONS
-	#elif !defined(__clang__)
+	#elif !defined(__clang__) && _MSC_VER < 1900
 		#define SML_MSVC_LEGACY
 		#define SML_MSVC_WORKAROUNDS
 	#endif
