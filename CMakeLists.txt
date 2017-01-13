@@ -86,7 +86,7 @@ add_custom_command(OUTPUT ${LIGHTER_DATA_STAMP}
 #--------------------------------------------------------------------
 source_group("Source Files" FILES ${LIGHTER_SRC})
 add_library(lighter ${LIGHTER_SRC} ${LIGHTER_DATA_STAMP})
-target_include_directories(lighter INTERFACE ${PROJECT_SOURCE_DIR})
+target_include_directories(lighter INTERFACE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>)
 target_link_libraries(lighter PUBLIC ${LIGHTER_DEPENDENCIES})
 
 #--------------------------------------------------------------------
